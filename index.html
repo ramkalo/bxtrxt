@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retroinator</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <span class="logo">RETROINATOR</span>
+            <button class="mobile-menu-toggle sidebar-toggle" id="sidebarToggle">&#9881;</button>
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <button class="btn" id="loadBtn">Load Image</button>
+                    <button class="btn" id="exportBtn" disabled>Export</button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="btn" id="undoBtn" disabled>Undo</button>
+                    <button class="btn" id="redoBtn" disabled>Redo</button>
+                    <button class="btn" id="resetBtn" disabled>Reset</button>
+                </div>
+                <div class="toolbar-group">
+                    <button class="btn" id="savePresetBtn" disabled>Save Preset</button>
+                    <button class="btn" id="loadPresetBtn">Load Preset</button>
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+        </header>
+        
+        <div class="main-content">
+            <div class="canvas-area">
+                <div class="process-indicator" id="processIndicator">Processing...</div>
+                <div class="canvas-wrapper">
+                    <canvas id="mainCanvas"></canvas>
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-icon">&#128247;</div>
+                        <div class="drop-zone-text">Drop an image here or click Load</div>
+                        <button class="btn btn-primary" id="dropZoneBtn">Load Image</button>
+                    </div>
+                </div>
+            </div>
+            
+            <aside class="sidebar">
+                <div class="image-info" id="imageInfo">No image loaded</div>
+
+                <div class="sidebar-controls">
+                <div class="mobile-toolbar mobile-toolbar-top">
+                    <button class="btn" id="loadBtnMobile">Load Image</button>
+                    <button class="btn" id="resetBtnMobile" disabled>Reset</button>
+                    <button class="btn" id="loadPresetBtnMobile">Load Preset</button>
+                </div>
+
+                <!-- Basic Adjustments -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Basic Adjustments</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="basicEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Brightness</span>
+                                <input type="range" id="brightness" value="0" data-param="brightness">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Contrast</span>
+                                <input type="range" id="contrast" value="0" data-param="contrast">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Saturation</span>
+                                <input type="range" id="saturation" value="0" data-param="saturation">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Highlights</span>
+                                <input type="range" id="highlights" value="0" data-param="highlights">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Shadows</span>
+                                <input type="range" id="shadows" value="0" data-param="shadows">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Temperature</span>
+                                <input type="range" id="temperature" value="0" data-param="temperature">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Tint</span>
+                                <input type="range" id="tint" value="0" data-param="tint">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Digitize -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Digitize</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="digitizeEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Dithering</span>
+                                <input type="range" id="digitizeDither" value="0" data-param="digitizeDither">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Noise</span>
+                                <input type="range" id="digitizeNoise" value="0" data-param="digitizeNoise">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Invert -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Invert</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="invertEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Mode</span>
+                                <select data-param="invertMode">
+                                    <option value="all">All Colors</option>
+                                    <option value="rc">Red &#8596; Cyan</option>
+                                    <option value="gm">Green &#8596; Magenta</option>
+                                    <option value="by">Blue &#8596; Yellow</option>
+                                    <option value="bw">Black vs White</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Intensity</span>
+                                <input type="range" id="invertIntensity" value="100" data-param="invertIntensity">
+                                <span class="control-value">100</span>
+                            </div>
+                        </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="invertReverse">
+                            Reverse Threshold
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Film Grain -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Film Grain</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="grainEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Intensity</span>
+                                <input type="range" id="grainIntensity" value="0" data-param="grainIntensity">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Pixel Art -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Pixel Art</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="pixelArtEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Pixel Size</span>
+                                <input type="range" id="pixelSize" value="24" data-param="pixelSize">
+                                <span class="control-value">24</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Colors</span>
+                                <input type="range" id="pixelColors" value="16" data-param="pixelColors">
+                                <span class="control-value">16</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Chromatic Aberration -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Chromatic Aberration</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="chromaEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Red X</span>
+                                <input type="range" id="chromaRedX" value="0" data-param="chromaRedX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Red Y</span>
+                                <input type="range" id="chromaRedY" value="0" data-param="chromaRedY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Green X</span>
+                                <input type="range" id="chromaGreenX" value="0" data-param="chromaGreenX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Green Y</span>
+                                <input type="range" id="chromaGreenY" value="0" data-param="chromaGreenY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Blue X</span>
+                                <input type="range" id="chromaBlueX" value="0" data-param="chromaBlueX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Blue Y</span>
+                                <input type="range" id="chromaBlueY" value="0" data-param="chromaBlueY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Vignette -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>Vignette</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="vignetteEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Radius</span>
+                                <input type="range" id="vignetteRadius" value="100" data-param="vignetteRadius">
+                                <span class="control-value">100</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center X</span>
+                                <input type="range" id="vignetteCenterX" value="0" data-param="vignetteCenterX">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center Y</span>
+                                <input type="range" id="vignetteCenterY" value="0" data-param="vignetteCenterY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Edge</span>
+                                <input type="range" id="vignetteEdge" value="0" data-param="vignetteEdge">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center</span>
+                                <input type="range" id="vignetteCenter" value="0" data-param="vignetteCenter">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- VHS Effect -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>VHS Effect</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="vhsEnabled">
+                            Enable
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="vhsTimestampEnabled">
+                            Show Timestamp
+                        </label>
+                        <div class="sub-control">
+                            <div class="control-group">
+                                <div class="control-row">
+                                    <span class="control-label">Text</span>
+                                    <input type="text" data-param="vhsTimestamp" value="JAN 01 2000 12:00:00" style="width:120px;">
+                                    <button class="btn" id="timestampNowBtn" style="padding:4px 8px;font-size:0.75rem;">Now</button>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <div class="control-row">
+                                    <span class="control-label">Size</span>
+                                    <input type="range" id="vhsTimestampSize" value="16" data-param="vhsTimestampSize">
+                                    <span class="control-value">16</span>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <div class="control-row">
+                                    <span class="control-label">Position</span>
+                                    <select data-param="vhsTimestampPos">
+                                        <option value="top-left">Top Left</option>
+                                        <option value="top-right">Top Right</option>
+                                        <option value="bottom-left" selected>Bottom Left</option>
+                                        <option value="bottom-right">Bottom Right</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <div class="control-row">
+                                    <span class="control-label">Text Color</span>
+                                    <select data-param="vhsTimestampColor">
+                                        <option value="white" selected>White</option>
+                                        <option value="black">Black</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="control-group">
+                                <div class="control-row">
+                                    <span class="control-label">Margin</span>
+                                    <select data-param="vhsTimestampMargin">
+                                        <option value="small">Small (10px)</option>
+                                        <option value="medium">Medium (40px)</option>
+                                        <option value="large" selected>Large (160px)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Tracking</span>
+                                <input type="range" id="vhsTracking" value="0" data-param="vhsTracking">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Color Bleed</span>
+                                <input type="range" id="vhsBleed" value="0" data-param="vhsBleed">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Noise</span>
+                                <input type="range" id="vhsNoise" value="0" data-param="vhsNoise">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CRT Effect -->
+                <div class="tool-section">
+                    <div class="tool-header">
+                        <h3>CRT Effect</h3>
+                        <span class="tool-toggle">&#9660;</span>
+                    </div>
+                    <div class="tool-content">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="crtEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Curvature</span>
+                                <input type="range" id="crtCurvature" value="0" data-param="crtCurvature">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Radius</span>
+                                <input type="range" id="crtCurvatureRadius" value="100" data-param="crtCurvatureRadius">
+                                <span class="control-value">100</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Intensity</span>
+                                <input type="range" id="crtCurvatureIntensity" value="100" data-param="crtCurvatureIntensity">
+                                <span class="control-value">100</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center X</span>
+                                <input type="range" id="crtCurvatureX" value="0" data-param="crtCurvatureX">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center Y</span>
+                                <input type="range" id="crtCurvatureY" value="0" data-param="crtCurvatureY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Scanline</span>
+                                <input type="range" id="crtScanline" value="0" data-param="crtScanline">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Scan Spacing</span>
+                                <input type="range" id="crtScanSpacing" value="4" data-param="crtScanSpacing">
+                                <span class="control-value">4</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Waves</span>
+                                <input type="range" id="crtWaves" value="0" data-param="crtWaves">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Wave Phase</span>
+                                <input type="range" id="crtWavePhase" value="0" data-param="crtWavePhase">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Static</span>
+                                <input type="range" id="crtStatic" value="0" data-param="crtStatic">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Static Type</span>
+                                <select data-param="crtStaticType">
+                                    <option value="white">White</option>
+                                    <option value="color">Color</option>
+                                    <option value="luma">Luma</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mobile-toolbar mobile-toolbar-bottom">
+                    <button class="btn" id="exportBtnMobile" disabled>Export</button>
+                    <button class="btn" id="undoBtnMobile" disabled>Undo</button>
+                    <button class="btn" id="redoBtnMobile" disabled>Redo</button>
+                    <button class="btn" id="savePresetBtnMobile" disabled>Save Preset</button>
+                </div>
+                </div><!-- end sidebar-controls -->
+            </aside>
+        </div>
+        
+        
+    </div>
+    
+    <div class="modal-overlay hidden" id="presetModal">
+        <div class="modal">
+            <h2>Preset Manager</h2>
+            <div id="presetList"></div>
+            <div class="modal-actions">
+                <input type="text" id="presetName" placeholder="Preset name..." style="flex:1;width:auto;">
+                <button class="btn btn-primary" id="savePresetBtn2">Save Current</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn" id="importPresetBtn">Import JSON</button>
+                <button class="btn" id="closeModalBtn">Close</button>
+            </div>
+            <input type="file" id="presetFileInput" accept=".json" style="display:none;">
+        </div>
+    </div>
+    
+    <div class="modal-overlay hidden" id="exportModal">
+        <div class="modal">
+            <h2>Export Image</h2>
+            <div class="modal-actions">
+                <label><input type="radio" name="exportFormat" value="png" checked> PNG</label>
+                <label><input type="radio" name="exportFormat" value="jpg"> JPG</label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="confirmExportBtn">Export</button>
+                <button class="btn" id="cancelExportBtn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay hidden" id="exportPreviewModal">
+        <div class="modal export-preview-modal">
+            <h2>Export Ready</h2>
+            <div class="export-preview-container">
+                <img id="exportPreviewImg" src="" alt="Export preview">
+            </div>
+            <p class="export-hint hidden" id="exportHint">iOS sucks monkey but, try to long press the image above to save to Photos but it will probably work better if you choose the "share" option</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" id="closeExportPreviewBtn">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+    
+    <script src="js/app.js"></script>
+</body>
+</html>
