@@ -4,10 +4,14 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
 let gl = null;
 let programPreCRT = null;
 let programCRT = null;
+let programWaves = null;
 let texture = null;
 let framebuffer1 = null;
 let framebufferTexture1 = null;
 let originalImage = null;
+let secondImage = null;
+let secondTexture = null;
+let secondImagePixels = null;
 let isProcessing = false;
 let debounceTimer = null;
 let undoStack = [];
@@ -18,6 +22,11 @@ let useWebGL2 = false;
 let webglVersion = 0;
 
 const params = {
+    doubleExposureEnabled: false,
+    doubleExposureChannelMode: 'all',
+    doubleExposureBlendMode: 'screen',
+    doubleExposureIntensity: 100,
+    doubleExposureReverse: false,
     brightness: 0,
     contrast: 0,
     saturation: 0,
@@ -58,6 +67,11 @@ const params = {
     invertMode: 'all',
     invertIntensity: 100,
     invertReverse: false,
+    wavesEnabled: false,
+    wavesR: 0,
+    wavesG: 0,
+    wavesB: 0,
+    wavesPhase: 0,
     crtEnabled: false,
     crtCurvature: 0,
     crtCurvatureRadius: 100,
@@ -77,6 +91,7 @@ const defaultParams = JSON.parse(JSON.stringify(params));
 
 // Control range limits for all input elements
 const controlLimits = {
+    doubleExposureIntensity: { min: 0, max: 100 },
     brightness: { min: -100, max: 100 },
     contrast: { min: -100, max: 100 },
     saturation: { min: -100, max: 100 },
@@ -112,6 +127,10 @@ const controlLimits = {
     crtCurvatureY: { min: -50, max: 50 },
     crtScanline: { min: 0, max: 100 },
     crtScanSpacing: { min: 2, max: 12 },
+    wavesR: { min: -20, max: 20 },
+    wavesG: { min: -20, max: 20 },
+    wavesB: { min: -20, max: 20 },
+    wavesPhase: { min: 0, max: 100 },
     crtWaves: { min: 0, max: 20 },
     crtWavePhase: { min: 0, max: 100 },
     crtStatic: { min: 0, max: 100 }
@@ -178,8 +197,15 @@ const PRE_CRT_SHADER_GLSL1 = `
 
     varying vec2 v_texCoord;
     uniform sampler2D u_image;
+    uniform sampler2D u_image2;
     uniform vec2 u_resolution;
     uniform float u_time;
+
+    uniform int u_doubleExposureEnabled;
+    uniform int u_doubleExposureChannelMode;
+    uniform int u_doubleExposureBlendMode;
+    uniform float u_doubleExposureIntensity;
+    uniform int u_doubleExposureReverse;
 
     uniform bool u_basicEnabled;
     uniform float u_brightness;
@@ -238,9 +264,35 @@ const PRE_CRT_SHADER_GLSL1 = `
         return fract(sin(dot(co.xy, vec2(12.9898, 78.233))) * 43758.5453);
     }
 
+    float blendCh(float a, float b, int mode) {
+        a = a / 255.0; b = b / 255.0;
+        float r;
+        if      (mode == 1) r = 1.0 - (1.0 - a) * (1.0 - b);
+        else if (mode == 2) r = a * b;
+        else if (mode == 3) r = min(1.0, a + b);
+        else if (mode == 4) r = a < 0.5 ? 2.0 * a * b : 1.0 - 2.0 * (1.0 - a) * (1.0 - b);
+        else if (mode == 5) r = abs(a - b);
+        else                r = a;
+        return r * 255.0;
+    }
+
     void main() {
         vec2 uv = v_texCoord;
         vec4 color = texture2D(u_image, uv);
+
+        if (u_doubleExposureEnabled == 1) {
+            vec4 c2 = texture2D(u_image2, uv);
+            float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+            float threshold = 255.0 * (u_doubleExposureIntensity / 100.0);
+            bool doBlend = (u_doubleExposureReverse == 1) ? (lum <= threshold) : (lum >= threshold);
+            if (doBlend) {
+                int cm = u_doubleExposureChannelMode;
+                int bm = u_doubleExposureBlendMode;
+                if (cm==1||cm==2||cm==5||cm==6) color.r = blendCh(color.r, c2.r, bm);
+                if (cm==1||cm==3||cm==5||cm==7) color.g = blendCh(color.g, c2.g, bm);
+                if (cm==1||cm==4||cm==6||cm==7) color.b = blendCh(color.b, c2.b, bm);
+            }
+        }
 
         if (u_basicEnabled) {
             float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
@@ -503,6 +555,52 @@ const CRT_SHADER_GLSL1 = `
     }
 `;
 
+const WAVES_SHADER_GLSL1 = `
+    precision highp float;
+
+    varying vec2 v_texCoord;
+    uniform sampler2D u_image;
+    uniform vec2 u_resolution;
+    uniform float u_time;
+
+    uniform int u_wavesEnabled;
+    uniform float u_wavesR;
+    uniform float u_wavesG;
+    uniform float u_wavesB;
+    uniform float u_wavesPhase;
+
+    float crtWave(vec2 uv, float phase, float amp) {
+        float xNorm = uv.x * 10.0 + phase;
+        float yNorm = uv.y * 8.0;
+
+        float w =
+            3.2 * sin(xNorm + 0.3 * cos(2.1 * xNorm) + yNorm) +
+            2.1 * cos(0.73 * xNorm - 1.4 + yNorm * 0.7) * sin(0.5 * xNorm + 0.9 + yNorm * 0.5) +
+            1.8 * sin(2.3 * xNorm + cos(xNorm) + yNorm * 0.3) * exp(-0.02 * pow(xNorm - 2.0, 2.0)) +
+            0.9 * cos(3.7 * xNorm - 0.8 + yNorm * 0.4) * (1.0 / (1.0 + 0.15 * xNorm * xNorm)) +
+            1.2 * sin(0.41 * xNorm * xNorm - xNorm + yNorm * 0.6);
+
+        return w * amp;
+    }
+
+    void main() {
+        vec2 uv = v_texCoord;
+        vec4 color = texture2D(u_image, uv);
+
+        if (u_wavesEnabled == 1) {
+            float phase = u_wavesPhase / 100.0 * 20.0;
+            float baseWave = crtWave(uv, phase, 1.0) / u_resolution.x;
+
+            float r = texture2D(u_image, vec2(clamp(uv.x + baseWave * (u_wavesR / 100.0) * 80.0, 0.0, 1.0), uv.y)).r;
+            float g = texture2D(u_image, vec2(clamp(uv.x + baseWave * (u_wavesG / 100.0) * 80.0, 0.0, 1.0), uv.y)).g;
+            float b = texture2D(u_image, vec2(clamp(uv.x + baseWave * (u_wavesB / 100.0) * 80.0, 0.0, 1.0), uv.y)).b;
+            color.rgb = vec3(r, g, b);
+        }
+
+        gl_FragColor = color;
+    }
+`;
+
 function initWebGL() {
     gl = canvas.getContext('webgl2');
     if (gl) {
@@ -566,19 +664,21 @@ function createProgram(gl, vertexShader, fragmentShader) {
 }
 
 function initShaders() {
-    let vertexSrc, preCRTSrc, crtSrc;
+    let vertexSrc, preCRTSrc, crtSrc, wavesSrc;
 
     if (webglVersion === 1) {
         vertexSrc = VERTEX_SHADER_GLSL1;
         preCRTSrc = PRE_CRT_SHADER_GLSL1;
         crtSrc = CRT_SHADER_GLSL1;
+        wavesSrc = WAVES_SHADER_GLSL1;
     }
 
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSrc);
     const preCRTShader = createShader(gl, gl.FRAGMENT_SHADER, preCRTSrc);
     const crtShader = createShader(gl, gl.FRAGMENT_SHADER, crtSrc);
+    const wavesShader = createShader(gl, gl.FRAGMENT_SHADER, wavesSrc);
 
-    if (!vertexShader || !preCRTShader || !crtShader) {
+    if (!vertexShader || !preCRTShader || !crtShader || !wavesShader) {
         console.error('Shader compilation failed, falling back to Canvas 2D');
         useWebGL = false;
         useWebGL2 = false;
@@ -588,9 +688,10 @@ function initShaders() {
     }
 
     programPreCRT = createProgram(gl, vertexShader, preCRTShader);
+    programWaves = createProgram(gl, vertexShader, wavesShader);
     programCRT = createProgram(gl, vertexShader, crtShader);
 
-    if (!programPreCRT || !programCRT) {
+    if (!programPreCRT || !programWaves || !programCRT) {
         console.error('Program linking failed, falling back to Canvas 2D');
         useWebGL = false;
         useWebGL2 = false;
@@ -646,12 +747,50 @@ function loadImage(file) {
             document.getElementById('resetBtnMobile').disabled = false;
             document.getElementById('savePresetBtnMobile').disabled = false;
             
+            rescaleSecondImage();
             processImage();
             showNotification('Image loaded');
         };
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);
+}
+
+function loadSecondImage(file) {
+    var reader = new FileReader();
+    reader.onload = function(event) {
+        var img = new Image();
+        img.onload = function() {
+            secondImage = img;
+            rescaleSecondImage();
+            document.getElementById('secondImageName').textContent = file.name;
+            processImage();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function rescaleSecondImage() {
+    if (!secondImage || !originalImage) return;
+    var w = originalImage.width;
+    var h = originalImage.height;
+    var tempCanvas = document.createElement('canvas');
+    tempCanvas.width = w;
+    tempCanvas.height = h;
+    var tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(secondImage, 0, 0, w, h);
+    secondImagePixels = tempCtx.getImageData(0, 0, w, h).data;
+    if (gl) {
+        if (secondTexture) gl.deleteTexture(secondTexture);
+        secondTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, secondTexture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tempCanvas);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
 }
 
 function createTexture(image) {
@@ -727,10 +866,25 @@ function renderWebGL() {
     gl.enableVertexAttribArray(texLoc1);
     gl.vertexAttribPointer(texLoc1, 2, gl.FLOAT, false, 16, 8);
     
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_image'), 0);
+
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, secondTexture || texture);
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_image2'), 1);
+
     gl.uniform2f(gl.getUniformLocation(programPreCRT, 'u_resolution'), canvas.width, canvas.height);
     gl.uniform1f(gl.getUniformLocation(programPreCRT, 'u_time'), performance.now() / 1000);
-    
+
+    var cmMap = { all:1, r:2, g:3, b:4, rg:5, rb:6, gb:7 };
+    var bmMap = { screen:1, multiply:2, add:3, overlay:4, difference:5 };
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_doubleExposureEnabled'), params.doubleExposureEnabled && secondTexture ? 1 : 0);
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_doubleExposureChannelMode'), cmMap[params.doubleExposureChannelMode] || 1);
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_doubleExposureBlendMode'), bmMap[params.doubleExposureBlendMode] || 1);
+    gl.uniform1f(gl.getUniformLocation(programPreCRT, 'u_doubleExposureIntensity'), params.doubleExposureIntensity);
+    gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_doubleExposureReverse'), params.doubleExposureReverse ? 1 : 0);
+
     gl.uniform1i(gl.getUniformLocation(programPreCRT, 'u_basicEnabled'), params.basicEnabled ? 1 : 0);
     gl.uniform1f(gl.getUniformLocation(programPreCRT, 'u_brightness'), params.brightness);
     gl.uniform1f(gl.getUniformLocation(programPreCRT, 'u_contrast'), params.contrast);
@@ -802,21 +956,58 @@ function renderWebGL() {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    
+
+    // Waves pass: render timestampTexture through programWaves into a temp framebuffer
+    let wavesFBTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, wavesFBTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, canvas.width, canvas.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    let wavesFB = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, wavesFB);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, wavesFBTexture, 0);
+
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.useProgram(programWaves);
+
+    const posLocW = gl.getAttribLocation(programWaves, 'a_position');
+    const texLocW = gl.getAttribLocation(programWaves, 'a_texCoord');
+    gl.enableVertexAttribArray(posLocW);
+    gl.vertexAttribPointer(posLocW, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(texLocW);
+    gl.vertexAttribPointer(texLocW, 2, gl.FLOAT, false, 16, 8);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, timestampTexture);
+
+    gl.uniform1i(gl.getUniformLocation(programWaves, 'u_image'), 0);
+    gl.uniform2f(gl.getUniformLocation(programWaves, 'u_resolution'), canvas.width, canvas.height);
+    gl.uniform1f(gl.getUniformLocation(programWaves, 'u_time'), performance.now() / 1000);
+    gl.uniform1i(gl.getUniformLocation(programWaves, 'u_wavesEnabled'), params.wavesEnabled ? 1 : 0);
+    gl.uniform1f(gl.getUniformLocation(programWaves, 'u_wavesR'), params.wavesR);
+    gl.uniform1f(gl.getUniformLocation(programWaves, 'u_wavesG'), params.wavesG);
+    gl.uniform1f(gl.getUniformLocation(programWaves, 'u_wavesB'), params.wavesB);
+    gl.uniform1f(gl.getUniformLocation(programWaves, 'u_wavesPhase'), params.wavesPhase);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(programCRT);
-    
+
     const posLoc2 = gl.getAttribLocation(programCRT, 'a_position');
     const texLoc2 = gl.getAttribLocation(programCRT, 'a_texCoord');
     gl.enableVertexAttribArray(posLoc2);
     gl.vertexAttribPointer(posLoc2, 2, gl.FLOAT, false, 16, 0);
     gl.enableVertexAttribArray(texLoc2);
     gl.vertexAttribPointer(texLoc2, 2, gl.FLOAT, false, 16, 8);
-    
+
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, timestampTexture);
-    
+    gl.bindTexture(gl.TEXTURE_2D, wavesFBTexture);
+
     gl.uniform1i(gl.getUniformLocation(programCRT, 'u_image'), 0);
     gl.uniform2f(gl.getUniformLocation(programCRT, 'u_resolution'), canvas.width, canvas.height);
     gl.uniform1f(gl.getUniformLocation(programCRT, 'u_time'), performance.now() / 1000);
@@ -841,6 +1032,8 @@ function renderWebGL() {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     
     gl.deleteTexture(timestampTexture);
+    gl.deleteTexture(wavesFBTexture);
+    gl.deleteFramebuffer(wavesFB);
     gl.deleteBuffer(positionBuffer);
 }
 
@@ -888,7 +1081,11 @@ function processCanvas2D() {
     ctx.drawImage(originalImage, 0, 0);
     
     let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    
+
+    if (params.doubleExposureEnabled) {
+        imageData = applyDoubleExposure(imageData);
+    }
+
     const hasBasic = params.brightness !== 0 || params.contrast !== 0 ||
                      params.saturation !== 0 || params.highlights !== 0 ||
                      params.shadows !== 0 || params.temperature !== 0 || params.tint !== 0;
@@ -933,7 +1130,13 @@ function processCanvas2D() {
     if (params.vhsTimestampEnabled && params.vhsTimestamp) {
         applyVHSTimestampToContext(ctx);
     }
-    
+
+    if (params.wavesEnabled && (params.wavesR !== 0 || params.wavesG !== 0 || params.wavesB !== 0)) {
+        imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        imageData = applyWavesEffect(imageData);
+        ctx.putImageData(imageData, 0, 0);
+    }
+
     if (params.crtEnabled && params.crtScanline > 0) {
         imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         imageData = applyCRTScanlines(imageData);
@@ -957,6 +1160,41 @@ function processCanvas2D() {
         imageData = applyCRTStatic(imageData);
         ctx.putImageData(imageData, 0, 0);
     }
+}
+
+function applyDoubleExposure(imageData) {
+    if (!secondImagePixels) return imageData;
+    const data = imageData.data;
+    const intensity = params.doubleExposureIntensity / 100;
+    const threshold = 255 * intensity;
+    const reverse = params.doubleExposureReverse;
+    const cm = params.doubleExposureChannelMode;
+    const bm = params.doubleExposureBlendMode;
+
+    function blend(a, b) {
+        a /= 255; b /= 255;
+        let r;
+        if      (bm === 'screen')     r = 1 - (1-a)*(1-b);
+        else if (bm === 'multiply')   r = a * b;
+        else if (bm === 'add')        r = Math.min(1, a + b);
+        else if (bm === 'overlay')    r = a < 0.5 ? 2*a*b : 1 - 2*(1-a)*(1-b);
+        else if (bm === 'difference') r = Math.abs(a - b);
+        else r = a;
+        return Math.round(r * 255);
+    }
+
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i+1], b = data[i+2];
+        const lum = 0.299*r + 0.587*g + 0.114*b;
+        const doBlend = reverse ? (lum <= threshold) : (lum >= threshold);
+        if (doBlend) {
+            const sr = secondImagePixels[i], sg = secondImagePixels[i+1], sb = secondImagePixels[i+2];
+            if (cm==='all'||cm==='r'||cm==='rg'||cm==='rb') data[i]   = blend(r, sr);
+            if (cm==='all'||cm==='g'||cm==='rg'||cm==='gb') data[i+1] = blend(g, sg);
+            if (cm==='all'||cm==='b'||cm==='rb'||cm==='gb') data[i+2] = blend(b, sb);
+        }
+    }
+    return imageData;
 }
 
 function applyBasicAdjustments(imageData) {
@@ -1413,6 +1651,47 @@ function applyCRTWaves(imageData) {
     return imageData;
 }
 
+function applyWavesEffect(imageData) {
+    const ampR = params.wavesR / 100 * 80;
+    const ampG = params.wavesG / 100 * 80;
+    const ampB = params.wavesB / 100 * 80;
+    const phase = params.wavesPhase / 100 * 20;
+
+    if (ampR === 0 && ampG === 0 && ampB === 0) return imageData;
+
+    const srcData = imageData.data;
+    const width = imageData.width;
+    const height = imageData.height;
+    const result = new Uint8ClampedArray(width * height * 4);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const xNorm = x / width * 10 + phase;
+            const yNorm = y / height * 8;
+
+            const wave =
+                3.2 * Math.sin(xNorm + 0.3 * Math.cos(2.1 * xNorm) + yNorm) +
+                2.1 * Math.cos(0.73 * xNorm - 1.4 + yNorm * 0.7) * Math.sin(0.5 * xNorm + 0.9 + yNorm * 0.5) +
+                1.8 * Math.sin(2.3 * xNorm + Math.cos(xNorm) + yNorm * 0.3) * Math.exp(-0.02 * Math.pow(xNorm - 2, 2)) +
+                0.9 * Math.cos(3.7 * xNorm - 0.8 + yNorm * 0.4) * (1 / (1 + 0.15 * xNorm * xNorm)) +
+                1.2 * Math.sin(0.41 * xNorm * xNorm - xNorm + yNorm * 0.6);
+
+            const srcXR = Math.floor(Math.max(0, Math.min(width - 1, x + wave * ampR)));
+            const srcXG = Math.floor(Math.max(0, Math.min(width - 1, x + wave * ampG)));
+            const srcXB = Math.floor(Math.max(0, Math.min(width - 1, x + wave * ampB)));
+
+            const i = (y * width + x) * 4;
+            result[i]     = srcData[(y * width + srcXR) * 4];
+            result[i + 1] = srcData[(y * width + srcXG) * 4 + 1];
+            result[i + 2] = srcData[(y * width + srcXB) * 4 + 2];
+            result[i + 3] = 255;
+        }
+    }
+
+    imageData.data.set(result);
+    return imageData;
+}
+
 function applyCRTStatic(imageData) {
     const intensity = params.crtStatic / 100;
     const type = params.crtStaticType;
@@ -1727,6 +2006,14 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     }
 });
 
+document.getElementById('secondFileInput').addEventListener('change', function(e) {
+    if (e.target.files[0]) loadSecondImage(e.target.files[0]);
+});
+
+document.getElementById('loadSecondImageBtn').addEventListener('click', function() {
+    document.getElementById('secondFileInput').click();
+});
+
 document.getElementById('loadBtn').addEventListener('click', function() {
     document.getElementById('fileInput').click();
 });
@@ -1810,6 +2097,16 @@ document.querySelectorAll('.tool-header').forEach(function(header) {
     header.addEventListener('click', function() {
         this.parentElement.classList.toggle('collapsed');
     });
+});
+
+document.getElementById('collapseAllBtn').addEventListener('click', function() {
+    const sections = document.querySelectorAll('.tool-section');
+    const anyExpanded = Array.from(sections).some(function(s) { return !s.classList.contains('collapsed'); });
+    sections.forEach(function(s) {
+        if (anyExpanded) s.classList.add('collapsed');
+        else s.classList.remove('collapsed');
+    });
+    this.textContent = anyExpanded ? 'Expand All' : 'Collapse All';
 });
 
 document.querySelectorAll('input[data-param], select[data-param]').forEach(function(input) {
