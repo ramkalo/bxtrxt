@@ -53,6 +53,15 @@ export const PRE_CRT_SHADER_GLSL1 = `
     uniform float u_chromaGreenY;
     uniform float u_chromaBlueX;
     uniform float u_chromaBlueY;
+    uniform float u_chromaCyanX;
+    uniform float u_chromaCyanY;
+    uniform float u_chromaMagentaX;
+    uniform float u_chromaMagentaY;
+    uniform float u_chromaYellowX;
+    uniform float u_chromaYellowY;
+    uniform float u_chromaScale;
+    uniform float u_chromaThreshold;
+    uniform bool  u_chromaThresholdReverse;
 
     uniform float u_vignetteRadius;
     uniform float u_vignetteCenterX;
@@ -62,6 +71,7 @@ export const PRE_CRT_SHADER_GLSL1 = `
 
     uniform bool u_invertEnabled;
     uniform int u_invertMode;
+    uniform int u_invertTarget;
     uniform float u_invertIntensity;
     uniform bool u_invertReverse;
 
@@ -175,12 +185,24 @@ export const PRE_CRT_SHADER_GLSL1 = `
         }
 
         if (u_chromaEnabled) {
-            vec2 redOffset = vec2(u_chromaRedX, -u_chromaRedY) / u_resolution;  // Negate Y: negative = down
-            vec2 greenOffset = vec2(u_chromaGreenX, -u_chromaGreenY) / u_resolution;  // Negate Y: negative = down
-            vec2 blueOffset = vec2(u_chromaBlueX, -u_chromaBlueY) / u_resolution;  // Negate Y: negative = down
-            color.r = texture2D(u_image, uv + redOffset).r;
-            color.g = texture2D(u_image, uv + greenOffset).g;
-            color.b = texture2D(u_image, uv + blueOffset).b;
+            float chromaLum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
+            float chromaThresh = u_chromaThreshold / 100.0 * 255.0;
+            bool chromaApply = u_chromaThresholdReverse
+                ? (chromaLum <= chromaThresh)
+                : (chromaLum >= chromaThresh);
+            if (chromaApply) {
+                // CMY complements: Cyan→G+B, Magenta→R+B, Yellow→R+G
+                // Each channel's effective shift = direct + two complement contributions, scaled
+                vec2 redOffset   = vec2((u_chromaRedX   + u_chromaMagentaX + u_chromaYellowX) * u_chromaScale,
+                                      -(u_chromaRedY   + u_chromaMagentaY + u_chromaYellowY) * u_chromaScale) / u_resolution;
+                vec2 greenOffset = vec2((u_chromaGreenX + u_chromaCyanX    + u_chromaYellowX) * u_chromaScale,
+                                      -(u_chromaGreenY + u_chromaCyanY    + u_chromaYellowY) * u_chromaScale) / u_resolution;
+                vec2 blueOffset  = vec2((u_chromaBlueX  + u_chromaCyanX    + u_chromaMagentaX) * u_chromaScale,
+                                      -(u_chromaBlueY  + u_chromaCyanY    + u_chromaMagentaY) * u_chromaScale) / u_resolution;
+                color.r = texture2D(u_image, uv + redOffset).r;
+                color.g = texture2D(u_image, uv + greenOffset).g;
+                color.b = texture2D(u_image, uv + blueOffset).b;
+            }
         }
 
         if (u_vignetteEnabled) {
@@ -210,7 +232,12 @@ export const PRE_CRT_SHADER_GLSL1 = `
         if (u_invertEnabled) {
             float lum = 0.299 * color.r + 0.587 * color.g + 0.114 * color.b;
             float threshold = 255.0 * (u_invertIntensity / 100.0);
-            bool shouldInvert = u_invertReverse ? (lum <= threshold) : (lum >= threshold);
+            float invTarget;
+            if      (u_invertTarget == 2) invTarget = color.r;
+            else if (u_invertTarget == 3) invTarget = color.g;
+            else if (u_invertTarget == 4) invTarget = color.b;
+            else                          invTarget = lum;  // luminance (default)
+            bool shouldInvert = u_invertReverse ? (invTarget <= threshold) : (invTarget >= threshold);
 
             if (shouldInvert) {
                 if (u_invertMode == 1) {  // all

@@ -9,7 +9,11 @@ function applyInvert(imageData) {
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
         const lum = 0.299*r + 0.587*g + 0.114*b;
-        const shouldInvert = reverse ? (lum <= threshold) : (lum >= threshold);
+        const targetVal = params.invertTarget === 'r' ? r
+                        : params.invertTarget === 'g' ? g
+                        : params.invertTarget === 'b' ? b
+                        : lum; // 'lum' default
+        const shouldInvert = reverse ? (targetVal <= threshold) : (targetVal >= threshold);
 
         if (shouldInvert) {
             if      (mode === 'all') { data[i] = 255-r; data[i+1] = 255-g; data[i+2] = 255-b; }
@@ -29,6 +33,7 @@ export default {
     params: {
         invertEnabled:   { default: false },
         invertMode:      { default: 'all' },
+        invertTarget:    { default: 'lum' },
         invertIntensity: { default: 100, min: 0, max: 100 },
         invertReverse:   { default: false },
     },

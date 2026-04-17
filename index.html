@@ -127,7 +127,7 @@
                         </div>
                         <div class="control-group">
                             <div class="control-row">
-                                <span class="control-label">Intensity</span>
+                                <span class="control-label">Threshold</span>
                                 <input type="range" id="doubleExposureIntensity" value="100" data-param="doubleExposureIntensity">
                                 <span class="control-value">100</span>
                             </div>
@@ -227,6 +227,24 @@
                                 <span class="control-value">0</span>
                             </div>
                         </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-param="pixelArtEnabled">
+                            Enable
+                        </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Pixel Size</span>
+                                <input type="range" id="pixelSize" value="24" data-param="pixelSize">
+                                <span class="control-value">24</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Colors</span>
+                                <input type="range" id="pixelColors" value="16" data-param="pixelColors">
+                                <span class="control-value">16</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -255,7 +273,18 @@
                         </div>
                         <div class="control-group">
                             <div class="control-row">
-                                <span class="control-label">Intensity</span>
+                                <span class="control-label">Target</span>
+                                <select data-param="invertTarget">
+                                    <option value="lum">Luminance</option>
+                                    <option value="r">Red</option>
+                                    <option value="g">Green</option>
+                                    <option value="b">Blue</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Threshold</span>
                                 <input type="range" id="invertIntensity" value="100" data-param="invertIntensity">
                                 <span class="control-value">100</span>
                             </div>
@@ -288,34 +317,6 @@
                     </div>
                 </div>
                 
-                <!-- Pixel Art -->
-                <div class="tool-section">
-                    <div class="tool-header">
-                        <h3>Pixel Art</h3>
-                        <span class="tool-toggle">&#9660;</span>
-                    </div>
-                    <div class="tool-content">
-                        <label class="checkbox-label">
-                            <input type="checkbox" data-param="pixelArtEnabled">
-                            Enable
-                        </label>
-                        <div class="control-group">
-                            <div class="control-row">
-                                <span class="control-label">Pixel Size</span>
-                                <input type="range" id="pixelSize" value="24" data-param="pixelSize">
-                                <span class="control-value">24</span>
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <div class="control-row">
-                                <span class="control-label">Colors</span>
-                                <input type="range" id="pixelColors" value="16" data-param="pixelColors">
-                                <span class="control-value">16</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Chromatic Aberration -->
                 <div class="tool-section">
                     <div class="tool-header">
@@ -327,6 +328,13 @@
                             <input type="checkbox" data-param="chromaEnabled">
                             Enable
                         </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Scale</span>
+                                <input type="range" data-param="chromaScale" min="1" max="10" step="0.5">
+                                <span class="value-display"></span>
+                            </div>
+                        </div>
                         <div class="control-group">
                             <div class="control-row">
                                 <span class="control-label">Red X</span>
@@ -363,9 +371,56 @@
                                 <span class="control-value">0</span>
                             </div>
                         </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Cyan X</span>
+                                <input type="range" id="chromaCyanX" value="0" data-param="chromaCyanX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Cyan Y</span>
+                                <input type="range" id="chromaCyanY" value="0" data-param="chromaCyanY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Magenta X</span>
+                                <input type="range" id="chromaMagentaX" value="0" data-param="chromaMagentaX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Magenta Y</span>
+                                <input type="range" id="chromaMagentaY" value="0" data-param="chromaMagentaY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Yellow X</span>
+                                <input type="range" id="chromaYellowX" value="0" data-param="chromaYellowX">
+                                <span class="control-value">0</span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Yellow Y</span>
+                                <input type="range" id="chromaYellowY" value="0" data-param="chromaYellowY">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Threshold</span>
+                                <input type="range" data-param="chromaThreshold" min="0" max="100" step="1">
+                                <span class="value-display"></span>
+                            </div>
+                            <div class="control-row">
+                                <span class="control-label">Reverse Threshold</span>
+                                <input type="checkbox" data-param="chromaThresholdReverse">
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
+
                 <!-- Vignette -->
                 <div class="tool-section">
                     <div class="tool-header">
@@ -377,6 +432,20 @@
                             <input type="checkbox" data-param="vignetteEnabled">
                             Enable
                         </label>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Edge Brightness</span>
+                                <input type="range" id="vignetteEdge" value="0" data-param="vignetteEdge">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <div class="control-row">
+                                <span class="control-label">Center Brightness</span>
+                                <input type="range" id="vignetteCenter" value="0" data-param="vignetteCenter">
+                                <span class="control-value">0</span>
+                            </div>
+                        </div>
                         <div class="control-group">
                             <div class="control-row">
                                 <span class="control-label">Radius</span>
@@ -395,20 +464,6 @@
                             <div class="control-row">
                                 <span class="control-label">Center Y</span>
                                 <input type="range" id="vignetteCenterY" value="0" data-param="vignetteCenterY">
-                                <span class="control-value">0</span>
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <div class="control-row">
-                                <span class="control-label">Edge</span>
-                                <input type="range" id="vignetteEdge" value="0" data-param="vignetteEdge">
-                                <span class="control-value">0</span>
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <div class="control-row">
-                                <span class="control-label">Center</span>
-                                <input type="range" id="vignetteCenter" value="0" data-param="vignetteCenter">
                                 <span class="control-value">0</span>
                             </div>
                         </div>

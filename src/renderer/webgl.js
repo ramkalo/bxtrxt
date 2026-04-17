@@ -289,6 +289,15 @@ export function renderWebGL() {
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaGreenY'), params.chromaGreenY);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaBlueX'), params.chromaBlueX);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaBlueY'), params.chromaBlueY);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaCyanX'), params.chromaCyanX);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaCyanY'), params.chromaCyanY);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaMagentaX'), params.chromaMagentaX);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaMagentaY'), params.chromaMagentaY);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaYellowX'), params.chromaYellowX);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaYellowY'), params.chromaYellowY);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaScale'), params.chromaScale ?? 1);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_chromaThreshold'), params.chromaThreshold);
+    _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_chromaThresholdReverse'), params.chromaThresholdReverse ? 1 : 0);
 
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_vignetteEnabled'), params.vignetteEnabled ? 1 : 0);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteRadius'), params.vignetteRadius);
@@ -299,6 +308,7 @@ export function renderWebGL() {
 
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertEnabled'), params.invertEnabled ? 1 : 0);
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertMode'), ['all', 'rc', 'gm', 'by', 'bw'].indexOf(params.invertMode) + 1);
+    _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertTarget'), ['lum', 'r', 'g', 'b'].indexOf(params.invertTarget) + 1);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_invertIntensity'), params.invertIntensity);
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertReverse'), params.invertReverse ? 1 : 0);
 
