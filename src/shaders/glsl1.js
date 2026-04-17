@@ -39,6 +39,7 @@ export const PRE_CRT_SHADER_GLSL1 = `
 
     uniform bool u_grainEnabled;
     uniform float u_grainIntensity;
+    uniform float u_grainSize;
 
     uniform bool u_vignetteEnabled;
 
@@ -63,7 +64,10 @@ export const PRE_CRT_SHADER_GLSL1 = `
     uniform float u_chromaThreshold;
     uniform bool  u_chromaThresholdReverse;
 
-    uniform float u_vignetteRadius;
+    uniform int   u_vignetteMode;   // 0 = ellipse, 1 = rectangle
+    uniform float u_vignetteMajor;
+    uniform float u_vignetteMinor;
+    uniform float u_vignetteAngle;  // degrees
     uniform float u_vignetteCenterX;
     uniform float u_vignetteCenterY;
     uniform float u_vignetteEdge;
@@ -171,8 +175,10 @@ export const PRE_CRT_SHADER_GLSL1 = `
         }
 
         if (u_grainEnabled && u_grainIntensity > 0.0) {
-            float intensity = u_grainIntensity / 100.0 * 50.0;
-            float noise = (rand(v_texCoord + u_time * 0.001) - 0.5) * intensity;
+            float intensity = u_grainIntensity / 100.0 * 150.0;
+            // Quantise UV to a grain-size grid so pixels in the same cell share one noise value.
+            vec2 grainUV = floor(v_texCoord * u_resolution / u_grainSize) * u_grainSize / u_resolution;
+            float noise = (rand(grainUV + u_time * 0.001) - 0.5) * intensity;
             color.rgb += noise;
         }
 
@@ -206,27 +212,32 @@ export const PRE_CRT_SHADER_GLSL1 = `
         }
 
         if (u_vignetteEnabled) {
-            vec2 center = vec2(0.5 + u_vignetteCenterX / 100.0, 0.5 - u_vignetteCenterY / 100.0);  // Flip Y: negative = down
-            float dist = distance(uv, center);
-            float maxDist = 0.7071 * (u_vignetteRadius / 100.0);
-            float falloff = pow(min(dist / maxDist, 1.0), 2.0);
+            vec2 center = vec2(0.5 + u_vignetteCenterX / 100.0, 0.5 - u_vignetteCenterY / 100.0);
+            vec2 d = uv - center;
 
-            // Edge effect: scales brightness at edges based on falloff
-            // falloff=0 (center) → edgeFactor=1.0 (no change)
-            // falloff=1 (edges) → edgeFactor varies with u_vignetteEdge
-            float edgeFactor = 1.0 + falloff * (u_vignetteEdge / 100.0);
-            edgeFactor = max(0.0, edgeFactor);
+            // Rotate UV offset into the vignette's local axis frame
+            float angleRad = u_vignetteAngle * 3.14159265 / 180.0;
+            float cosA = cos(angleRad);
+            float sinA = sin(angleRad);
+            vec2 rd = vec2(cosA * d.x + sinA * d.y, -sinA * d.x + cosA * d.y);
 
-            // Center effect: adds/subtracts brightness at center
-            // At center (falloff≈0): full center effect
-            // At edges (falloff≈1): center effect fades out
-            float centerFactor = 1.0 + (1.0 - falloff) * (u_vignetteCenter / 100.0);
-            centerFactor = max(0.0, centerFactor);
+            // 0.7071 = half-diagonal of unit UV square → major/minor=100 reaches corners
+            float a = u_vignetteMajor / 100.0 * 0.7071;
+            float b = u_vignetteMinor / 100.0 * 0.7071;
 
-            // Combine effects
-            float vignette = edgeFactor * centerFactor;
+            float dist;
+            if (u_vignetteMode == 1) {  // rectangle
+                dist = max(abs(rd.x) / a, abs(rd.y) / b);
+            } else {                    // ellipse
+                dist = sqrt((rd.x / a) * (rd.x / a) + (rd.y / b) * (rd.y / b));
+            }
 
-            color.rgb *= vignette;
+            float falloff = pow(min(dist, 1.0), 2.0);
+
+            float edgeFactor = max(0.0, 1.0 + falloff * (u_vignetteEdge / 100.0));
+            float centerFactor = max(0.0, 1.0 + (1.0 - falloff) * (u_vignetteCenter / 100.0));
+
+            color.rgb *= edgeFactor * centerFactor;
         }
 
         if (u_invertEnabled) {

@@ -1,11 +1,11 @@
 import { params } from '../state/params.js';
 
-function applyPixelArt(imageData) {
+function applyPixelArt(imageData, p = params) {
     const data = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
-    const pixelSize = params.pixelSize;
-    const step = 256 / params.pixelColors;
+    const pixelSize = p.pixelSize;
+    const step = 256 / p.pixelColors;
 
     for (let y = 0; y < height; y += pixelSize) {
         for (let x = 0; x < width; x += pixelSize) {

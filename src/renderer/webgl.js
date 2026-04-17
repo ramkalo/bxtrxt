@@ -277,6 +277,7 @@ export function renderWebGL() {
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_digitizeNoise'), params.digitizeNoise);
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_grainEnabled'), params.grainEnabled ? 1 : 0);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_grainIntensity'), params.grainIntensity);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_grainSize'), params.grainSize ?? 1);
 
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_pixelArtEnabled'), params.pixelArtEnabled ? 1 : 0);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_pixelSize'), params.pixelSize);
@@ -300,11 +301,14 @@ export function renderWebGL() {
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_chromaThresholdReverse'), params.chromaThresholdReverse ? 1 : 0);
 
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_vignetteEnabled'), params.vignetteEnabled ? 1 : 0);
-    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteRadius'), params.vignetteRadius);
+    _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_vignetteMode'),    params.vignetteMode === 'rectangle' ? 1 : 0);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteMajor'),   params.vignetteMajor);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteMinor'),   params.vignetteMinor);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteAngle'),   params.vignetteAngle);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteCenterX'), params.vignetteCenterX);
     _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteCenterY'), params.vignetteCenterY);
-    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteEdge'), params.vignetteEdge);
-    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteCenter'), params.vignetteCenter);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteEdge'),    params.vignetteEdge);
+    _gl.uniform1f(_gl.getUniformLocation(programPreCRT, 'u_vignetteCenter'),  params.vignetteCenter);
 
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertEnabled'), params.invertEnabled ? 1 : 0);
     _gl.uniform1i(_gl.getUniformLocation(programPreCRT, 'u_invertMode'), ['all', 'rc', 'gm', 'by', 'bw'].indexOf(params.invertMode) + 1);

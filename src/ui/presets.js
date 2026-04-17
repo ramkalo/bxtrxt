@@ -1,7 +1,9 @@
-import { params, presets, savePresetsToStorage, snapshotParams, setParamsBulk } from '../state/params.js';
+import { presets, savePresetsToStorage } from '../state/params.js';
 import { saveState } from '../state/undo.js';
 import { showNotification } from '../utils/notifications.js';
-import { syncDOMFromParams } from './controls.js';
+import { snapshotStack, restoreStack } from '../state/effectStack.js';
+import { renderStackList } from './stackPanel.js';
+import { buildControlsPanel } from './stackControls.js';
 
 export function savePreset() {
     const name = document.getElementById('presetName').value.trim();
@@ -9,21 +11,24 @@ export function savePreset() {
         showNotification('Enter a preset name');
         return;
     }
-    presets[name] = snapshotParams();
+    presets[name] = { stack: snapshotStack() };
     savePresetsToStorage();
     renderPresetList();
     showNotification('Preset saved');
 }
 
 export function loadPreset(name) {
-    if (!presets[name]) return;
+    const preset = presets[name];
+    if (!preset) return;
+    if (!preset.stack) {
+        showNotification('Incompatible preset — saved with an older version');
+        return;
+    }
 
-    // Make the load undoable
     saveState();
-
-    // Apply all preset params at once → one render, not one per param
-    setParamsBulk(presets[name]);
-    syncDOMFromParams();
+    restoreStack(preset.stack);  // triggers onStackChange → re-render
+    renderStackList();
+    buildControlsPanel();
     showNotification('Preset loaded');
 }
 
@@ -95,15 +100,16 @@ export function importPreset(file) {
         try {
             const imported = JSON.parse(e.target.result);
 
-            // Only apply keys that exist in the current schema
-            const filtered = {};
-            Object.keys(imported).forEach(function(key) {
-                if (key in params) filtered[key] = imported[key];
-            });
+            if (!imported.stack) {
+                showNotification('Incompatible preset — saved with an older version');
+                return;
+            }
 
             saveState();
-            setParamsBulk(filtered);
-            syncDOMFromParams();
+            restoreStack(imported.stack);  // triggers onStackChange → re-render
+            renderStackList();
+            buildControlsPanel();
+            document.getElementById('presetModal').classList.add('hidden');
             showNotification('Preset imported');
         } catch (err) {
             showNotification('Invalid preset file');

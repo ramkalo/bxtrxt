@@ -30,27 +30,109 @@ export function initBottomSheet() {
 
     if (!sheetEl || !handleEl) return;
 
-    // Handle tap: cycle states or exit adjust mode
-    handleEl.addEventListener('click', () => {
-        if (sheetEl.classList.contains('sheet-adjust')) {
-            // Exit adjust mode → back to expanded so user can tap another slider
-            exitAdjustMode();
-        } else if (sheetEl.classList.contains('sheet-expanded')) {
-            // Expanded → peek
-            sheetEl.classList.remove('sheet-expanded');
-        } else {
-            // Peek → expanded
-            sheetEl.classList.add('sheet-expanded');
-        }
+    // ── Drag handle ──────────────────────────────────────────────────────
+    // Returns the translateY in pixels that matches the current CSS class state.
+    function getSnappedTranslateY() {
+        const h      = window.innerHeight;
+        const sheetH = h * 0.9;
+        if (sheetEl.classList.contains('sheet-expanded')) return 0;
+        if (sheetEl.classList.contains('sheet-adjust'))   return sheetH - 50;
+        return sheetH - h * 0.17; // peek
+    }
+
+    let dragging            = false;
+    let dragStartY          = 0;
+    let dragStartTranslateY = 0;
+    let dragVelocity        = 0;
+    let lastMoveY           = 0;
+    let lastMoveTime        = 0;
+
+    handleEl.addEventListener('pointerdown', (e) => {
+        dragging            = true;
+        dragStartY          = e.clientY;
+        dragStartTranslateY = getSnappedTranslateY();
+        dragVelocity        = 0;
+        lastMoveY           = e.clientY;
+        lastMoveTime        = Date.now();
+
+        // Kill the CSS transition while dragging so the sheet tracks the finger.
+        sheetEl.style.transition = 'none';
+        // Capture so pointermove/pointerup fire even if finger slides off the bar.
+        handleEl.setPointerCapture(e.pointerId);
+        e.preventDefault();
     });
 
-    // Slider tap → enter adjust mode.
-    // Use pointerdown so we catch it before the browser default.
+    handleEl.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        // Don't allow visual drag in adjust mode — only a tap exits it.
+        if (sheetEl.classList.contains('sheet-adjust')) return;
+
+        const h      = window.innerHeight;
+        const sheetH = h * 0.9;
+        const delta  = e.clientY - dragStartY;
+        const newY   = Math.max(0, Math.min(sheetH - 50, dragStartTranslateY + delta));
+
+        sheetEl.style.transform = `translateY(${newY}px)`;
+
+        // Track instantaneous velocity (px / ms) for flick detection.
+        const now = Date.now();
+        const dt  = now - lastMoveTime;
+        if (dt > 0) dragVelocity = (e.clientY - lastMoveY) / dt;
+        lastMoveY    = e.clientY;
+        lastMoveTime = now;
+    });
+
+    function onDragEnd(clientY) {
+        if (!dragging) return;
+        dragging = false;
+
+        // Re-enable CSS transition and clear inline transform so the
+        // class-based translateY takes over (with animation).
+        sheetEl.style.transition = '';
+        sheetEl.style.transform  = '';
+
+        const delta = clientY - dragStartY;
+
+        // In adjust mode any touch on the handle exits adjust mode.
+        if (sheetEl.classList.contains('sheet-adjust')) {
+            exitAdjustMode();
+            return;
+        }
+
+        // Treat tiny movements as a tap → toggle between peek and expanded.
+        if (Math.abs(delta) < 10) {
+            if (sheetEl.classList.contains('sheet-expanded')) {
+                sheetEl.classList.remove('sheet-expanded');
+            } else {
+                sheetEl.classList.add('sheet-expanded');
+            }
+            return;
+        }
+
+        // Snap based on flick velocity, falling back to final position vs midpoint.
+        const h        = window.innerHeight;
+        const sheetH   = h * 0.9;
+        const peekY    = sheetH - h * 0.17;
+        const currentY = Math.max(0, Math.min(sheetH - 50, dragStartTranslateY + delta));
+        const midpoint = peekY / 2;
+        const FLICK    = 0.3; // px / ms
+
+        if (dragVelocity < -FLICK || currentY < midpoint) {
+            sheetEl.classList.add('sheet-expanded');
+        } else {
+            sheetEl.classList.remove('sheet-expanded');
+        }
+    }
+
+    handleEl.addEventListener('pointerup',     (e) => onDragEnd(e.clientY));
+    handleEl.addEventListener('pointercancel', (e) => onDragEnd(e.clientY));
+
+    // ── Slider tap → enter adjust mode ──────────────────────────────────
+    // pointerdown fires before the range input, so the sheet collapses just
+    // as the user lifts their finger, feeling instantaneous.
     sheetEl.addEventListener('pointerdown', (e) => {
         const slider = e.target.closest('input[type="range"]');
         if (slider) {
-            // Don't prevent default — let the range input still receive focus.
-            // A short delay lets the tap register before we collapse the sheet.
             setTimeout(() => enterAdjustMode(slider), 80);
         }
     });

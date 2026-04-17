@@ -10,19 +10,19 @@ function crtWaveFormula(xNorm, yNorm) {
     );
 }
 
-function applyCRT(imageData) {
+function applyCRT(imageData, p = params) {
     const width  = imageData.width;
     const height = imageData.height;
     let data     = imageData.data;
 
     // --- Curvature (barrel distortion) ---
-    if (params.crtCurvature > 0) {
+    if (p.crtCurvature > 0) {
         const srcData  = new Uint8ClampedArray(data);
         const result   = new Uint8ClampedArray(width * height * 4);
-        const centerX  = (0.5 + params.crtCurvatureX / 100) * width;
-        const centerY  = (0.5 - params.crtCurvatureY / 100) * height; // Flip Y
-        const maxRadius = Math.min(width, height) * (params.crtCurvatureRadius / 100);
-        const k = (params.crtCurvature / 100) * (params.crtCurvatureIntensity / 100);
+        const centerX  = (0.5 + p.crtCurvatureX / 100) * width;
+        const centerY  = (0.5 - p.crtCurvatureY / 100) * height; // Flip Y
+        const maxRadius = Math.min(width, height) * (p.crtCurvatureRadius / 100);
+        const k = (p.crtCurvature / 100) * (p.crtCurvatureIntensity / 100);
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -47,9 +47,9 @@ function applyCRT(imageData) {
     }
 
     // --- Scanlines ---
-    if (params.crtScanline > 0) {
-        const darken  = 1 - (params.crtScanline / 100) * 0.7;
-        const spacing = Math.floor(params.crtScanSpacing);
+    if (p.crtScanline > 0) {
+        const darken  = 1 - (p.crtScanline / 100) * 0.7;
+        const spacing = Math.floor(p.crtScanSpacing);
         for (let y = 0; y < height; y++) {
             if (y % spacing < 1) {
                 for (let x = 0; x < width; x++) {
@@ -61,11 +61,11 @@ function applyCRT(imageData) {
     }
 
     // --- CRT Waves (single-axis offset with R/B split) ---
-    if (params.crtWaves > 0) {
+    if (p.crtWaves > 0) {
         const srcData = new Uint8ClampedArray(data);
         const result  = new Uint8ClampedArray(width * height * 4);
-        const amp     = (params.crtWaves / 100) * 80;
-        const phase   = params.crtWavePhase / 100 * 20;
+        const amp     = (p.crtWaves / 100) * 80;
+        const phase   = p.crtWavePhase / 100 * 20;
 
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -88,9 +88,9 @@ function applyCRT(imageData) {
     }
 
     // --- Static noise ---
-    if (params.crtStatic > 0) {
-        const intensity = params.crtStatic / 100;
-        const type = params.crtStaticType;
+    if (p.crtStatic > 0) {
+        const intensity = p.crtStatic / 100;
+        const type = p.crtStaticType;
         for (let i = 0; i < data.length; i += 4) {
             const noise = (Math.random() - 0.5) * 255 * intensity;
             if (type === 'white') {

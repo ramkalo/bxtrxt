@@ -224,6 +224,21 @@ body {
 
 .tool-toggle {
     transition: transform 0.3s;
+    flex-shrink: 0;
+}
+
+/* Enable checkbox baked into the section header */
+.header-enable-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-left: auto;
+    margin-right: 12px;
+    cursor: pointer;
+    user-select: none;
+    flex-shrink: 0;
 }
 
 .tool-section.collapsed .tool-toggle {
@@ -933,4 +948,274 @@ input[type="checkbox"] {
     #presetName {
         width: 100% !important;
     }
+}
+
+/* ============================================================
+   Effect Stack UI
+   ============================================================ */
+
+/* Panel tabs */
+.panel-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--border);
+    background: var(--bg-panel);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.panel-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 10px;
+    cursor: pointer;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+
+.panel-tab:hover {
+    color: var(--text);
+}
+
+.panel-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+/* Panel views */
+.panel-view {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.panel-view.hidden {
+    display: none;
+}
+
+/* Effect stack list */
+.effect-stack-list {
+    flex: 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 60px;
+}
+
+.stack-empty {
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    line-height: 1.6;
+}
+
+.stack-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    user-select: none;
+    transition: border-color 0.15s, opacity 0.15s;
+}
+
+.stack-item:hover {
+    border-color: var(--accent);
+}
+
+.stack-item.dragging {
+    opacity: 0.4;
+}
+
+.stack-item.drag-over {
+    border-color: var(--accent);
+    border-style: dashed;
+}
+
+.stack-drag-handle {
+    font-size: 1.1rem;
+    color: var(--text-dim);
+    cursor: grab;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+
+.stack-drag-handle:active {
+    cursor: grabbing;
+}
+
+.stack-item-label {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.stack-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.stack-move-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 3px;
+    line-height: 1;
+    transition: color 0.15s, background 0.15s;
+    font-family: inherit;
+}
+
+.stack-move-btn:hover {
+    color: var(--text);
+    background: var(--border);
+}
+
+.stack-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    line-height: 1;
+    margin-left: 2px;
+    transition: color 0.15s, background 0.15s;
+    font-family: inherit;
+}
+
+.stack-delete-btn:hover {
+    color: #e06060;
+    background: rgba(200, 60, 60, 0.12);
+}
+
+/* Controls panel toolbar (collapse/expand all) */
+.controls-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 8px 4px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.btn-sm {
+    padding: 3px 10px;
+    font-size: 0.72rem;
+}
+
+/* Stack footer */
+.stack-footer {
+    padding: 10px 8px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.stack-footer .btn {
+    width: 100%;
+}
+
+/* Effect picker — inline block between list and footer */
+.effect-picker {
+    border-top: 1px solid var(--accent);
+    border-bottom: 1px solid var(--accent);
+    background: var(--bg-panel);
+    max-height: 300px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.effect-picker.hidden {
+    display: none;
+}
+
+.effect-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.picker-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: inherit;
+    transition: color 0.15s;
+}
+
+.picker-close-btn:hover {
+    color: var(--text);
+}
+
+.effect-catalog-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.catalog-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 10px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.catalog-item:hover {
+    background: var(--bg-input);
+    border-color: var(--border);
+}
+
+.catalog-item-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.catalog-item-desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
 }

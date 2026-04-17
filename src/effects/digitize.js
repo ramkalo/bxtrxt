@@ -1,13 +1,13 @@
 import { params } from '../state/params.js';
 
-function applyDigitize(imageData) {
+function applyDigitize(imageData, p = params) {
     const data = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
 
-    if (params.digitizeDither > 0) {
+    if (p.digitizeDither > 0) {
         // Floyd-Steinberg error-diffusion dithering
-        const amount = params.digitizeDither / 100;
+        const amount = p.digitizeDither / 100;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const i = (y * width + x) * 4;
@@ -37,8 +37,8 @@ function applyDigitize(imageData) {
         }
     }
 
-    if (params.digitizeNoise > 0) {
-        const intensity = params.digitizeNoise / 100 * 80;
+    if (p.digitizeNoise > 0) {
+        const intensity = p.digitizeNoise / 100 * 80;
         for (let i = 0; i < data.length; i += 4) {
             const noise = (Math.random() - 0.5) * intensity;
             data[i]   = Math.max(0, Math.min(255, data[i]   + noise));

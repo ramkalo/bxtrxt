@@ -1,6 +1,6 @@
 import { params } from '../state/params.js';
 
-function crtWaveFormula(xNorm, yNorm) {
+function wavesFormula(xNorm, yNorm) {
     return (
         3.2 * Math.sin(xNorm + 0.3 * Math.cos(2.1 * xNorm) + yNorm) +
         2.1 * Math.cos(0.73 * xNorm - 1.4 + yNorm * 0.7) * Math.sin(0.5 * xNorm + 0.9 + yNorm * 0.5) +
@@ -10,11 +10,11 @@ function crtWaveFormula(xNorm, yNorm) {
     );
 }
 
-function applyWaves(imageData) {
-    const ampR = params.wavesR / 100 * 80;
-    const ampG = params.wavesG / 100 * 80;
-    const ampB = params.wavesB / 100 * 80;
-    const phase = params.wavesPhase / 100 * 20;
+function applyWaves(imageData, p = params) {
+    const ampR = p.wavesR / 100 * 80;
+    const ampG = p.wavesG / 100 * 80;
+    const ampB = p.wavesB / 100 * 80;
+    const phase = p.wavesPhase / 100 * 20;
 
     const srcData = imageData.data;
     const width   = imageData.width;
@@ -25,7 +25,7 @@ function applyWaves(imageData) {
         for (let x = 0; x < width; x++) {
             const xNorm = x / width * 10 + phase;
             const yNorm = y / height * 8;
-            const wave  = crtWaveFormula(xNorm, yNorm);
+            const wave  = wavesFormula(xNorm, yNorm);
 
             const srcXR = Math.floor(Math.max(0, Math.min(width-1, x + wave * ampR)));
             const srcXG = Math.floor(Math.max(0, Math.min(width-1, x + wave * ampG)));

@@ -1,8 +1,4 @@
-import { params, defaultParams, controlLimits, setParamsBulk } from '../state/params.js';
-import { saveState } from '../state/undo.js';
-import { canvas, originalImage, useWebGL } from '../renderer/glstate.js';
-import { createTexture, createFramebuffer } from '../renderer/webgl.js';
-import { showNotification } from '../utils/notifications.js';
+import { params, controlLimits } from '../state/params.js';
 
 // ---------------------------------------------------------------------------
 // DOM ↔ params sync
@@ -57,30 +53,6 @@ export function updateAllControlValues() {
 
 export function formatControlValue(input) {
     return params[input.dataset.param];
-}
-
-// ---------------------------------------------------------------------------
-// Reset
-// ---------------------------------------------------------------------------
-
-export function resetImage() {
-    if (!originalImage) return;
-
-    // Snapshot current state so the reset is undoable
-    saveState();
-
-    canvas.width = originalImage.width;
-    canvas.height = originalImage.height;
-
-    if (useWebGL) {
-        createTexture(originalImage);
-        createFramebuffer(canvas.width, canvas.height);
-    }
-
-    // Bulk-restore defaults → fires onParamsChange once → processImage runs
-    setParamsBulk(defaultParams);
-    syncDOMFromParams();
-    showNotification('Image reset');
 }
 
 // ---------------------------------------------------------------------------

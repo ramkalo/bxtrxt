@@ -74,3 +74,43 @@ export function buildControlLimits() {
     }
     return limits;
 }
+
+/**
+ * The user-browseable effect catalog — excludes internal sub-effects
+ * like vhsTimestampEffect which is typically stacked alongside vhsEffect.
+ * Each entry: { name, label, description }
+ */
+export const EFFECT_CATALOG = [
+    { name: 'basic',          label: 'Basic Adjustments',   description: 'Brightness, contrast, saturation, and color' },
+    { name: 'grain',          label: 'Film Grain',           description: 'Analog noise and grain texture' },
+    { name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
+    { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
+    { name: 'invert',         label: 'Invert',               description: 'Color inversion with threshold' },
+    { name: 'digitize',       label: 'Digitize',             description: 'Dithering and digital noise' },
+    { name: 'pixelArt',       label: 'Pixel Art',            description: 'Pixel size reduction and color quantization' },
+    { name: 'vhs',            label: 'VHS Effect',           description: 'Tracking, color bleed, and VHS noise' },
+    { name: 'vhsTimestamp',   label: 'VHS Timestamp',        description: 'Retro timestamp text overlay' },
+    { name: 'waves',          label: 'Waves',                description: 'Wave distortion per color channel' },
+    { name: 'crt',            label: 'CRT Effect',           description: 'Curvature, scanlines, and static' },
+    { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
+];
+
+/**
+ * Return default params for a named effect, or null if not found.
+ */
+export function getEffectDefaults(effectName) {
+    const effect = EFFECTS.find(e => e.name === effectName);
+    if (!effect) return null;
+    const defaults = {};
+    for (const [key, schema] of Object.entries(effect.params)) {
+        defaults[key] = schema.default;
+    }
+    return defaults;
+}
+
+/**
+ * Find an effect definition by name.
+ */
+export function getEffect(effectName) {
+    return EFFECTS.find(e => e.name === effectName) || null;
+}

@@ -6,13 +6,26 @@ import { initWebGL } from './renderer/webgl.js';
 import { processImage } from './renderer/pipeline.js';
 import { loadImage, loadSecondImage } from './utils/image.js';
 import { exportImage } from './ui/export.js';
-import { applyControlLimits, resetImage, initParamBindings, syncDOMFromParams } from './ui/controls.js';
 import { savePreset, loadPreset, renderPresetList, importPreset } from './ui/presets.js';
 import { initMobileUI } from './ui/mobile.js';
 import { initBottomSheet } from './ui/bottomsheet.js';
 import { initTouchGestures } from './ui/touch.js';
+import { initStackPanel, renderStackList } from './ui/stackPanel.js';
+import { buildControlsPanel } from './ui/stackControls.js';
 
+// ---------------------------------------------------------------------------
+// Stack UI rebuild — called whenever stack changes (add/remove/reorder/undo)
+// ---------------------------------------------------------------------------
+
+function rebuildStackUI() {
+    renderStackList();
+    buildControlsPanel();
+}
+
+// ---------------------------------------------------------------------------
 // File inputs
+// ---------------------------------------------------------------------------
+
 document.getElementById('fileInput').addEventListener('change', function(e) {
     if (e.target.files.length > 0) {
         loadImage(e.target.files[0]);
@@ -20,11 +33,11 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
 });
 
 document.getElementById('secondFileInput').addEventListener('change', function(e) {
-    if (e.target.files[0]) loadSecondImage(e.target.files[0]);
-});
-
-document.getElementById('loadSecondImageBtn').addEventListener('click', function() {
-    document.getElementById('secondFileInput').click();
+    if (e.target.files[0]) {
+        loadSecondImage(e.target.files[0]);
+        const nameEl = document.getElementById('secondImageName');
+        if (nameEl) nameEl.textContent = e.target.files[0].name;
+    }
 });
 
 document.getElementById('loadBtn').addEventListener('click', function() {
@@ -53,7 +66,10 @@ document.getElementById('closeExportPreviewBtn').addEventListener('click', funct
     showNotification('Export complete');
 });
 
-// Mobile toolbar button listeners (duplicate desktop buttons)
+// ---------------------------------------------------------------------------
+// Mobile toolbar
+// ---------------------------------------------------------------------------
+
 document.getElementById('loadBtnMobile').addEventListener('click', function() {
     document.getElementById('fileInput').click();
 });
@@ -63,10 +79,10 @@ document.getElementById('exportBtnMobile').addEventListener('click', function() 
 });
 
 document.getElementById('undoBtnMobile').addEventListener('click', function() {
-    undo(syncDOMFromParams);
+    undo(noop, rebuildStackUI);
 });
 document.getElementById('redoBtnMobile').addEventListener('click', function() {
-    redo(syncDOMFromParams);
+    redo(noop, rebuildStackUI);
 });
 
 document.getElementById('loadPresetBtnMobile').addEventListener('click', function() {
@@ -74,19 +90,24 @@ document.getElementById('loadPresetBtnMobile').addEventListener('click', functio
     renderPresetList();
 });
 
-document.getElementById('resetBtnMobile').addEventListener('click', resetImage);
-
 document.getElementById('savePresetBtnMobile').addEventListener('click', function() {
     document.getElementById('presetModal').classList.remove('hidden');
 });
 
-document.getElementById('resetBtn').addEventListener('click', resetImage);
+// ---------------------------------------------------------------------------
+// Toolbar
+// ---------------------------------------------------------------------------
+
 document.getElementById('undoBtn').addEventListener('click', function() {
-    undo(syncDOMFromParams);
+    undo(noop, rebuildStackUI);
 });
 document.getElementById('redoBtn').addEventListener('click', function() {
-    redo(syncDOMFromParams);
+    redo(noop, rebuildStackUI);
 });
+
+// ---------------------------------------------------------------------------
+// Drop zone
+// ---------------------------------------------------------------------------
 
 document.getElementById('dropZone').addEventListener('click', function() {
     document.getElementById('fileInput').click();
@@ -114,21 +135,9 @@ document.getElementById('dropZone').addEventListener('drop', function(e) {
     }
 });
 
-document.querySelectorAll('.tool-header').forEach(function(header) {
-    header.addEventListener('click', function() {
-        this.parentElement.classList.toggle('collapsed');
-    });
-});
-
-document.getElementById('collapseAllBtn').addEventListener('click', function() {
-    const sections = document.querySelectorAll('.tool-section');
-    const anyExpanded = Array.from(sections).some(function(s) { return !s.classList.contains('collapsed'); });
-    sections.forEach(function(s) {
-        if (anyExpanded) s.classList.add('collapsed');
-        else s.classList.remove('collapsed');
-    });
-    this.textContent = anyExpanded ? 'Expand All' : 'Collapse All';
-});
+// ---------------------------------------------------------------------------
+// Presets
+// ---------------------------------------------------------------------------
 
 document.getElementById('savePresetBtn').addEventListener('click', function() {
     document.getElementById('presetModal').classList.remove('hidden');
@@ -155,20 +164,29 @@ document.getElementById('presetFileInput').addEventListener('change', function(e
     }
 });
 
-document.getElementById('timestampNowBtn').addEventListener('click', function() {
-    const now = new Date();
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const ts = months[now.getMonth()] + ' ' +
-               String(now.getDate()).padStart(2, '0') + ' ' +
-               now.getFullYear() + ' ' +
-               String(now.getHours()).padStart(2, '0') + ':' +
-               String(now.getMinutes()).padStart(2, '0') + ':' +
-               String(now.getSeconds()).padStart(2, '0');
+// ---------------------------------------------------------------------------
+// Panel tabs
+// ---------------------------------------------------------------------------
 
-    document.querySelector('input[data-param="vhsTimestamp"]').value = ts;
-    params.vhsTimestamp = ts;
-    processImage();
+document.getElementById('tabStack').addEventListener('click', function() {
+    setActiveTab('stack');
 });
+
+document.getElementById('tabControls').addEventListener('click', function() {
+    setActiveTab('controls');
+});
+
+function setActiveTab(tab) {
+    const isStack = tab === 'stack';
+    document.getElementById('tabStack').classList.toggle('active', isStack);
+    document.getElementById('tabControls').classList.toggle('active', !isStack);
+    document.getElementById('stackPanel').classList.toggle('hidden', !isStack);
+    document.getElementById('stackControlsContainer').classList.toggle('hidden', isStack);
+}
+
+// ---------------------------------------------------------------------------
+// Keyboard shortcuts
+// ---------------------------------------------------------------------------
 
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey || e.metaKey) {
@@ -187,19 +205,27 @@ document.addEventListener('keydown', function(e) {
             renderPresetList();
         } else if (e.key === 'z' && !e.shiftKey) {
             e.preventDefault();
-            undo(syncDOMFromParams);
+            undo(noop, rebuildStackUI);
         } else if (e.key === 'z' && e.shiftKey) {
             e.preventDefault();
-            redo(syncDOMFromParams);
+            redo(noop, rebuildStackUI);
         }
     }
 });
 
+// ---------------------------------------------------------------------------
+// noop — undo/redo no longer needs to sync DOM (no [data-param] inputs)
+// ---------------------------------------------------------------------------
+function noop() {}
+
+// ---------------------------------------------------------------------------
 // Initialization
+// ---------------------------------------------------------------------------
+
 renderPresetList();
 initWebGL();
-applyControlLimits();
-initParamBindings();
-initMobileUI();      // no-op; kept for compatibility
-initBottomSheet();   // slide-up sheet snap points + adjust-mode state machine
-initTouchGestures(); // pinch-to-zoom, long-press compare, canvas-drag scrub
+initStackPanel(rebuildStackUI);
+buildControlsPanel();
+initMobileUI();
+initBottomSheet();
+initTouchGestures();

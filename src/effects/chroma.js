@@ -1,6 +1,6 @@
 import { params } from '../state/params.js';
 
-function applyChromaticAberration(imageData) {
+function applyChromaticAberration(imageData, p = params) {
     const width = imageData.width;
     const height = imageData.height;
     const sourceData = imageData.data;
@@ -8,27 +8,27 @@ function applyChromaticAberration(imageData) {
 
     // CMY offsets are complements: Cyan→G+B, Magenta→R+B, Yellow→R+G
     // Each RGB channel's effective shift is the sum of its direct + two complement contributions.
-    const scale = params.chromaScale ?? 1;
+    const scale = p.chromaScale ?? 1;
     const shifts = [
         {
-            x: (params.chromaRedX   + params.chromaMagentaX + params.chromaYellowX) * scale,
-            y: (params.chromaRedY   + params.chromaMagentaY + params.chromaYellowY) * scale,
+            x: (p.chromaRedX   + p.chromaMagentaX + p.chromaYellowX) * scale,
+            y: (p.chromaRedY   + p.chromaMagentaY + p.chromaYellowY) * scale,
             channel: 0,
         },
         {
-            x: (params.chromaGreenX + params.chromaCyanX    + params.chromaYellowX) * scale,
-            y: (params.chromaGreenY + params.chromaCyanY    + params.chromaYellowY) * scale,
+            x: (p.chromaGreenX + p.chromaCyanX    + p.chromaYellowX) * scale,
+            y: (p.chromaGreenY + p.chromaCyanY    + p.chromaYellowY) * scale,
             channel: 1,
         },
         {
-            x: (params.chromaBlueX  + params.chromaCyanX    + params.chromaMagentaX) * scale,
-            y: (params.chromaBlueY  + params.chromaCyanY    + params.chromaMagentaY) * scale,
+            x: (p.chromaBlueX  + p.chromaCyanX    + p.chromaMagentaX) * scale,
+            y: (p.chromaBlueY  + p.chromaCyanY    + p.chromaMagentaY) * scale,
             channel: 2,
         },
     ];
 
-    const thresh  = 255 * (params.chromaThreshold / 100);
-    const reverse = params.chromaThresholdReverse;
+    const thresh  = 255 * (p.chromaThreshold / 100);
+    const reverse = p.chromaThresholdReverse;
 
     for (const shift of shifts) {
         for (let y = 0; y < height; y++) {

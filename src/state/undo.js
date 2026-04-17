@@ -1,45 +1,41 @@
 import { snapshotParams, restoreParams } from './params.js';
+import { snapshotStack, restoreStack } from './effectStack.js';
 
-// Params-snapshot stacks — much lighter than pixel buffers, and works
-// correctly with both WebGL and Canvas 2D (old imageData approach was
-// broken for WebGL because readPixels is asynchronous).
 let _undoStack = [];
 let _redoStack = [];
 
+function _snapshot() {
+    return { params: snapshotParams(), stack: snapshotStack() };
+}
+
+function _restore(snapshot, syncDOM, rebuildStack) {
+    restoreParams(snapshot.params);
+    restoreStack(snapshot.stack);
+    syncDOM();
+    rebuildStack();
+}
+
 /**
- * Save the current params state onto the undo stack.
- * Call this before any operation the user should be able to undo
- * (preset load, reset, etc.). Slider drags auto-save via the proxy.
+ * Save current state (params + effect stack) onto the undo stack.
  */
 export function saveState() {
-    _undoStack.push(snapshotParams());
+    _undoStack.push(_snapshot());
     if (_undoStack.length > 50) _undoStack.shift();
     _redoStack = [];
     updateUndoButtons();
 }
 
-/**
- * Undo the last param change.
- * @param {Function} syncDOM  - syncDOMFromParams() from ui/controls.js,
- *                              passed in to avoid circular imports.
- */
-export function undo(syncDOM) {
+export function undo(syncDOM, rebuildStack) {
     if (_undoStack.length === 0) return;
-    _redoStack.push(snapshotParams());
-    restoreParams(_undoStack.pop());
-    syncDOM();
+    _redoStack.push(_snapshot());
+    _restore(_undoStack.pop(), syncDOM, rebuildStack);
     updateUndoButtons();
 }
 
-/**
- * Redo the last undone param change.
- * @param {Function} syncDOM  - syncDOMFromParams() from ui/controls.js
- */
-export function redo(syncDOM) {
+export function redo(syncDOM, rebuildStack) {
     if (_redoStack.length === 0) return;
-    _undoStack.push(snapshotParams());
-    restoreParams(_redoStack.pop());
-    syncDOM();
+    _undoStack.push(_snapshot());
+    _restore(_redoStack.pop(), syncDOM, rebuildStack);
     updateUndoButtons();
 }
 

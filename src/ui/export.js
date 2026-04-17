@@ -1,9 +1,10 @@
 import { params } from '../state/params.js';
 import { canvas, useWebGL, useWebGL2 } from '../renderer/glstate.js';
 import { renderWebGL } from '../renderer/webgl.js';
-import { processCanvas2D } from '../renderer/canvas2d.js';
+import { processCanvas2D, processCanvas2DStack } from '../renderer/canvas2d.js';
 import { renderTimestampOverlay } from '../effects/vhs.js';
 import { showNotification } from '../utils/notifications.js';
+import { getStack } from '../state/effectStack.js';
 
 export function exportImage(format) {
     console.log('Exporting with:', useWebGL ? (useWebGL2 ? 'WebGL 2' : 'WebGL 1') : 'Canvas 2D');
@@ -20,8 +21,14 @@ export function exportImage(format) {
     const filename = `retroinator-export-${ts}.${ext}`;
 
     let exportSource;
-    if (useWebGL) {
-        // Re-render WebGL pipeline then composite with overlay canvas
+    const stack = getStack();
+
+    if (stack.length > 0) {
+        // Stack mode: use the same Canvas 2D stack renderer as the live preview
+        processCanvas2DStack(stack);
+        exportSource = canvas;
+    } else if (useWebGL) {
+        // No stack — re-render WebGL pipeline then composite with overlay canvas
         renderWebGL();
         const overlayCanvas = document.getElementById('overlayCanvas');
         renderTimestampOverlay(overlayCanvas);

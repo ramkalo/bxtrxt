@@ -1,17 +1,17 @@
 import { params } from '../state/params.js';
 
-function applyInvert(imageData) {
+function applyInvert(imageData, p = params) {
     const data = imageData.data;
-    const mode = params.invertMode;
-    const threshold = 255 * (params.invertIntensity / 100);
-    const reverse = params.invertReverse;
+    const mode = p.invertMode;
+    const threshold = 255 * (p.invertIntensity / 100);
+    const reverse = p.invertReverse;
 
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i], g = data[i+1], b = data[i+2];
         const lum = 0.299*r + 0.587*g + 0.114*b;
-        const targetVal = params.invertTarget === 'r' ? r
-                        : params.invertTarget === 'g' ? g
-                        : params.invertTarget === 'b' ? b
+        const targetVal = p.invertTarget === 'r' ? r
+                        : p.invertTarget === 'g' ? g
+                        : p.invertTarget === 'b' ? b
                         : lum; // 'lum' default
         const shouldInvert = reverse ? (targetVal <= threshold) : (targetVal >= threshold);
 

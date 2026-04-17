@@ -29,10 +29,8 @@ export function loadImage(file) {
             document.getElementById('imageInfo').textContent = `${img.width} \u00d7 ${img.height}px`;
             document.getElementById('dropZone').classList.add('hidden');
             document.getElementById('exportBtn').disabled = false;
-            document.getElementById('resetBtn').disabled = false;
             document.getElementById('savePresetBtn').disabled = false;
             document.getElementById('exportBtnMobile').disabled = false;
-            document.getElementById('resetBtnMobile').disabled = false;
             document.getElementById('savePresetBtnMobile').disabled = false;
 
             rescaleSecondImage();
@@ -51,7 +49,8 @@ export function loadSecondImage(file) {
         img.onload = function() {
             setSecondImage(img);
             rescaleSecondImage();
-            document.getElementById('secondImageName').textContent = file.name;
+            const nameEl = document.getElementById('secondImageName');
+            if (nameEl) nameEl.textContent = file.name;
             processImage();
         };
         img.src = event.target.result;

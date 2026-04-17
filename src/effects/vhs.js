@@ -3,14 +3,14 @@ import { canvas } from '../renderer/glstate.js';
 
 // --- VHS image effects (bleed, tracking, noise) -------------------------
 
-function applyVHS(imageData) {
+function applyVHS(imageData, p = params) {
     const data = imageData.data;
     const width = imageData.width;
     const height = imageData.height;
     const result = new Uint8ClampedArray(data);
 
-    if (params.vhsBleed > 0) {
-        const bleed = Math.floor(params.vhsBleed);
+    if (p.vhsBleed > 0) {
+        const bleed = Math.floor(p.vhsBleed);
         for (let y = 0; y < height; y++) {
             for (let x = bleed; x < width; x++) {
                 result[(y*width + x)*4] = data[(y*width + (x-bleed))*4];
@@ -22,8 +22,8 @@ function applyVHS(imageData) {
         imageData.data.set(result);
     }
 
-    if (params.vhsTracking > 0) {
-        const numLines = Math.floor(params.vhsTracking / 15);
+    if (p.vhsTracking > 0) {
+        const numLines = Math.floor(p.vhsTracking / 15);
         for (let t = 0; t < numLines; t++) {
             const lineY  = Math.floor(Math.random() * height);
             const offset = Math.floor(Math.random() * 30 - 15);
@@ -38,8 +38,8 @@ function applyVHS(imageData) {
         }
     }
 
-    if (params.vhsNoise > 0) {
-        const intensity = params.vhsNoise / 100;
+    if (p.vhsNoise > 0) {
+        const intensity = p.vhsNoise / 100;
         for (let i = 0; i < data.length; i += 4) {
             const noise = (Math.random() - 0.5) * 120 * intensity;
             imageData.data[i]   = Math.max(0, Math.min(255, imageData.data[i]   + noise));
@@ -53,12 +53,12 @@ function applyVHS(imageData) {
 
 // --- VHS timestamp overlay (draws to canvas context) --------------------
 
-export function applyVHSTimestamp(ctx) {
+export function applyVHSTimestamp(ctx, p = params) {
     const marginMap = { small: 10, medium: 40, large: 160 };
-    const margin = marginMap[params.vhsTimestampMargin] || 10;
-    ctx.font = `${params.vhsTimestampSize}px JetBrains Mono, monospace`;
+    const margin = marginMap[p.vhsTimestampMargin] || 10;
+    ctx.font = `${p.vhsTimestampSize}px JetBrains Mono, monospace`;
 
-    if (params.vhsTimestampColor === 'black') {
+    if (p.vhsTimestampColor === 'black') {
         ctx.fillStyle   = 'rgba(0,0,0,0.85)';
         ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     } else {
@@ -67,13 +67,13 @@ export function applyVHSTimestamp(ctx) {
     }
     ctx.lineWidth = 2;
 
-    const ts  = params.vhsTimestamp;
-    const pos = params.vhsTimestampPos;
+    const ts  = p.vhsTimestamp;
+    const pos = p.vhsTimestampPos;
     const x = pos.includes('left')
         ? margin
         : canvas.width - ctx.measureText(ts).width - margin;
     const y = pos.includes('top')
-        ? margin + params.vhsTimestampSize
+        ? margin + p.vhsTimestampSize
         : canvas.height - margin;
 
     ctx.strokeText(ts, x, y);

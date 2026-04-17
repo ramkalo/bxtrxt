@@ -1,6 +1,6 @@
 import { canvas, ctx, originalImage } from './glstate.js';
 import { params } from '../state/params.js';
-import { EFFECTS } from '../effects/registry.js';
+import { EFFECTS, getEffect } from '../effects/registry.js';
 
 /**
  * Registry-driven Canvas 2D render pipeline.
@@ -50,6 +50,43 @@ export function processCanvas2D() {
     }
 
     if (hasPost) {
+        ctx.putImageData(imageData, 0, 0);
+    }
+}
+
+/**
+ * Stack-based Canvas 2D render pipeline.
+ * Iterates through an ordered list of effect instances, applying each with
+ * its own isolated params object. Effects of the same type can appear multiple
+ * times with different settings.
+ */
+export function processCanvas2DStack(stack) {
+    canvas.width  = originalImage.width;
+    canvas.height = originalImage.height;
+    ctx.drawImage(originalImage, 0, 0);
+
+    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    let imageDirty = false; // true if we need to putImageData before context effects
+
+    for (const instance of stack) {
+        const effect = getEffect(instance.effectName);
+        if (!effect) continue;
+        if (!effect.enabled(instance.params)) continue;
+
+        if (effect.pass === 'pre-crt' || effect.pass === 'post') {
+            imageData = effect.canvas2d(imageData, instance.params);
+            imageDirty = true;
+        } else if (effect.pass === 'context') {
+            if (imageDirty) {
+                ctx.putImageData(imageData, 0, 0);
+                imageDirty = false;
+            }
+            effect.canvas2d(ctx, instance.params);
+            imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    if (imageDirty) {
         ctx.putImageData(imageData, 0, 0);
     }
 }

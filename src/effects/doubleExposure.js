@@ -1,14 +1,14 @@
 import { params } from '../state/params.js';
 import { secondImagePixels } from '../renderer/glstate.js';
 
-function applyDoubleExposure(imageData) {
+function applyDoubleExposure(imageData, p = params) {
     if (!secondImagePixels) return imageData;
     const data = imageData.data;
-    const intensity = params.doubleExposureIntensity / 100;
+    const intensity = p.doubleExposureIntensity / 100;
     const threshold = 255 * intensity;
-    const reverse = params.doubleExposureReverse;
-    const cm = params.doubleExposureChannelMode;
-    const bm = params.doubleExposureBlendMode;
+    const reverse = p.doubleExposureReverse;
+    const cm = p.doubleExposureChannelMode;
+    const bm = p.doubleExposureBlendMode;
 
     function blend(a, b) {
         a /= 255; b /= 255;
