@@ -42,9 +42,8 @@ const PARAM_LABELS = {
     invertEnabled: 'Enable', invertMode: 'Mode', invertTarget: 'Target',
     invertIntensity: 'Threshold', invertReverse: 'Reverse Threshold',
     // digitize
-    digitizeEnabled: 'Enable', digitizeDither: 'Dithering', digitizeNoise: 'Noise',
-    // pixelArt
-    pixelArtEnabled: 'Enable', pixelSize: 'Pixel Size', pixelColors: '# Colors',
+    digitizeEnabled: 'Enable', pixelSize: 'Pixel Size', pixelColors: '# Colors',
+    digitizeDither: 'Dithering', digitizeNoise: 'Noise',
     // vhs
     vhsEnabled: 'Enable', vhsTracking: 'Shift', vhsTrackingThickness: 'Thickness', vhsTrackingAmount: 'Amount', vhsTrackingSeed: 'Spacing', vhsTrackingColor: 'Line Color', vhsBleed: 'Color Bleed', vhsNoise: 'Noise',
     // vhsTimestamp
@@ -52,6 +51,13 @@ const PARAM_LABELS = {
     vhsTimestampX: 'X', vhsTimestampY: 'Y', vhsTimestampColor: 'Color',
     // waves
     wavesEnabled: 'Enable', wavesR: 'Red', wavesG: 'Green', wavesB: 'Blue', wavesPhase: 'Phase',
+    // digitalSmear
+    smearEnabled: 'Enable', smearWidth: 'Width', smearDirection: 'Direction', smearShift: 'Shift',
+    // corrupted
+    corruptedEnabled: 'Enable', corruptedSeeds: 'Seeds', corruptedSeed: 'Seed',
+    corruptedPattern: 'Pattern', corruptedColor: 'Color', corruptedColorMode: 'Color Mode',
+    corruptedInfect: 'Infect', corruptedChunkSize: 'Chunk Size',
+    corruptedCluster: 'Cluster', corruptedX: 'Center X', corruptedY: 'Center Y',
     // crt
     crtCurvatureEnabled: 'Enable', crtCurvature: 'Curvature', crtCurvatureRadius: 'Radius',
     crtCurvatureIntensity: 'Intensity', crtCurvatureX: 'Center X', crtCurvatureY: 'Center Y',
@@ -78,6 +84,26 @@ const PARAM_OPTIONS = {
     crtStaticType: [['white', 'White'], ['color', 'Color'], ['luma', 'Luma']],
     doubleExposureChannelMode: [['all', 'All'], ['r', 'R only'], ['g', 'G only'], ['b', 'B only'], ['rg', 'R + G'], ['rb', 'R + B'], ['gb', 'G + B']],
     doubleExposureBlendMode: [['screen', 'Screen'], ['multiply', 'Multiply'], ['add', 'Add'], ['overlay', 'Overlay'], ['difference', 'Difference']],
+    smearDirection: [['ltr', 'Left → Right'], ['rtl', 'Right → Left'], ['ttb', 'Top → Bottom'], ['btu', 'Bottom → Top']],
+    corruptedPattern: [
+        ['splat',        'Splat'],
+        ['rubble',       'Rubble'],
+        ['detonation',   'Detonation'],
+        ['outbreak',     'Outbreak'],
+        ['overgrowth',   'Overgrowth'],
+        ['worm',         'Worm'],
+        ['3-worms',      '3 Worms'],
+        ['6-worms',      '6 Worms'],
+        ['9-worms',      '9 Worms'],
+    ],
+    corruptedColor: [
+        ['r', 'Red'], ['g', 'Green'], ['b', 'Blue'],
+        ['rg', 'Red + Green'], ['rb', 'Red + Blue'], ['gb', 'Green + Blue'], ['rgb', 'White'],
+        ['static', 'Static Noise'],
+        ['perimeter', 'Perimeter'], ['inside', 'Inside'], ['border', 'Image Border'],
+        ['center', 'Image Center'], ['random-img', 'Random from Image'],
+    ],
+    corruptedColorMode: [['per-chunk', 'Per Chunk'], ['per-zone', 'Per Zone']],
     blackBoxFill: [
         ['black', 'Black'],
         ['white', 'White'],
@@ -293,7 +319,7 @@ function buildControl(inst, key, schema) {
     }
 
     // Seed → Randomize button
-    if (key === 'vhsTrackingSeed' || key === 'blackBoxStaticSeed') {
+    if (key === 'vhsTrackingSeed' || key === 'blackBoxStaticSeed' || key === 'corruptedSeed') {
         const group = document.createElement('div');
         group.className = 'control-group';
         const row = document.createElement('div');

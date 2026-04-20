@@ -33,6 +33,25 @@ body {
     min-height: 100vh;
 }
 
+@media (min-width: 901px) {
+    .app-container {
+        margin: 10px;
+        padding: 0px;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .main-content {
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .sidebar {
+        height: auto;
+        align-self: stretch;
+    }
+}
+
 .header {
     background: var(--bg-panel);
     padding: 12px 20px;
@@ -1174,8 +1193,8 @@ input[type="checkbox"] {
 /* Controls panel toolbar (collapse/expand all) */
 .controls-toolbar {
     display: flex;
-    justify-content: flex-end;
-    padding: 6px 8px 4px;
+    justify-content: center;
+    padding: 12px 10px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
 }
@@ -1184,6 +1203,7 @@ input[type="checkbox"] {
     flex: 1;
     overflow-y: auto;
     min-height: 0;
+    padding-bottom: 12px;
 }
 
 .btn-sm {
@@ -1197,8 +1217,9 @@ input[type="checkbox"] {
     background: var(--bg-panel);
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
-    max-height: 40%;
+    flex: 0 1 45vh;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .effect-picker-header {
@@ -1215,7 +1236,8 @@ input[type="checkbox"] {
 .effect-catalog-list {
     overflow-y: auto;
     flex: 1;
-    padding: 4px;
+    min-height: 0;
+    padding: 4px 4px 12px;
     display: flex;
     flex-direction: column;
     gap: 1px;
@@ -1229,6 +1251,7 @@ input[type="checkbox"] {
     padding: 5px 8px;
     border-radius: 4px;
     transition: background 0.15s;
+    flex-shrink: 0;
 }
 
 .catalog-item:hover {

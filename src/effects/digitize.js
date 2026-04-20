@@ -5,8 +5,34 @@ function applyDigitize(imageData, p = params) {
     const width = imageData.width;
     const height = imageData.height;
 
+    // Pixelation + color quantization
+    if (p.pixelSize > 1) {
+        const step = 256 / p.pixelColors;
+        for (let y = 0; y < height; y += p.pixelSize) {
+            for (let x = 0; x < width; x += p.pixelSize) {
+                let r = 0, g = 0, b = 0, count = 0;
+                for (let py = 0; py < p.pixelSize && y + py < height; py++) {
+                    for (let px = 0; px < p.pixelSize && x + px < width; px++) {
+                        const i = ((y + py) * width + (x + px)) * 4;
+                        r += data[i]; g += data[i+1]; b += data[i+2];
+                        count++;
+                    }
+                }
+                r = Math.floor(r / count / step) * step;
+                g = Math.floor(g / count / step) * step;
+                b = Math.floor(b / count / step) * step;
+                for (let py = 0; py < p.pixelSize && y + py < height; py++) {
+                    for (let px = 0; px < p.pixelSize && x + px < width; px++) {
+                        const i = ((y + py) * width + (x + px)) * 4;
+                        data[i] = r; data[i+1] = g; data[i+2] = b;
+                    }
+                }
+            }
+        }
+    }
+
+    // Floyd-Steinberg dithering
     if (p.digitizeDither > 0) {
-        // Floyd-Steinberg error-diffusion dithering
         const amount = p.digitizeDither / 100;
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
@@ -37,6 +63,7 @@ function applyDigitize(imageData, p = params) {
         }
     }
 
+    // Digital noise
     if (p.digitizeNoise > 0) {
         const intensity = p.digitizeNoise / 100 * 80;
         for (let i = 0; i < data.length; i += 4) {
@@ -56,9 +83,11 @@ export default {
     pass: 'pre-crt',
     params: {
         digitizeEnabled: { default: false },
-        digitizeDither:  { default: 0, min: 0, max: 100 },
-        digitizeNoise:   { default: 0, min: 0, max: 100 },
+        pixelSize:       { default: 1,  min: 1,  max: 32 },
+        pixelColors:     { default: 16, min: 2,  max: 64 },
+        digitizeDither:  { default: 0,  min: 0,  max: 100 },
+        digitizeNoise:   { default: 0,  min: 0,  max: 100 },
     },
-    enabled: (p) => p.digitizeEnabled && (p.digitizeDither > 0 || p.digitizeNoise > 0),
+    enabled: (p) => p.digitizeEnabled,
     canvas2d: applyDigitize,
 };

@@ -3,7 +3,6 @@ import doubleExposureEffect from './doubleExposure.js';
 import basicEffect          from './basic.js';
 import digitizeEffect       from './digitize.js';
 import grainEffect          from './grain.js';
-import pixelArtEffect       from './pixelArt.js';
 import chromaEffect         from './chroma.js';
 import chanSatEffect        from './chanSat.js';
 import vignetteEffect       from './vignette.js';
@@ -11,6 +10,8 @@ import blurEffect           from './blur.js';
 import invertEffect          from './invert.js';
 import { vhsEffect, vhsTimestampEffect } from './vhs.js';
 import wavesEffect          from './waves.js';
+import digitalSmearEffect   from './digitalSmear.js';
+import corruptedEffect      from './corrupted.js';
 import crtCurvatureEffect   from './crtCurvature.js';
 import crtScanlinesEffect   from './crtScanlines.js';
 import crtStaticEffect      from './crtStatic.js';
@@ -41,7 +42,6 @@ export const EFFECTS = [
     basicEffect,
     digitizeEffect,
     grainEffect,
-    pixelArtEffect,
     chromaEffect,
     chanSatEffect,
     vignetteEffect,
@@ -51,6 +51,8 @@ export const EFFECTS = [
     vhsEffect,
     vhsTimestampEffect,
     wavesEffect,
+    digitalSmearEffect,
+    corruptedEffect,
     crtCurvatureEffect,
     crtScanlinesEffect,
     crtStaticEffect,
@@ -107,17 +109,18 @@ export const EFFECT_CATALOG = [
     { name: 'crtCurvature',   label: 'CRT Curvature',        description: 'Barrel lens distortion' },
     { name: 'crtScanlines',   label: 'CRT Scanlines',        description: 'Horizontal scanline darkening' },
     { name: 'crtStatic',      label: 'CRT Static',           description: 'Random noise over the image' },
-    { name: 'digitize',       label: 'Digitize',             description: 'Dithering and digital noise' },
+    { name: 'digitize',       label: 'Digitize',             description: 'Pixelation, color quantization, dithering, and noise' },
     { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
     { name: 'grain',          label: 'Film Grain',           description: 'Analog noise and grain texture' },
     { name: 'glow',           label: 'Glow',                 description: 'Bloom halo around bright areas' },
     { name: 'invert',         label: 'Invert',               description: 'Color inversion with threshold' },
-    { name: 'pixelArt',       label: 'Pixel Art',            description: 'Pixel size reduction and color quantization' },
     { name: 'transform',      label: 'Rotate',               description: 'Flip and rotate' },
     { name: 'vhs',            label: 'VHS Effect',           description: 'Tracking, color bleed, and VHS noise' },
     { name: 'vhsTimestamp',   label: 'VHS Timestamp',        description: 'Retro timestamp text overlay' },
     { name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
     { name: 'waves',          label: 'Waves',                description: 'Wave distortion per color channel' },
+    { name: 'digital-smear', label: 'Digital Smear',        description: 'Wet paint brush smear with wave-modulated displacement' },
+    { name: 'corrupted',     label: 'Corrupted',            description: 'Fractal square corruption spreading from seeded points' },
 ];
 
 /**
