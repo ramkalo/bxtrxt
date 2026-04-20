@@ -102,6 +102,7 @@ export default {
     name: 'blackBox',
     label: 'Black Box',
     pass: 'context',
+    paramKeys: ['blackBoxX', 'blackBoxY', 'blackBoxW', 'blackBoxH', 'blackBoxAngle', 'blackBoxFill', 'blackBoxGrainSize', 'blackBoxStaticSeed'],
     params: {
         blackBoxEnabled: { default: false },
         blackBoxX:       { default: 0,  min: -50,  max: 50  },

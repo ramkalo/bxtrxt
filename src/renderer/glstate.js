@@ -1,19 +1,29 @@
-// Canvas and 2D context
 export const canvas = document.getElementById('mainCanvas');
-export const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-// Image state
+export let gl = null;
+export let originalTexture = null;
+export let secondTexture = null;
+export let fboPool = [null, null]; // [{ fbo, tex, width, height }, ...]
+export let programCache = new Map(); // fragSrc → WebGLProgram (with ._locs)
+export let quadVAO = null;
+
+export let overlayCanvas = document.getElementById('overlayCanvas');
+export let overlayCtx = null;
+
 export let originalImage = null;
 export let secondImage = null;
-export let secondImagePixels = null;
 
-// Processing state
-export let isProcessing = false;
-export let debounceTimer = null;
+function init() {
+    const ctx = canvas.getContext('webgl2', { preserveDrawingBuffer: true, alpha: false });
+    if (!ctx) throw new Error('WebGL2 is required. Please use Chrome, Firefox, or Edge.');
+    gl = ctx;
+    quadVAO = gl.createVertexArray();
+    if (overlayCanvas) overlayCtx = overlayCanvas.getContext('2d');
+}
+init();
 
-// Setters (ES modules can't reassign imported let bindings from outside)
-export function setOriginalImage(v) { originalImage = v; }
-export function setSecondImage(v) { secondImage = v; }
-export function setSecondImagePixels(v) { secondImagePixels = v; }
-export function setIsProcessing(v) { isProcessing = v; }
-export function setDebounceTimer(v) { debounceTimer = v; }
+export function setOriginalImage(v)   { originalImage = v; }
+export function setSecondImage(v)     { secondImage = v; }
+export function setOriginalTexture(v) { originalTexture = v; }
+export function setSecondTexture(v)   { if (secondTexture && gl) gl.deleteTexture(secondTexture); secondTexture = v; }
+export function setFboPool(v)         { fboPool = v; }

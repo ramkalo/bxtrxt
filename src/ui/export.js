@@ -1,8 +1,5 @@
-import { params } from '../state/params.js';
-import { canvas } from '../renderer/glstate.js';
-import { processCanvas2D, processCanvas2DStack } from '../renderer/canvas2d.js';
-import { renderTimestampOverlay } from '../effects/vhs.js';
-import { showNotification } from '../utils/notifications.js';
+import { canvas, originalImage } from '../renderer/glstate.js';
+import { renderForExport } from '../renderer/webgl.js';
 import { getStack } from '../state/effectStack.js';
 
 export function exportImage(format) {
@@ -17,18 +14,12 @@ export function exportImage(format) {
         String(now.getSeconds()).padStart(2, '0');
     const filename = `retroinator-export-${ts}.${ext}`;
 
-    const stack = getStack();
-    const overlayCanvas = document.getElementById('overlayCanvas');
+    if (!originalImage) return;
 
-    if (stack.length > 0) {
-        processCanvas2DStack(stack);
-    } else {
-        processCanvas2D();
-    }
+    // Render at full image resolution (no DPR scaling) before capturing
+    renderForExport(getStack());
 
-    const exportSource = canvas;
-
-    exportSource.toBlob(function(blob) {
+    canvas.toBlob(function(blob) {
         const objectURL = URL.createObjectURL(blob);
         const previewModal = document.getElementById('exportPreviewModal');
         const previewImg = document.getElementById('exportPreviewImg');

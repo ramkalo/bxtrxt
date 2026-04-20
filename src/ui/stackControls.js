@@ -1,5 +1,5 @@
-import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
-import { getStack, setInstanceParam } from '../state/effectStack.js';
+import { getEffect } from '../effects/registry.js';
+import { setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 
 // Special UI metadata for params that need non-default rendering
@@ -120,111 +120,44 @@ const PARAM_OPTIONS = {
     ],
 };
 
-export function buildControlsPanel() {
-    const container = document.getElementById('stackControlsContainer');
-    container.innerHTML = '';
-    const stack = getStack();
+// Build all parameter controls for one effect instance into a container div.
+export function buildEffectBody(inst, onRebuild) {
+    const effect = getEffect(inst.effectName);
+    if (!effect) return document.createElement('div');
 
-    if (stack.length === 0) {
-        container.innerHTML = '<div class="stack-empty">Add effects in the Effects panel to see controls here.</div>';
-        return;
+    const enabledKey = Object.keys(effect.params).find(k =>
+        k.endsWith('Enabled') &&
+        (effect.params[k].default === true || effect.params[k].default === false)
+    );
+
+    const content = document.createElement('div');
+    content.className = 'tool-content';
+
+    for (const [key, schema] of Object.entries(effect.params)) {
+        if (key === enabledKey) continue;
+        if (key === 'rotate180' || key === 'rotate270') continue;
+        const controlEl = buildControl(inst, key, schema, onRebuild);
+        if (controlEl) content.appendChild(controlEl);
     }
 
-    // Global collapse/expand toolbar
-    const toolbar = document.createElement('div');
-    toolbar.className = 'controls-toolbar';
-
-    const collapseAllBtn = document.createElement('button');
-    collapseAllBtn.className = 'btn btn-sm';
-    collapseAllBtn.textContent = 'Collapse All';
-    collapseAllBtn.addEventListener('click', () => {
-        const sections = container.querySelectorAll('.tool-section');
-        const allCollapsed = [...sections].every(s => s.classList.contains('collapsed'));
-        sections.forEach(s => s.classList.toggle('collapsed', !allCollapsed));
-        collapseAllBtn.textContent = allCollapsed ? 'Collapse All' : 'Expand All';
-    });
-
-    toolbar.appendChild(collapseAllBtn);
-    container.appendChild(toolbar);
-
-    const scrollArea = document.createElement('div');
-    scrollArea.className = 'controls-scroll-area';
-    container.appendChild(scrollArea);
-
-    // Count occurrences for duplicate labeling
-    const counts = {};
-    const seen = {};
-    for (const inst of stack) {
-        counts[inst.effectName] = (counts[inst.effectName] || 0) + 1;
+    if (inst.effectName === 'doubleExposure') {
+        const row = document.createElement('div');
+        row.className = 'control-group';
+        row.innerHTML = `
+            <div class="control-row">
+                <button class="btn" id="loadSecondImageBtnStack_${inst.id}">Load 2nd Image</button>
+                <span id="secondImageName" style="font-size:0.75rem;color:var(--text-dim);margin-left:8px;">No image</span>
+            </div>`;
+        row.querySelector('button').addEventListener('click', () => {
+            document.getElementById('secondFileInput').click();
+        });
+        content.insertBefore(row, content.firstChild ? content.firstChild.nextSibling : null);
     }
 
-    for (const inst of stack) {
-        const effect = getEffect(inst.effectName);
-        if (!effect) continue;
-
-        seen[inst.effectName] = (seen[inst.effectName] || 0) + 1;
-        const catalogEntry = EFFECT_CATALOG.find(e => e.name === inst.effectName);
-        const baseLabel = catalogEntry ? catalogEntry.label : inst.effectName;
-        const label = counts[inst.effectName] > 1
-            ? `${baseLabel} (${seen[inst.effectName]})`
-            : baseLabel;
-
-        const section = document.createElement('div');
-        section.className = 'tool-section';
-        section.dataset.instanceId = inst.id;
-
-        // Find the enabled/disabled key (e.g. grainEnabled, vhsEnabled …)
-        const enabledKey = Object.keys(effect.params).find(k =>
-            k.endsWith('Enabled') &&
-            (effect.params[k].default === true || effect.params[k].default === false)
-        );
-
-        const header = document.createElement('div');
-        header.className = 'tool-header';
-
-        const titleEl = document.createElement('h3');
-        titleEl.textContent = label;
-        header.appendChild(titleEl);
-
-        const toggleSpan = document.createElement('span');
-        toggleSpan.className = 'tool-toggle';
-        toggleSpan.innerHTML = '&#9660;';
-        header.appendChild(toggleSpan);
-
-        header.addEventListener('click', () => section.classList.toggle('collapsed'));
-
-        const content = document.createElement('div');
-        content.className = 'tool-content';
-
-        for (const [key, schema] of Object.entries(effect.params)) {
-            if (key === enabledKey) continue; // already shown in header
-            if (key === 'rotate180' || key === 'rotate270') continue; // handled by rotate90
-            const controlEl = buildControl(inst, key, schema);
-            if (controlEl) content.appendChild(controlEl);
-        }
-
-        // Double exposure load image button
-        if (inst.effectName === 'doubleExposure') {
-            const row = document.createElement('div');
-            row.className = 'control-group';
-            row.innerHTML = `
-                <div class="control-row">
-                    <button class="btn" id="loadSecondImageBtnStack_${inst.id}">Load 2nd Image</button>
-                    <span id="secondImageName" style="font-size:0.75rem;color:var(--text-dim);margin-left:8px;">No image</span>
-                </div>`;
-            row.querySelector('button').addEventListener('click', () => {
-                document.getElementById('secondFileInput').click();
-            });
-            content.insertBefore(row, content.firstChild.nextSibling);
-        }
-
-        section.appendChild(header);
-        section.appendChild(content);
-        scrollArea.appendChild(section);
-    }
+    return content;
 }
 
-function buildControl(inst, key, schema) {
+function buildControl(inst, key, schema, onRebuild) {
     const label = PARAM_LABELS[key] || key;
     const currentVal = inst.params[key];
 
@@ -261,7 +194,7 @@ function buildControl(inst, key, schema) {
                         setInstanceParam(inst.id, r2.key, false);
                     }
                 }
-                buildControlsPanel();
+                if (onRebuild) onRebuild();
             });
             
             wrapper.appendChild(checkbox);

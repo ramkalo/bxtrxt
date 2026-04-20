@@ -10,7 +10,6 @@ import { initMobileUI } from './ui/mobile.js';
 import { initBottomSheet } from './ui/bottomsheet.js';
 import { initTouchGestures } from './ui/touch.js';
 import { initStackPanel, renderStackList } from './ui/stackPanel.js';
-import { buildControlsPanel } from './ui/stackControls.js';
 
 // ---------------------------------------------------------------------------
 // Stack UI rebuild — called whenever stack changes (add/remove/reorder/undo)
@@ -18,7 +17,6 @@ import { buildControlsPanel } from './ui/stackControls.js';
 
 function rebuildStackUI() {
     renderStackList();
-    buildControlsPanel();
 }
 
 // ---------------------------------------------------------------------------
@@ -164,26 +162,6 @@ document.getElementById('presetFileInput').addEventListener('change', function(e
 });
 
 // ---------------------------------------------------------------------------
-// Panel tabs
-// ---------------------------------------------------------------------------
-
-document.getElementById('tabStack').addEventListener('click', function() {
-    setActiveTab('stack');
-});
-
-document.getElementById('tabControls').addEventListener('click', function() {
-    setActiveTab('controls');
-});
-
-function setActiveTab(tab) {
-    const isStack = tab === 'stack';
-    document.getElementById('tabStack').classList.toggle('active', isStack);
-    document.getElementById('tabControls').classList.toggle('active', !isStack);
-    document.getElementById('stackPanel').classList.toggle('hidden', !isStack);
-    document.getElementById('stackControlsContainer').classList.toggle('hidden', isStack);
-}
-
-// ---------------------------------------------------------------------------
 // Keyboard shortcuts
 // ---------------------------------------------------------------------------
 
@@ -222,8 +200,7 @@ function noop() {}
 // ---------------------------------------------------------------------------
 
 renderPresetList();
-initStackPanel(rebuildStackUI);
-buildControlsPanel();
+initStackPanel();
 initMobileUI();
 initBottomSheet();
 initTouchGestures();

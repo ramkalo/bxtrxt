@@ -3,8 +3,8 @@ import { EFFECTS, getEffectDefaults } from '../effects/registry.js';
 let _stack = [];
 const _listeners = new Set();
 
-function _notify() {
-    for (const fn of _listeners) fn();
+function _notify(paramKey = null) {
+    for (const fn of _listeners) fn(paramKey);
 }
 
 function _uid() {
@@ -65,7 +65,7 @@ export function setInstanceParam(id, key, value) {
     const inst = _stack.find(i => i.id === id);
     if (!inst) return;
     inst.params[key] = value;
-    _notify();
+    _notify(key);
 }
 
 export function snapshotStack() {

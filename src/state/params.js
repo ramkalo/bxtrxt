@@ -11,8 +11,8 @@ export const defaultParams = JSON.parse(JSON.stringify(_data));
 
 const _listeners = new Set();
 
-function _notify() {
-    for (const fn of _listeners) fn();
+function _notify(paramKey = null) {
+    for (const fn of _listeners) fn(paramKey);
 }
 
 /**
@@ -23,14 +23,14 @@ function _notify() {
 export const params = new Proxy(_data, {
     set(target, key, value) {
         target[key] = value;
-        _notify();
+        _notify(key);
         return true;
     }
 });
 
 /**
- * Subscribe to any param change. Returns an unsubscribe function.
- * Usage: const unsub = onParamsChange(() => processImage());
+ * Subscribe to any param change. Callback receives (paramKey) or nothing.
+ * Usage: const unsub = onParamsChange((key) => processImage(key));
  */
 export function onParamsChange(fn) {
     _listeners.add(fn);
@@ -43,7 +43,7 @@ export function onParamsChange(fn) {
  */
 export function setParamsBulk(obj) {
     Object.assign(_data, obj);
-    _notify();
+    _notify(null); // null indicates bulk change
 }
 
 /** Return a lightweight plain-object copy of the current param state. */
@@ -54,7 +54,7 @@ export function snapshotParams() {
 /** Restore params from a snapshot and notify listeners (triggers re-render). */
 export function restoreParams(snapshot) {
     Object.assign(_data, snapshot);
-    _notify();
+    _notify(null);
 }
 
 // --- Control metadata — derived from registry, no longer hand-maintained ---

@@ -341,6 +341,7 @@ export default {
     name:  'corrupted',
     label: 'Corrupted',
     pass:  'pre-crt',
+    paramKeys: ['corruptedSeeds', 'corruptedSeed', 'corruptedPattern', 'corruptedColor', 'corruptedColorMode', 'corruptedInfect', 'corruptedChunkSize', 'corruptedCluster', 'corruptedX', 'corruptedY'],
     params: {
         corruptedEnabled:   { default: false },
         corruptedSeeds:     { default: 3,   min: 1,   max: 10    },
@@ -356,4 +357,188 @@ export default {
     },
     enabled:  (p) => p.corruptedEnabled,
     canvas2d: applyCorrupted,
+    bindUniforms: corruptedBindUniforms,
+    glsl: `
+uniform sampler2D uChunkTex;
+uniform sampler2D uColorTex;
+uniform float corruptedChunkSize;
+uniform float corruptedSeeds;
+uniform int   corruptedIsStatic;
+
+float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+void main() {
+    float chunkW = ceil(uResolution.x / corruptedChunkSize);
+    float chunkH = ceil(uResolution.y / corruptedChunkSize);
+
+    float px = vUV.x * uResolution.x;
+    float py = (1.0 - vUV.y) * uResolution.y;
+    float cx = floor(px / corruptedChunkSize);
+    float cy = floor(py / corruptedChunkSize);
+
+    float u = (cx + 0.5) / chunkW;
+    float v = 1.0 - (cy + 0.5) / chunkH;
+    float zoneF = texture(uChunkTex, vec2(u, v)).r * 255.0;
+    int zone = int(zoneF + 0.5) - 1;
+
+    if (zone < 0) { fragColor = texture(uTex, vUV); return; }
+
+    if (corruptedIsStatic == 1) {
+        float n = hash21(vec2(px, py));
+        fragColor = vec4(n, n, n, 1.0);
+        return;
+    }
+
+    float colorU = (float(zone) + 0.5) / corruptedSeeds;
+    fragColor = vec4(texture(uColorTex, vec2(colorU, 0.5)).rgb, 1.0);
+}
+`,
 };
+
+// --- GPU helpers ---
+
+const _gpuCache = { key: null, srcTex: null, chunkTex: null, colorTex: null };
+
+function corruptedCacheKey(p, w, h) {
+    return [p.corruptedSeed, p.corruptedPattern, p.corruptedSeeds, p.corruptedInfect,
+            p.corruptedChunkSize, p.corruptedCluster, p.corruptedX, p.corruptedY,
+            p.corruptedColor, p.corruptedColorMode, w, h].join(',');
+}
+
+function flipYBuffer(buf, w, h) {
+    const out = new Uint8Array(buf.length);
+    const stride = w * 4;
+    for (let row = 0; row < h; row++) {
+        out.set(buf.subarray((h - 1 - row) * stride, (h - row) * stride), row * stride);
+    }
+    return out;
+}
+
+function buildChunkMapGPU(p, imgW, imgH) {
+    const chunkSize = Math.max(1, p.corruptedChunkSize);
+    const chunkW    = Math.ceil(imgW / chunkSize);
+    const chunkH    = Math.ceil(imgH / chunkSize);
+    const chunkMap  = new Int16Array(chunkW * chunkH).fill(-1);
+    const rng       = mulberry32(p.corruptedSeed);
+    const centerX   = (0.5 + p.corruptedX / 100) * imgW;
+    const centerY   = (0.5 - p.corruptedY / 100) * imgH;
+    const clusterR  = p.corruptedCluster / 100 * Math.min(imgW, imgH) * 0.5;
+    const infectRadius = p.corruptedInfect / 100 * Math.max(chunkW, chunkH) * 0.5;
+    const seeds     = generateSeeds(p.corruptedSeeds, centerX, centerY, clusterR, chunkSize, rng);
+    const pathLength = Math.round((p.corruptedInfect / 100) * chunkW * chunkH);
+    const pat = p.corruptedPattern ?? 'splat';
+    if      (pat === 'splat')      applySplatter(chunkMap, seeds, infectRadius, chunkW, chunkH, rng);
+    else if (pat === 'rubble')     applyChains(chunkMap, seeds, infectRadius, chunkW, chunkH, rng);
+    else if (pat === 'detonation') { applyChains(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); applySplatter(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); }
+    else if (pat === 'outbreak')   { applyBranching(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); applySplatter(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); }
+    else if (pat === 'overgrowth') { applyChains(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); applyBranching(chunkMap, seeds, infectRadius, chunkW, chunkH, rng); }
+    else if (pat === 'worm')       applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 1, rng);
+    else if (pat === '3-worms')    applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 3, rng);
+    else if (pat === '6-worms')    applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 6, rng);
+    else if (pat === '9-worms')    applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 9, rng);
+    else                           applySplatter(chunkMap, seeds, infectRadius, chunkW, chunkH, rng);
+    return { chunkMap, seeds, chunkW, chunkH };
+}
+
+function computeZoneColorsGPU(p, chunkMap, seeds, chunkW, chunkH, srcData, imgW, imgH) {
+    const numZones = p.corruptedSeeds;
+    const result   = new Uint8Array(numZones * 4);
+    const solidColor = SOLID_COLORS[p.corruptedColor];
+    const isDynamic  = !solidColor && p.corruptedColor !== 'static';
+    const colorMode  = p.corruptedColorMode ?? 'per-chunk';
+
+    let corruptedChunks = [], boundaryChunks = [];
+    if (isDynamic) {
+        for (let ci = 0; ci < chunkW * chunkH; ci++) {
+            if (chunkMap[ci] === -1) continue;
+            const cx = ci % chunkW, cy = Math.floor(ci / chunkW);
+            corruptedChunks.push({ cx, cy });
+            const isEdge = cx === 0 || cx === chunkW-1 || cy === 0 || cy === chunkH-1 ||
+                (cx > 0         && chunkMap[ci-1]      === -1) || (cx < chunkW-1  && chunkMap[ci+1]      === -1) ||
+                (cy > 0         && chunkMap[ci-chunkW] === -1) || (cy < chunkH-1  && chunkMap[ci+chunkW] === -1);
+            if (isEdge) boundaryChunks.push({ cx, cy });
+        }
+    }
+
+    const rng = mulberry32(p.corruptedSeed + 99999); // separate rng for colors
+    for (let z = 0; z < numZones; z++) {
+        let r, g, b;
+        if (solidColor) {
+            [r, g, b] = solidColor;
+        } else if (isDynamic && corruptedChunks.length > 0 && srcData) {
+            [r, g, b] = sampleFromRegion(p.corruptedColor, Math.max(1, p.corruptedChunkSize), imgW, imgH, srcData, corruptedChunks, boundaryChunks, rng);
+        } else {
+            r = g = b = 128; // fallback for static (not used) or no srcData
+        }
+        result[z * 4]     = r;
+        result[z * 4 + 1] = g;
+        result[z * 4 + 2] = b;
+        result[z * 4 + 3] = 255;
+    }
+    return result;
+}
+
+function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
+    const key = corruptedCacheKey(p, dstW, dstH);
+
+    if (key !== _gpuCache.key || srcTex !== _gpuCache.srcTex) {
+        // Delete old textures
+        if (_gpuCache.chunkTex) { gl.deleteTexture(_gpuCache.chunkTex); _gpuCache.chunkTex = null; }
+        if (_gpuCache.colorTex) { gl.deleteTexture(_gpuCache.colorTex); _gpuCache.colorTex = null; }
+
+        // Readback source pixels for dynamic color modes
+        let srcData = null;
+        const solidColor = SOLID_COLORS[p.corruptedColor];
+        const isDynamic  = !solidColor && p.corruptedColor !== 'static';
+        if (isDynamic && srcTex) {
+            const readFbo = gl.createFramebuffer();
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, readFbo);
+            gl.framebufferTexture2D(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, srcTex, 0);
+            const raw = new Uint8Array(dstW * dstH * 4);
+            gl.readPixels(0, 0, dstW, dstH, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+            gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+            gl.deleteFramebuffer(readFbo);
+            srcData = flipYBuffer(raw, dstW, dstH);
+        }
+
+        const { chunkMap, seeds, chunkW, chunkH } = buildChunkMapGPU(p, dstW, dstH);
+        const zoneColors = computeZoneColorsGPU(p, chunkMap, seeds, chunkW, chunkH, srcData, dstW, dstH);
+
+        // Upload chunkMap texture (R channel: zoneIndex+1, 0=unaffected)
+        const chunkData = new Uint8Array(chunkW * chunkH * 4);
+        for (let i = 0; i < chunkW * chunkH; i++) {
+            chunkData[i * 4]     = chunkMap[i] + 1;  // 0=unaffected, 1-10=zone+1
+            chunkData[i * 4 + 3] = 255;
+        }
+        const chunkTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, chunkTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, chunkW, chunkH, 0, gl.RGBA, gl.UNSIGNED_BYTE, chunkData);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+        // Upload zone colors texture (1 × numZones strip)
+        const numZones = p.corruptedSeeds;
+        const colorTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, colorTex);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, numZones, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, zoneColors);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        _gpuCache.chunkTex = chunkTex;
+        _gpuCache.colorTex = colorTex;
+        _gpuCache.key      = key;
+        _gpuCache.srcTex   = srcTex;
+    }
+
+    const chunkLoc = prog._locs['uChunkTex'];
+    const colorLoc = prog._locs['uColorTex'];
+    const statLoc  = prog._locs['corruptedIsStatic'];
+    if (chunkLoc != null) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.chunkTex); gl.uniform1i(chunkLoc, 1); }
+    if (colorLoc != null) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.colorTex); gl.uniform1i(colorLoc, 2); }
+    if (statLoc  != null) { gl.uniform1i(statLoc, p.corruptedColor === 'static' ? 1 : 0); }
+}

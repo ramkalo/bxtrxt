@@ -83,6 +83,7 @@ export default {
     name: 'chroma',
     label: 'Chromatic Aberration',
     pass: 'pre-crt',
+    paramKeys: ['chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY', 'chromaCyanX', 'chromaCyanY', 'chromaMagentaX', 'chromaMagentaY', 'chromaYellowX', 'chromaYellowY', 'chromaScale', 'chromaThreshold', 'chromaThresholdReverse', 'chromaFade', 'chromaFadeRadius', 'chromaFadeInvert', 'chromaFadeX', 'chromaFadeY'],
     params: {
         chromaEnabled:   { default: false },
         chromaRedX:      { default: 0, min: -20, max: 20 },
@@ -108,4 +109,67 @@ export default {
     },
     enabled: (p) => p.chromaEnabled,
     canvas2d: applyChromaticAberration,
+    glsl: `
+uniform float chromaRedX; uniform float chromaRedY;
+uniform float chromaGreenX; uniform float chromaGreenY;
+uniform float chromaBlueX; uniform float chromaBlueY;
+uniform float chromaCyanX; uniform float chromaCyanY;
+uniform float chromaMagentaX; uniform float chromaMagentaY;
+uniform float chromaYellowX; uniform float chromaYellowY;
+uniform float chromaScale;
+uniform float chromaThreshold;
+uniform int   chromaThresholdReverse;
+uniform float chromaFade;
+uniform float chromaFadeRadius;
+uniform int   chromaFadeInvert;
+uniform float chromaFadeX;
+uniform float chromaFadeY;
+
+vec4 chromaSample(vec2 offsetPx) {
+    return texture(uTex, clamp(vUV + offsetPx / uResolution, vec2(0.0), vec2(1.0)));
+}
+
+void main() {
+    vec4 orig = texture(uTex, vUV);
+    float lum = dot(orig.rgb, vec3(0.299, 0.587, 0.114)) * 255.0;
+    float thresh = 255.0 * (chromaThreshold / 100.0);
+    bool applyChroma = (chromaThresholdReverse == 1) ? (lum <= thresh) : (lum >= thresh);
+    if (!applyChroma) { fragColor = orig; return; }
+
+    // Radial fade weight
+    float imgX = vUV.x * uResolution.x;
+    float imgY = (1.0 - vUV.y) * uResolution.y;
+    float cx = (0.5 + chromaFadeX / 100.0) * uResolution.x;
+    float cy = (0.5 - chromaFadeY / 100.0) * uResolution.y;
+    float mxX = max(cx, uResolution.x - cx);
+    float mxY = max(cy, uResolution.y - cy);
+    float maxDist = sqrt(mxX*mxX + mxY*mxY);
+    float fadeDist = max(1.0, maxDist * (chromaFadeRadius / 100.0));
+    float rawDist = distance(vec2(imgX, imgY), vec2(cx, cy));
+    float fadeAmt = chromaFade / 100.0;
+    float weight;
+    if (chromaFadeInvert == 1) {
+        if (rawDist < fadeDist) { fragColor = orig; return; }
+        float outerRange = max(maxDist - fadeDist, 0.001);
+        weight = 1.0 - fadeAmt * (1.0 - min(1.0, (rawDist - fadeDist) / outerRange));
+    } else {
+        if (rawDist >= fadeDist) { fragColor = orig; return; }
+        weight = 1.0 - fadeAmt * (rawDist / fadeDist);
+    }
+
+    // Per-channel shifts (CMY are additive — see CPU comment)
+    // UV convention: +x = right, +y = toward image top  (matches CPU x + shift.x, y - shift.y)
+    vec2 rShift = vec2(chromaRedX   + chromaMagentaX + chromaYellowX,
+                       chromaRedY   + chromaMagentaY + chromaYellowY) * chromaScale * weight;
+    vec2 gShift = vec2(chromaGreenX + chromaCyanX    + chromaYellowX,
+                       chromaGreenY + chromaCyanY    + chromaYellowY) * chromaScale * weight;
+    vec2 bShift = vec2(chromaBlueX  + chromaCyanX    + chromaMagentaX,
+                       chromaBlueY  + chromaCyanY    + chromaMagentaY) * chromaScale * weight;
+
+    float r = chromaSample(rShift).r;
+    float g = chromaSample(gShift).g;
+    float b = chromaSample(bShift).b;
+    fragColor = vec4(r, g, b, orig.a);
+}
+`,
 };

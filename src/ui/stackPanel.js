@@ -1,11 +1,11 @@
 import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
+import { buildEffectBody } from './stackControls.js';
 
-let _onRebuild = null;
+let _expandedId = null;
 
-export function initStackPanel(onRebuild) {
-    _onRebuild = onRebuild;
+export function initStackPanel() {
     renderCatalog();
 }
 
@@ -24,9 +24,9 @@ function renderCatalog() {
         `;
         item.querySelector('.catalog-item-add').addEventListener('click', () => {
             saveState();
-            addEffect(entry.name);
+            const inst = addEffect(entry.name);
+            if (inst) _expandedId = inst.id;
             renderStackList();
-            if (_onRebuild) _onRebuild();
         });
         list.appendChild(item);
     }
@@ -82,22 +82,27 @@ export function renderStackList() {
             ? `${baseLabel} (${seen[inst.effectName]})`
             : baseLabel;
 
+        const isExpanded = inst.id === _expandedId;
+
         const item = document.createElement('div');
         item.className = 'stack-item';
         item.dataset.id = inst.id;
         item.dataset.index = i;
-        item.draggable = true;
+        // --- Header row ---
+        const header = document.createElement('div');
+        header.className = 'stack-item-header';
 
-        item.innerHTML = `
-            <span class="stack-drag-handle" title="Drag to reorder">&#8801;</span>
-            <span class="stack-item-label">${label}</span>
-            <div class="stack-item-actions">
-                <button class="stack-move-btn" data-dir="up" title="Move up">&#8593;</button>
-                <button class="stack-move-btn" data-dir="down" title="Move down">&#8595;</button>
-                <button class="stack-dup-btn" title="Duplicate">&#10697;</button>
-                <button class="stack-delete-btn" title="Remove">&#10005;</button>
-            </div>
-        `;
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'stack-drag-handle';
+        dragHandle.title = 'Drag to reorder';
+        dragHandle.innerHTML = '&#8801;';
+        dragHandle.addEventListener('pointerdown', () => { item.draggable = true; });
+        header.appendChild(dragHandle);
+
+        const labelEl = document.createElement('span');
+        labelEl.className = 'stack-item-label';
+        labelEl.textContent = label;
+        header.appendChild(labelEl);
 
         // On/Off checkbox
         const effect = getEffect(inst.effectName);
@@ -116,11 +121,43 @@ export function renderStackList() {
                 setInstanceParam(inst.id, enabledKey, checkbox.checked);
             });
             enableLabel.appendChild(checkbox);
-            item.querySelector('.stack-item-label').after(enableLabel);
+            header.appendChild(enableLabel);
         }
 
-        // Move up/down buttons
-        item.querySelectorAll('.stack-move-btn').forEach(btn => {
+        // Expand arrow
+        const expandArrow = document.createElement('span');
+        expandArrow.className = 'stack-item-expand' + (isExpanded ? ' open' : '');
+        expandArrow.innerHTML = '&#9656;';
+        header.appendChild(expandArrow);
+
+        // Action buttons
+        const actions = document.createElement('div');
+        actions.className = 'stack-item-actions';
+        actions.innerHTML = `
+            <button class="stack-move-btn" data-dir="up" title="Move up">&#8593;</button>
+            <button class="stack-move-btn" data-dir="down" title="Move down">&#8595;</button>
+            <button class="stack-dup-btn" title="Duplicate">&#10697;</button>
+            <button class="stack-delete-btn" title="Remove">&#10005;</button>
+        `;
+        header.appendChild(actions);
+
+        // --- Collapsible body (controls) ---
+        const body = document.createElement('div');
+        body.className = 'stack-item-body';
+        if (!isExpanded) body.hidden = true;
+        if (isExpanded) {
+            body.appendChild(buildEffectBody(inst, renderStackList));
+        }
+
+        // Toggle expand on header click (not on action buttons, checkbox, or drag handle)
+        header.addEventListener('click', (e) => {
+            if (e.target.closest('.stack-item-actions, .stack-enable-label, .stack-drag-handle')) return;
+            _expandedId = (_expandedId === inst.id) ? null : inst.id;
+            renderStackList();
+        });
+
+        // Move buttons
+        actions.querySelectorAll('.stack-move-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 saveState();
@@ -128,29 +165,29 @@ export function renderStackList() {
                 const idx = parseInt(item.dataset.index);
                 moveEffect(inst.id, dir === 'up' ? idx - 1 : idx + 1);
                 renderStackList();
-                if (_onRebuild) _onRebuild();
             });
         });
 
         // Duplicate button
-        item.querySelector('.stack-dup-btn').addEventListener('click', (e) => {
+        actions.querySelector('.stack-dup-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             saveState();
             duplicateEffect(inst.id);
             renderStackList();
-            if (_onRebuild) _onRebuild();
         });
 
         // Delete button
-        item.querySelector('.stack-delete-btn').addEventListener('click', (e) => {
+        actions.querySelector('.stack-delete-btn').addEventListener('click', (e) => {
             e.stopPropagation();
             saveState();
+            if (_expandedId === inst.id) _expandedId = null;
             removeEffect(inst.id);
             renderStackList();
-            if (_onRebuild) _onRebuild();
         });
 
-        // Drag-and-drop reordering
+        item.appendChild(header);
+        item.appendChild(body);
+
         item.addEventListener('dragstart', onDragStart);
         item.addEventListener('dragover', onDragOver);
         item.addEventListener('drop', onDrop);
@@ -185,10 +222,10 @@ function onDrop(e) {
     saveState();
     moveEffect(_dragId, targetIndex);
     renderStackList();
-    if (_onRebuild) _onRebuild();
 }
 
 function onDragEnd(e) {
+    e.currentTarget.draggable = false;
     e.currentTarget.classList.remove('dragging');
     document.querySelectorAll('.stack-item').forEach(el => el.classList.remove('drag-over'));
     _dragId = null;

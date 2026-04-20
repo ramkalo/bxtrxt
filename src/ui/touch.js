@@ -3,7 +3,8 @@
 //   • Long-press compare (hold to see original, release to restore)
 //   • Canvas-drag adjust (horizontal drag maps to active slider range)
 
-import { canvas, ctx, originalImage } from '../renderer/glstate.js';
+import { canvas, originalImage } from '../renderer/glstate.js';
+import { blitOriginalToScreen } from '../renderer/webgl.js';
 import { processImage } from '../renderer/pipeline.js';
 import { activeSlider, updatePillValue } from './bottomsheet.js';
 
@@ -91,7 +92,7 @@ export function initTouchGestures() {
             longPressTimer = setTimeout(() => {
                 longPressActive = true;
                 if (!originalImage) return;
-                ctx.drawImage(originalImage, 0, 0, canvas.width, canvas.height);
+                blitOriginalToScreen();
                 // Clear overlay so timestamp doesn't linger on original
                 if (overlayCanvas) {
                     overlayCanvas.getContext('2d')

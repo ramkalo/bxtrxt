@@ -3,7 +3,6 @@ import { saveState } from '../state/undo.js';
 import { showNotification } from '../utils/notifications.js';
 import { snapshotStack, restoreStack } from '../state/effectStack.js';
 import { renderStackList } from './stackPanel.js';
-import { buildControlsPanel } from './stackControls.js';
 
 export function savePreset() {
     const name = document.getElementById('presetName').value.trim();
@@ -28,7 +27,6 @@ export function loadPreset(name) {
     saveState();
     restoreStack(preset.stack);  // triggers onStackChange → re-render
     renderStackList();
-    buildControlsPanel();
     showNotification('Preset loaded');
 }
 
@@ -108,7 +106,6 @@ export function importPreset(file) {
             saveState();
             restoreStack(imported.stack);  // triggers onStackChange → re-render
             renderStackList();
-            buildControlsPanel();
             document.getElementById('presetModal').classList.add('hidden');
             showNotification('Preset imported');
         } catch (err) {
