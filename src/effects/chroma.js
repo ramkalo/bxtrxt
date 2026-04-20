@@ -12,25 +12,11 @@ function applyChromaticAberration(imageData, p = params) {
     }
     const result = cachedBuffer;
 
-    // CMY offsets are complements: Cyan→G+B, Magenta→R+B, Yellow→R+G
-    // Each RGB channel's effective shift is the sum of its direct + two complement contributions.
     const scale = p.chromaScale ?? 1;
     const shifts = [
-        {
-            x: (p.chromaRedX   + p.chromaMagentaX + p.chromaYellowX) * scale,
-            y: (p.chromaRedY   + p.chromaMagentaY + p.chromaYellowY) * scale,
-            channel: 0,
-        },
-        {
-            x: (p.chromaGreenX + p.chromaCyanX    + p.chromaYellowX) * scale,
-            y: (p.chromaGreenY + p.chromaCyanY    + p.chromaYellowY) * scale,
-            channel: 1,
-        },
-        {
-            x: (p.chromaBlueX  + p.chromaCyanX    + p.chromaMagentaX) * scale,
-            y: (p.chromaBlueY  + p.chromaCyanY    + p.chromaMagentaY) * scale,
-            channel: 2,
-        },
+        { x: p.chromaRedX   * scale, y: p.chromaRedY   * scale, channel: 0 },
+        { x: p.chromaGreenX * scale, y: p.chromaGreenY * scale, channel: 1 },
+        { x: p.chromaBlueX  * scale, y: p.chromaBlueY  * scale, channel: 2 },
     ];
 
     const thresh  = 255 * (p.chromaThreshold / 100);
@@ -65,8 +51,8 @@ function applyChromaticAberration(imageData, p = params) {
                     weight = 1 - fadeAmount * (rawDist / fadeDist);
                 }
 
-                const nx = Math.round(x + shift.x * weight);
-                const ny = Math.round(y - shift.y * weight);
+                const nx = Math.round(x - shift.x * weight);
+                const ny = Math.round(y + shift.y * weight);
                 if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                     result[idx + shift.channel] =
                         sourceData[(ny * width + nx) * 4 + shift.channel];
@@ -83,7 +69,7 @@ export default {
     name: 'chroma',
     label: 'Chromatic Aberration',
     pass: 'pre-crt',
-    paramKeys: ['chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY', 'chromaCyanX', 'chromaCyanY', 'chromaMagentaX', 'chromaMagentaY', 'chromaYellowX', 'chromaYellowY', 'chromaScale', 'chromaThreshold', 'chromaThresholdReverse', 'chromaFade', 'chromaFadeRadius', 'chromaFadeInvert', 'chromaFadeX', 'chromaFadeY'],
+    paramKeys: ['chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY', 'chromaScale', 'chromaThreshold', 'chromaThresholdReverse', 'chromaFade', 'chromaFadeRadius', 'chromaFadeInvert', 'chromaFadeX', 'chromaFadeY'],
     params: {
         chromaEnabled:   { default: false },
         chromaRedX:      { default: 0, min: -20, max: 20 },
@@ -92,12 +78,6 @@ export default {
         chromaGreenY:    { default: 0, min: -20, max: 20 },
         chromaBlueX:     { default: 0, min: -20, max: 20 },
         chromaBlueY:     { default: 0, min: -20, max: 20 },
-        chromaCyanX:     { default: 0, min: -20, max: 20 },
-        chromaCyanY:     { default: 0, min: -20, max: 20 },
-        chromaMagentaX:  { default: 0, min: -20, max: 20 },
-        chromaMagentaY:  { default: 0, min: -20, max: 20 },
-        chromaYellowX:   { default: 0, min: -20, max: 20 },
-        chromaYellowY:   { default: 0, min: -20, max: 20 },
         chromaScale:            { default: 1, min: 1, max: 10 },
         chromaThreshold:        { default: 0,  min: 0,   max: 100 },
         chromaThresholdReverse: { default: false },
@@ -113,9 +93,6 @@ export default {
 uniform float chromaRedX; uniform float chromaRedY;
 uniform float chromaGreenX; uniform float chromaGreenY;
 uniform float chromaBlueX; uniform float chromaBlueY;
-uniform float chromaCyanX; uniform float chromaCyanY;
-uniform float chromaMagentaX; uniform float chromaMagentaY;
-uniform float chromaYellowX; uniform float chromaYellowY;
 uniform float chromaScale;
 uniform float chromaThreshold;
 uniform int   chromaThresholdReverse;
@@ -126,7 +103,7 @@ uniform float chromaFadeX;
 uniform float chromaFadeY;
 
 vec4 chromaSample(vec2 offsetPx) {
-    return texture(uTex, clamp(vUV + offsetPx / uResolution, vec2(0.0), vec2(1.0)));
+    return texture(uTex, clamp(vUV + vec2(-offsetPx.x, -offsetPx.y) / uResolution, vec2(0.0), vec2(1.0)));
 }
 
 void main() {
@@ -157,14 +134,9 @@ void main() {
         weight = 1.0 - fadeAmt * (rawDist / fadeDist);
     }
 
-    // Per-channel shifts (CMY are additive — see CPU comment)
-    // UV convention: +x = right, +y = toward image top  (matches CPU x + shift.x, y - shift.y)
-    vec2 rShift = vec2(chromaRedX   + chromaMagentaX + chromaYellowX,
-                       chromaRedY   + chromaMagentaY + chromaYellowY) * chromaScale * weight;
-    vec2 gShift = vec2(chromaGreenX + chromaCyanX    + chromaYellowX,
-                       chromaGreenY + chromaCyanY    + chromaYellowY) * chromaScale * weight;
-    vec2 bShift = vec2(chromaBlueX  + chromaCyanX    + chromaMagentaX,
-                       chromaBlueY  + chromaCyanY    + chromaMagentaY) * chromaScale * weight;
+    vec2 rShift = vec2(chromaRedX,   chromaRedY)   * chromaScale * weight;
+    vec2 gShift = vec2(chromaGreenX, chromaGreenY) * chromaScale * weight;
+    vec2 bShift = vec2(chromaBlueX,  chromaBlueY)  * chromaScale * weight;
 
     float r = chromaSample(rShift).r;
     float g = chromaSample(gShift).g;

@@ -71,6 +71,10 @@ export default {
     label: 'Basic Adjustments',
     pass: 'pre-crt',
     paramKeys: ['brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint', 'basicFade', 'basicFadeRadius', 'basicFadeInvert', 'basicFadeX', 'basicFadeY'],
+    uiGroups: [
+        { keys: ['brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint'] },
+        { label: 'Fade', keys: ['basicFade', 'basicFadeRadius', 'basicFadeInvert'] },
+    ],
     params: {
         basicEnabled:  { default: false },
         brightness:    { default: 0, min: -100, max: 100 },

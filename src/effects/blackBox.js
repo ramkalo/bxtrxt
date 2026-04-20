@@ -55,11 +55,11 @@ function applyBlackBox(ctx, p) {
                 let r, g, b;
 
                 if (fill === 'random') {
-                    r = Math.floor(Math.random() * 256);
-                    g = Math.floor(Math.random() * 256);
-                    b = Math.floor(Math.random() * 256);
+                    r = Math.floor(rand() * 256);
+                    g = Math.floor(rand() * 256);
+                    b = Math.floor(rand() * 256);
                 } else if (fill === 'bw') {
-                    const val = Math.random() > 0.5 ? 255 : 0;
+                    const val = rand() > 0.5 ? 255 : 0;
                     r = g = b = val;
                 } else if (fill === 'image' && sourcePixels) {
                     const sx = Math.min(px, sourcePixels.width  - 1);

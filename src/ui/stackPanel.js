@@ -2,6 +2,7 @@ import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
+import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -194,6 +195,19 @@ export function renderStackList() {
         item.addEventListener('dragend', onDragEnd);
 
         container.appendChild(item);
+    }
+
+    // Show/hide canvas overlays based on which effect is expanded
+    const expandedInst = stack.find(i => i.id === _expandedId);
+    if (expandedInst?.effectName === 'basic') {
+        showFadeOverlay(expandedInst);
+        hideBlurOverlay();
+    } else if (expandedInst?.effectName === 'blur') {
+        showBlurOverlay(expandedInst);
+        hideFadeOverlay();
+    } else {
+        hideFadeOverlay();
+        hideBlurOverlay();
     }
 }
 

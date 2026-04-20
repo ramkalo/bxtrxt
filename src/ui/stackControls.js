@@ -133,11 +133,25 @@ export function buildEffectBody(inst, onRebuild) {
     const content = document.createElement('div');
     content.className = 'tool-content';
 
-    for (const [key, schema] of Object.entries(effect.params)) {
-        if (key === enabledKey) continue;
-        if (key === 'rotate180' || key === 'rotate270') continue;
-        const controlEl = buildControl(inst, key, schema, onRebuild);
-        if (controlEl) content.appendChild(controlEl);
+    const groups = effect.uiGroups
+        ? effect.uiGroups
+        : [{ keys: Object.keys(effect.params).filter(k => k !== enabledKey && k !== 'rotate180' && k !== 'rotate270') }];
+
+    for (const group of groups) {
+        if (group.label) {
+            const header = document.createElement('div');
+            header.className = 'control-section-header';
+            header.textContent = group.label;
+            content.appendChild(header);
+        }
+        for (const key of group.keys) {
+            if (key === enabledKey) continue;
+            if (key === 'rotate180' || key === 'rotate270') continue;
+            const schema = effect.params[key];
+            if (!schema) continue;
+            const controlEl = buildControl(inst, key, schema, onRebuild);
+            if (controlEl) content.appendChild(controlEl);
+        }
     }
 
     if (inst.effectName === 'doubleExposure') {

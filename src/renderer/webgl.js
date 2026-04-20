@@ -265,7 +265,19 @@ function _runEffects(stack) {
             const passList = typeof effect.glslPasses === 'function'
                 ? effect.glslPasses(instance.params)
                 : effect.glslPasses;
-            const prePasses = srcTex;
+
+            // If any pass needs the pre-effect input via uTexOriginal, copy srcTex
+            // into a dedicated temp FBO first. The ping-pong passes only have 2 slots
+            // and will overwrite whichever pool FBO srcTex came from, corrupting it.
+            const needsCopy = passList.some(p => p.needsOriginal);
+            let prePassesFBO = null;
+            let prePasses = srcTex;
+            if (needsCopy) {
+                prePassesFBO = createFBO(fboPool[0].width, fboPool[0].height);
+                runPass(PASSTHROUGH_FRAG, srcTex, prePassesFBO, null, null);
+                prePasses = prePassesFBO.tex;
+            }
+
             let passSrc = srcTex;
             let lastFbo = null;
 
@@ -294,6 +306,7 @@ function _runEffects(stack) {
                 pingIdx++;
             }
 
+            if (prePassesFBO) destroyFBO(prePassesFBO);
             if (lastFbo) srcTex = lastFbo.tex;
             continue;
         }

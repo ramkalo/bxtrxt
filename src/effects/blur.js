@@ -75,13 +75,12 @@ function boxBlur(src, width, height, radius, passes) {
     return cachedResult;
 }
 
+const BLUR_RADIUS = 10;
+
 function applyBlur(imageData, p = params) {
     const { data, width, height } = imageData;
-    const radius = Math.round(p.blurRadius);
-    if (radius < 1) return imageData;
-
     const passes  = Math.round(p.blurPasses ?? 1);
-    const blurFull = boxBlur(data, width, height, radius, passes);
+    const blurFull = boxBlur(data, width, height, BLUR_RADIUS, passes);
 
     const mode      = p.blurMode;
     const angleRad  = (p.blurAngle ?? 0) * Math.PI / 180;
@@ -123,12 +122,15 @@ export default {
     name:  'blur',
     label: 'Blur',
     pass:  'pre-crt',
-    paramKeys: ['blurEdge', 'blurCenter', 'blurRadius', 'blurPasses', 'blurMode', 'blurMajor', 'blurMinor', 'blurAngle', 'blurCenterX', 'blurCenterY'],
+    paramKeys: ['blurEdge', 'blurCenter', 'blurPasses', 'blurMode', 'blurMajor', 'blurMinor', 'blurAngle', 'blurCenterX', 'blurCenterY'],
+    uiGroups: [
+        { keys: ['blurEdge', 'blurCenter', 'blurPasses', 'blurMode'] },
+        { label: 'Shape', keys: ['blurMajor', 'blurMinor', 'blurAngle'] },
+    ],
     params: {
+        blurEnabled: { default: false },
         blurEdge:    { default: 100, min: 0,   max: 100 },
         blurCenter:  { default: 0,   min: 0,   max: 100 },
-        blurEnabled: { default: false },
-        blurRadius:  { default: 8,   min: 1,   max: 50  },
         blurPasses:  { default: 1,   min: 1,   max: 3   },
         blurMode:    { default: 'ellipse' },
         blurMajor:   { default: 100, min: 0,   max: 150 },
@@ -157,12 +159,10 @@ export default {
 };
 
 const BLUR_H_GLSL = `
-uniform float blurRadius;
-
 void main() {
-    int r = int(blurRadius + 0.5);
-    float sigma = max(blurRadius, 1.0);
-    float twoSigSq = 2.0 * sigma * sigma;
+    const float BLUR_RADIUS = 10.0;
+    int r = int(BLUR_RADIUS + 0.5);
+    float twoSigSq = 2.0 * BLUR_RADIUS * BLUR_RADIUS;
     vec4 color = vec4(0.0);
     float total = 0.0;
     for (int i = -50; i <= 50; i++) {
@@ -176,12 +176,10 @@ void main() {
 `;
 
 const BLUR_V_GLSL = `
-uniform float blurRadius;
-
 void main() {
-    int r = int(blurRadius + 0.5);
-    float sigma = max(blurRadius, 1.0);
-    float twoSigSq = 2.0 * sigma * sigma;
+    const float BLUR_RADIUS = 10.0;
+    int r = int(BLUR_RADIUS + 0.5);
+    float twoSigSq = 2.0 * BLUR_RADIUS * BLUR_RADIUS;
     vec4 color = vec4(0.0);
     float total = 0.0;
     for (int i = -50; i <= 50; i++) {

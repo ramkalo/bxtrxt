@@ -241,7 +241,7 @@ function applyCorrupted(imageData, p = params) {
 
     const centerX    = (0.5 + p.corruptedX / 100) * width;
     const centerY    = (0.5 - p.corruptedY / 100) * height;
-    const clusterR   = p.corruptedCluster / 100 * Math.min(width, height) * 0.5;
+    const clusterR   = p.corruptedCluster / 100 * Math.min(width, height) * 10;
     const infectRadius = p.corruptedInfect / 100 * Math.max(chunkW, chunkH) * 0.5;
 
     const seeds = generateSeeds(p.corruptedSeeds, centerX, centerY, clusterR, chunkSize, rng);
@@ -422,7 +422,7 @@ function buildChunkMapGPU(p, imgW, imgH) {
     const rng       = mulberry32(p.corruptedSeed);
     const centerX   = (0.5 + p.corruptedX / 100) * imgW;
     const centerY   = (0.5 - p.corruptedY / 100) * imgH;
-    const clusterR  = p.corruptedCluster / 100 * Math.min(imgW, imgH) * 0.5;
+    const clusterR  = p.corruptedCluster / 100 * Math.min(imgW, imgH) * 2;
     const infectRadius = p.corruptedInfect / 100 * Math.max(chunkW, chunkH) * 0.5;
     const seeds     = generateSeeds(p.corruptedSeeds, centerX, centerY, clusterR, chunkSize, rng);
     const pathLength = Math.round((p.corruptedInfect / 100) * chunkW * chunkH);
@@ -510,6 +510,8 @@ function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
             chunkData[i * 4]     = chunkMap[i] + 1;  // 0=unaffected, 1-10=zone+1
             chunkData[i * 4 + 3] = 255;
         }
+        // Upload on TEXTURE1/TEXTURE2 explicitly — avoids clobbering TEXTURE0 (srcTex)
+        gl.activeTexture(gl.TEXTURE1);
         const chunkTex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, chunkTex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, chunkW, chunkH, 0, gl.RGBA, gl.UNSIGNED_BYTE, chunkData);
@@ -520,6 +522,7 @@ function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
 
         // Upload zone colors texture (1 × numZones strip)
         const numZones = p.corruptedSeeds;
+        gl.activeTexture(gl.TEXTURE2);
         const colorTex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, colorTex);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, numZones, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, zoneColors);
@@ -527,7 +530,6 @@ function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.bindTexture(gl.TEXTURE_2D, null);
 
         _gpuCache.chunkTex = chunkTex;
         _gpuCache.colorTex = colorTex;
