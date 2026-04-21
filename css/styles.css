@@ -22,7 +22,7 @@ body {
     font-family: 'JetBrains Mono', monospace;
     background: var(--bg-dark);
     color: var(--text);
-    min-height: 100vh;
+    height: 100vh;
     overflow-x: hidden;
     overscroll-behavior: none;
 }
@@ -30,12 +30,12 @@ body {
 .app-container {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
 }
 
 @media (min-width: 901px) {
     .app-container {
-        margin: 10px;
+        margin: 0px;
         padding: 0px;
         height: 100vh;
         overflow: hidden;
@@ -125,7 +125,7 @@ body {
     border: none;
     color: var(--text-dim);
     padding: 2px 5px;
-    font-size: 0.85rem;
+    font-size: 1.25rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
     border-radius: 3px;
@@ -1211,7 +1211,7 @@ input[type="checkbox"] {
     background: transparent;
     border: none;
     color: var(--text-dim);
-    font-size: 0.9rem;
+    font-size: 1.25rem;
     cursor: pointer;
     padding: 2px 5px;
     border-radius: 3px;
@@ -1229,7 +1229,7 @@ input[type="checkbox"] {
     background: transparent;
     border: none;
     color: var(--text-dim);
-    font-size: 0.75rem;
+    font-size: 1.25rem;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 3px;
@@ -1335,8 +1335,8 @@ input[type="checkbox"] {
     color: var(--text-dim);
     font-size: 1rem;
     line-height: 1;
-    width: 22px;
-    height: 22px;
+    width: 50px;
+    height: 40px;
     border-radius: 4px;
     cursor: pointer;
     font-family: inherit;
