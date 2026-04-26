@@ -42,9 +42,9 @@ export function renderTimestampOverlay(overlayCanvas) {
 
 export const vhsEffect = {
     name: 'vhs',
-    label: 'VHS Effect',
+    label: 'VHS Line Glitch',
     pass: 'pre-crt',
-    paramKeys: ['vhsTracking', 'vhsTrackingThickness', 'vhsTrackingAmount', 'vhsTrackingSeed', 'vhsTrackingColor', 'vhsBleed', 'vhsNoise'],
+    paramKeys: ['vhsTracking', 'vhsTrackingThickness', 'vhsTrackingAmount', 'vhsTrackingSeed', 'vhsTrackingColor'],
     params: {
         vhsEnabled:  { default: false },
         vhsTracking:          { default: 0,  min: 0,   max: 100 },
@@ -53,8 +53,6 @@ export const vhsEffect = {
         vhsTrackingAmount:    { default: 2,  min: 2,   max: 20  },
         vhsTrackingSeed:      { default: 1 },
         vhsTrackingColor:     { default: 'shift' },
-        vhsBleed:    { default: 0, min: 0, max: 20  },
-        vhsNoise:    { default: 0, min: 0, max: 100 },
     },
     enabled: (p) => p.vhsEnabled,
     bindUniforms: (gl, prog, p) => {
@@ -62,23 +60,16 @@ export const vhsEffect = {
         if (loc != null) gl.uniform1i(loc, { shift: 0, white: 1, black: 2, noise: 3, color: 4 }[p.vhsTrackingColor] ?? 0);
     },
     glsl: `
-uniform float vhsBleed;
 uniform float vhsTracking;
 uniform float vhsTrackingAmount;
 uniform float vhsTrackingThickness;
 uniform float vhsTrackingSeed;
 uniform int   vhsTrackingColor;
-uniform float vhsNoise;
 
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 void main() {
-    // Bleed: red bleeds right (sample from left), blue bleeds left (sample from right)
-    float bleedU = vhsBleed / uResolution.x;
-    float r = texture(uTex, clamp(vec2(vUV.x - bleedU, vUV.y), vec2(0.0), vec2(1.0))).r;
-    float g = texture(uTex, vUV).g;
-    float b = texture(uTex, clamp(vec2(vUV.x + bleedU, vUV.y), vec2(0.0), vec2(1.0))).b;
-    vec4 col = vec4(r, g, b, texture(uTex, vUV).a);
+    vec4 col = texture(uTex, vUV);
 
     // Tracking bands — LCG matches JS Math.imul (both 32-bit unsigned wrap)
     if (vhsTracking > 0.0) {
@@ -91,12 +82,14 @@ void main() {
             if (t >= numBands) break;
             lcgState = uint(1664525) * lcgState + uint(1013904223);
             float bandY = float(lcgState) / 4294967296.0 * uResolution.y;
-            bandY = clamp(bandY, 0.0, uResolution.y - vhsTrackingThickness);
+            bandY = clamp(bandY, 0.0, uResolution.y - 1.0);
 
             uint hsh = (uint(t + 1) * uint(2654435761)) % uint(1000);
             float shift = (float(hsh) / 999.0 * 2.0 - 1.0) * maxShift;
+            float thickMult = 0.5 + float((uint(t + 1) * uint(2246822519)) % uint(1000)) / 999.0;
+            float bandThickness = max(1.0, vhsTrackingThickness * thickMult);
 
-            if (row >= bandY && row < bandY + vhsTrackingThickness) {
+            if (row >= bandY && row < bandY + bandThickness) {
                 if      (vhsTrackingColor == 1) { col = vec4(1.0); }
                 else if (vhsTrackingColor == 2) { col = vec4(0.0, 0.0, 0.0, 1.0); }
                 else if (vhsTrackingColor == 3) { float n = hash21(vUV); col = vec4(n, n, n, 1.0); }
@@ -105,12 +98,6 @@ void main() {
                 break;
             }
         }
-    }
-
-    // Noise
-    if (vhsNoise > 0.0) {
-        float noise = (hash21(vUV + vec2(0.5)) - 0.5) * 120.0 * (vhsNoise / 100.0);
-        col.rgb = clamp(col.rgb + noise / 255.0, 0.0, 1.0);
     }
 
     fragColor = col;

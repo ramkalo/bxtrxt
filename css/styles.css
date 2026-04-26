@@ -74,10 +74,10 @@ body {
 }
 
 .logo {
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--accent);
-    letter-spacing: 2px;
+    height: 40px;
+    width: auto;
+    cursor: pointer;
+    display: block;
 }
 
 .toolbar {
@@ -255,7 +255,7 @@ body {
 }
 
 .sidebar {
-    width: 380px;
+    width: 430px;
     background: var(--bg-panel);
     border-left: 2px solid var(--border);
     overflow: hidden;
@@ -402,16 +402,87 @@ input[type="range"]::-moz-range-thumb {
     border: none;
 }
 
+/* Slider enhancement widget (+/−/reset buttons on last-touched slider) */
+
+.slider-track-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    overflow: visible;
+}
+
+.slider-track-wrapper input[type="range"] {
+    flex: 1;
+    width: 100%;
+}
+
+/* −/+ are normal flex items — always in the layout, invisible when inactive.
+   The slider width never changes when buttons appear or disappear. */
+.slider-btn {
+    visibility: hidden;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-input);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    font-family: inherit;
+    font-size: 0.85rem;
+    line-height: 1;
+    cursor: pointer;
+    flex-shrink: 0;
+    touch-action: manipulation;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.slider-btn:hover {
+    color: var(--text);
+    border-color: var(--accent);
+    background: var(--border);
+}
+
+.slider-btn:active {
+    background: var(--accent);
+    color: var(--bg-dark);
+    border-color: var(--accent);
+}
+
+/* ↺ floats above the track — absolute, never in the thumb's path */
+.slider-btn--reset {
+    position: absolute;
+    bottom: calc(50% + 10px);
+    width: 18px;
+    height: 18px;
+    font-size: 0.65rem;
+    transform: translateX(-50%);
+    z-index: 2;
+    /* left set inline by JS at build time */
+}
+
+.slider-group--active .slider-btn {
+    visibility: visible;
+    pointer-events: auto;
+}
+
 @media (max-width: 900px) {
     input[type="range"]::-webkit-slider-thumb {
         width: 24px;
         height: 24px;
     }
-    
+
     input[type="range"]::-moz-range-thumb {
         width: 24px;
         height: 24px;
     }
+
+    .slider-btn { width: 30px; height: 30px; font-size: 1rem; }
+    .slider-btn--reset { width: 24px; height: 24px; font-size: 0.75rem; bottom: calc(50% + 14px); }
 }
 
 input[type="number"], input[type="text"] {

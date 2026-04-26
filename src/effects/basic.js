@@ -2,30 +2,42 @@ export default {
     name: 'basic',
     label: 'Basic Adjustments',
     pass: 'pre-crt',
-    paramKeys: ['brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint', 'basicFade', 'basicFadeRadius', 'basicFadeInvert', 'basicFadeX', 'basicFadeY'],
+    paramKeys: ['brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint',
+                'basicFadeEnabled', 'basicFadeShape', 'basicFade', 'basicFadeW', 'basicFadeH',
+                'basicFadeSlope', 'basicFadeInvert', 'basicFadeAngle', 'basicFadeX', 'basicFadeY'],
+    handleParams: ['basicFadeX', 'basicFadeY', 'basicFadeW', 'basicFadeH', 'basicFadeAngle'],
     uiGroups: [
         { keys: ['brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint'] },
-        { label: 'Fade', keys: ['basicFade', 'basicFadeRadius', 'basicFadeInvert'] },
+        { label: 'Fade', keys: ['basicFadeEnabled', 'basicFadeShape', 'basicFade', 'basicFadeSlope', 'basicFadeInvert'] },
     ],
     params: {
-        basicEnabled:  { default: false },
-        brightness:    { default: 0, min: -100, max: 100 },
-        contrast:      { default: 0, min: -100, max: 100 },
-        saturation:    { default: 0, min: -100, max: 100 },
-        highlights:    { default: 0, min: -100, max: 100 },
-        shadows:       { default: 0, min: -100, max: 100 },
-        temperature:   { default: 0, min: -100, max: 100 },
-        tint:          { default: 0, min: -100, max: 100 },
-        basicFade:           { default: 0,   min: 0,   max: 100 },
-        basicFadeRadius:       { default: 100, min: 1,   max: 100 },
-        basicFadeInvert:     { default: false },
-        basicFadeX:         { default: 0,   min: -50, max: 50  },
-        basicFadeY:         { default: 0,   min: -50, max: 50  },
+        basicEnabled:     { default: false },
+        brightness:       { default: 0, min: -100, max: 100 },
+        contrast:         { default: 0, min: -100, max: 100 },
+        saturation:       { default: 0, min: -100, max: 100 },
+        highlights:       { default: 0, min: -100, max: 100 },
+        shadows:          { default: 0, min: -100, max: 100 },
+        temperature:      { default: 0, min: -100, max: 100 },
+        tint:             { default: 0, min: -100, max: 100 },
+        basicFadeEnabled: { default: false },
+        basicFadeShape:   { default: 'ellipse' },
+        basicFade:        { default: 20,   min: 0,   max: 100 },
+        basicFadeW:       { default: 40, min: 1,   max: 200 },
+        basicFadeH:       { default: 40, min: 1,   max: 200 },
+        basicFadeSlope:   { default: 3,   min: 0.1, max: 8, step: 0.1 },
+        basicFadeInvert:  { default: true },
+        basicFadeAngle:   { default: 0,   min: -180, max: 180 },
+        basicFadeX:       { default: 0,   min: -50,  max: 50 },
+        basicFadeY:       { default: 0,   min: -50, max: 50 },
     },
     enabled: (p) => p.basicEnabled &&
         (p.brightness!==0 || p.contrast!==0 || p.saturation!==0 ||
          p.highlights!==0 || p.shadows!==0 || p.temperature!==0 || p.tint!==0 ||
          p.basicFade!==0),
+    bindUniforms: (gl, prog, p) => {
+        const loc = prog._locs['basicFadeShape'];
+        if (loc != null) gl.uniform1i(loc, { ellipse: 0, rectangle: 1 }[p.basicFadeShape] ?? 0);
+    },
     glsl: `
 uniform float brightness;
 uniform float contrast;
@@ -34,8 +46,13 @@ uniform float highlights;
 uniform float shadows;
 uniform float temperature;
 uniform float tint;
+uniform int   basicFadeEnabled;
+uniform int   basicFadeShape;   // 0=ellipse 1=rectangle
 uniform float basicFade;
-uniform float basicFadeRadius;
+uniform float basicFadeW;
+uniform float basicFadeH;
+uniform float basicFadeSlope;
+uniform float basicFadeAngle;
 uniform float basicFadeX;
 uniform float basicFadeY;
 uniform int   basicFadeInvert;
@@ -45,20 +62,32 @@ void main() {
     vec3 orig = c.rgb * 255.0;
     float r = orig.r, g = orig.g, b = orig.b;
 
-    // Radial fade weight
-    float imgX = vUV.x * uResolution.x;
-    float imgY = (1.0 - vUV.y) * uResolution.y;
-    float cx = (0.5 + basicFadeX / 100.0) * uResolution.x;
-    float cy = (0.5 - basicFadeY / 100.0) * uResolution.y;
-    float mxX = max(cx, uResolution.x - cx);
-    float mxY = max(cy, uResolution.y - cy);
-    float fadeDist = max(1.0, sqrt(mxX*mxX + mxY*mxY) * (basicFadeRadius / 100.0));
-    float dx = imgX - cx, dy = imgY - cy;
-    float t = sqrt(dx*dx + dy*dy) / fadeDist;
-    float fadeAmt = basicFade / 100.0;
-    float weight = (basicFadeInvert == 1)
-        ? clamp(1.0 - fadeAmt * (1.0 - t), 0.0, 1.0)
-        : max(0.0, 1.0 - fadeAmt * t);
+    // Radial fade weight — full inside shape, fades outside
+    float weight = 1.0;
+    if (basicFadeEnabled == 1 && basicFade > 0.0) {
+        float imgX = vUV.x * uResolution.x;
+        float imgY = (1.0 - vUV.y) * uResolution.y;
+        float cx = (0.5 + basicFadeX / 100.0) * uResolution.x;
+        float cy = (0.5 - basicFadeY / 100.0) * uResolution.y;
+        float dx = imgX - cx, dy = imgY - cy;
+        float rad = basicFadeAngle * 3.14159265 / 180.0;
+        float cosA = cos(rad), sinA = sin(rad);
+        float rdx =  dx * cosA + dy * sinA;
+        float rdy = -dx * sinA + dy * cosA;
+        float t;
+        float hw = max(1.0, (basicFadeW / 100.0) * uResolution.x / 2.0);
+        float hh = max(1.0, (basicFadeH / 100.0) * uResolution.y / 2.0);
+        if (basicFadeShape == 0) {
+            t = sqrt(pow(rdx/hw, 2.0) + pow(rdy/hh, 2.0));
+        } else {
+            t = max(abs(rdx)/hw, abs(rdy)/hh);
+        }
+        float beyond = max(0.0, t - 1.0);
+        float fadeAmt = basicFade / 100.0;
+        weight = (basicFadeInvert == 1)
+            ? clamp(beyond * basicFadeSlope * fadeAmt, 0.0, 1.0)
+            : clamp(1.0 - beyond * basicFadeSlope * fadeAmt, 0.0, 1.0);
+    }
 
     // Adjustments (working in 0-255 range to match CPU code)
     float lum = 0.299*r + 0.587*g + 0.114*b;

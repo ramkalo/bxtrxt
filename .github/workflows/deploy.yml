@@ -37,10 +37,10 @@ jobs:
         run: npm ci
 
       - name: Build
-        # VITE_BASE must match your repo name, e.g. /retroinator/
+        # VITE_BASE must match your repo name, e.g. /vikritinator/
         # If you have a custom domain pointed at this repo, set it to /
         env:
-          VITE_BASE: /Glitchinator/
+          VITE_BASE: /Vikritinator/
         run: npm run build
 
       - name: Upload Pages artifact

@@ -124,9 +124,9 @@ export const EFFECT_CATALOG = [
     { name: 'transform',      label: 'Rotate',               description: 'Flip and rotate' },
     { name: 'viewport',      label: 'Viewport',             description: 'Reveal a shaped window that cuts through selected effects' },
     { name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
-    { name: 'vhs',            label: 'VHS Effect',           description: 'Tracking, color bleed, and VHS noise' },
+    { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
     { name: 'vhsTimestamp',   label: 'VHS Timestamp',        description: 'Retro timestamp text overlay' },
-    { name: 'waves',          label: 'Waves',                description: 'Wave distortion per color channel' },
+    { name: 'waves',          label: 'Chroma Waves',         description: 'Per-channel wave distortion with radial fade' },
 ];
 
 /**

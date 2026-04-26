@@ -211,6 +211,7 @@ export function renderStackList() {
     if (newEffect !== 'matrixRain') hideMatrixRainOverlay();
 
     if      (newEffect === 'basic')    showFadeOverlay(expandedInst);
+    else if (newEffect === 'waves')    showFadeOverlay(expandedInst, 'wavesFadeX', 'wavesFadeY', 'wavesFadeShape', 'wavesFadeW', 'wavesFadeH', 'wavesFadeAngle', 'wavesFadeEnabled');
     else if (newEffect === 'blur')     showBlurOverlay(expandedInst);
     else if (newEffect === 'blackBox') showBlackBoxOverlay(expandedInst);
     else if (newEffect === 'crop')     showCropOverlay(expandedInst);

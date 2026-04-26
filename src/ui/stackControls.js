@@ -2,6 +2,8 @@ import { getEffect } from '../effects/registry.js';
 import { setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 
+let activeSliderGroup = null;
+
 // Special UI metadata for params that need non-default rendering
 const PARAM_LABELS = {
     // transform
@@ -11,11 +13,14 @@ const PARAM_LABELS = {
     // blackBox
     blackBoxEnabled: 'Enable', blackBoxX: 'X', blackBoxY: 'Y', blackBoxW: 'Width', blackBoxH: 'Height', blackBoxAngle: 'Angle',
     blackBoxFill: 'Fill', blackBoxGrainSize: 'Grain Size', blackBoxStaticSeed: 'Static',
+    blackBoxGrabMode: 'Grab Mode',
     // basic
     basicEnabled: 'Enable', brightness: 'Brightness', contrast: 'Contrast',
     saturation: 'Saturation', highlights: 'Highlights', shadows: 'Shadows',
     temperature: 'Temperature', tint: 'Tint',
-    basicFade: 'Fade', basicFadeRadius: 'Radius', basicFadeInvert: 'Invert',
+    basicFadeEnabled: 'Enable Fade', basicFadeShape: 'Shape',
+    basicFade: 'Fade', basicFadeW: 'Width', basicFadeH: 'Height',
+    basicFadeSlope: 'Transition Slope', basicFadeInvert: 'Invert Fade',
     basicFadeX: 'Center X', basicFadeY: 'Center Y',
     // grain
     grainEnabled: 'Enable', grainIntensity: 'Intensity', grainSize: 'Grain Size',
@@ -45,12 +50,16 @@ const PARAM_LABELS = {
     digitizeEnabled: 'Enable', pixelSize: 'Pixel Size', pixelColors: '# Colors',
     digitizeDither: 'Dithering', digitizeNoise: 'Noise',
     // vhs
-    vhsEnabled: 'Enable', vhsTracking: 'Shift', vhsTrackingThickness: 'Thickness', vhsTrackingAmount: 'Amount', vhsTrackingSeed: 'Spacing', vhsTrackingColor: 'Line Color', vhsBleed: 'Color Bleed', vhsNoise: 'Noise',
+    vhsEnabled: 'Enable', vhsTracking: 'Line Glitch', vhsTrackingThickness: 'Thickness', vhsTrackingAmount: 'Amount', vhsTrackingSeed: 'Spacing', vhsTrackingColor: 'Line Color',
     // vhsTimestamp
     vhsTimestampEnabled: 'Enable', vhsTimestamp: 'Text', vhsTimestampSize: 'Size',
     vhsTimestampX: 'X', vhsTimestampY: 'Y', vhsTimestampColor: 'Color',
     // waves
     wavesEnabled: 'Enable', wavesR: 'Red', wavesG: 'Green', wavesB: 'Blue', wavesPhase: 'Phase',
+    wavesFadeEnabled: 'Enable Fade', wavesFadeShape: 'Shape',
+    wavesFade: 'Fade', wavesFadeW: 'Width', wavesFadeH: 'Height',
+    wavesFadeSlope: 'Transition Slope', wavesFadeInvert: 'Invert Fade',
+    wavesFadeX: 'Center X', wavesFadeY: 'Center Y',
     // digitalSmear
     smearEnabled: 'Enable', smearWidth: 'Width', smearDirection: 'Direction', smearShift: 'Shift',
     // corrupted
@@ -160,7 +169,11 @@ const PARAM_OPTIONS = {
         ['bw', 'B&W'],
         ['image', 'Image'],
         ['image-static', 'Image Static'],
+        ['image-grab', 'Image Grab'],
     ],
+    blackBoxGrabMode: [['skew', 'Skew'], ['wrap', 'Wrap']],
+    basicFadeShape:   [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
+    wavesFadeShape:   [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
 };
 
 // Build all parameter controls for one effect instance into a container div.
@@ -196,6 +209,21 @@ export function buildEffectBody(inst, onRebuild) {
             const controlEl = buildControl(inst, key, schema, onRebuild);
             if (controlEl) content.appendChild(controlEl);
         }
+    }
+
+    if (inst.effectName === 'blackBox' && inst.params.blackBoxFill === 'image-grab') {
+        const modeControl = buildControl(inst, 'blackBoxGrabMode', effect.params.blackBoxGrabMode, onRebuild);
+        if (modeControl) content.appendChild(modeControl);
+
+        const matchRow = document.createElement('div');
+        matchRow.className = 'control-group';
+        matchRow.innerHTML = `<div class="control-row"><button class="btn">Match Dimensions</button></div>`;
+        matchRow.querySelector('button').addEventListener('click', () => {
+            saveState();
+            setInstanceParam(inst.id, 'blackBoxW', inst.params.blackBoxGrabW);
+            setInstanceParam(inst.id, 'blackBoxH', inst.params.blackBoxGrabH);
+        });
+        content.appendChild(matchRow);
     }
 
     if (inst.effectName === 'doubleExposure') {
@@ -302,6 +330,7 @@ function buildControl(inst, key, schema, onRebuild) {
         select.addEventListener('change', () => {
             saveState();
             setInstanceParam(inst.id, key, select.value);
+            if (onRebuild) onRebuild();
         });
         row.appendChild(labelEl);
         row.appendChild(select);
@@ -396,29 +425,89 @@ function buildControl(inst, key, schema, onRebuild) {
     // Number with min/max → range slider
     if ('min' in schema && 'max' in schema) {
         const group = document.createElement('div');
-        group.className = 'control-group';
+        group.className = 'control-group slider-group';
+
         const row = document.createElement('div');
         row.className = 'control-row';
+
         const labelEl = document.createElement('span');
         labelEl.className = 'control-label';
         labelEl.textContent = label;
+
+        const step = schema.step ?? (Math.abs(schema.max - schema.min) <= 1 ? 0.01 : 1);
+
+        const decBtn = document.createElement('button');
+        decBtn.className = 'slider-btn slider-btn--dec';
+        decBtn.textContent = '−';
+        decBtn.tabIndex = -1;
+
+        const trackWrapper = document.createElement('div');
+        trackWrapper.className = 'slider-track-wrapper';
+
         const range = document.createElement('input');
         range.type = 'range';
         range.min = schema.min;
         range.max = schema.max;
-        range.step = schema.step ?? (Math.abs(schema.max - schema.min) <= 1 ? 0.01 : 1);
+        range.step = step;
         range.value = currentVal;
         range.dataset.instParam = key;
+
+        const defaultVal = schema.default ?? schema.min;
+        const pct = Math.max(2, Math.min(98,
+            ((defaultVal - schema.min) / (schema.max - schema.min)) * 100
+        ));
+        const resetBtn = document.createElement('button');
+        resetBtn.className = 'slider-btn slider-btn--reset';
+        resetBtn.textContent = '↺';
+        resetBtn.title = `Reset to ${defaultVal}`;
+        resetBtn.tabIndex = -1;
+        resetBtn.style.left = `${pct}%`;
+
+        const incBtn = document.createElement('button');
+        incBtn.className = 'slider-btn slider-btn--inc';
+        incBtn.textContent = '+';
+        incBtn.tabIndex = -1;
+
+        trackWrapper.appendChild(range);
+        trackWrapper.appendChild(resetBtn);
+
         const valueSpan = document.createElement('span');
         valueSpan.className = 'control-value';
         valueSpan.textContent = currentVal;
+
+        function applyValue(v) {
+            const clamped = Math.min(schema.max, Math.max(schema.min, v));
+            range.value = clamped;
+            const parsed = parseFloat(range.value);
+            setInstanceParam(inst.id, key, parsed);
+            valueSpan.textContent = parsed;
+            range.dispatchEvent(new InputEvent('input', { bubbles: true }));
+        }
+
+        function activateGroup() {
+            if (activeSliderGroup === group) return;
+            if (activeSliderGroup) activeSliderGroup.classList.remove('slider-group--active');
+            activeSliderGroup = group;
+            group.classList.add('slider-group--active');
+        }
+
+        range.addEventListener('mousedown', activateGroup);
+        range.addEventListener('touchstart', activateGroup, { passive: true });
+        range.addEventListener('focus', activateGroup);
         range.addEventListener('input', () => {
             const v = parseFloat(range.value);
             setInstanceParam(inst.id, key, v);
             valueSpan.textContent = v;
         });
+
+        decBtn.addEventListener('click', () => { activateGroup(); applyValue(parseFloat(range.value) - step); });
+        incBtn.addEventListener('click', () => { activateGroup(); applyValue(parseFloat(range.value) + step); });
+        resetBtn.addEventListener('click', () => { activateGroup(); applyValue(defaultVal); });
+
         row.appendChild(labelEl);
-        row.appendChild(range);
+        row.appendChild(decBtn);
+        row.appendChild(trackWrapper);
+        row.appendChild(incBtn);
         row.appendChild(valueSpan);
         group.appendChild(row);
         return group;

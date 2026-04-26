@@ -12,7 +12,7 @@ export function exportImage(format) {
         String(now.getHours()).padStart(2, '0') +
         String(now.getMinutes()).padStart(2, '0') +
         String(now.getSeconds()).padStart(2, '0');
-    const filename = `retroinator-export-${ts}.${ext}`;
+    const filename = `vikritinator-export-${ts}.${ext}`;
 
     if (!originalImage) return;
 

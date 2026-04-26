@@ -1,4 +1,4 @@
-# Glitchinator
+# Vikritinator
 
 Browser-based image editor with retro VFX effects. Works offline via PWA.
 

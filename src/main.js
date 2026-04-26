@@ -10,6 +10,7 @@ import { initMobileUI } from './ui/mobile.js';
 import { initBottomSheet } from './ui/bottomsheet.js';
 import { initTouchGestures } from './ui/touch.js';
 import { initStackPanel, renderStackList } from './ui/stackPanel.js';
+import { initLogo } from './ui/logo.js';
 
 // ---------------------------------------------------------------------------
 // Stack UI rebuild — called whenever stack changes (add/remove/reorder/undo)
@@ -204,3 +205,4 @@ initStackPanel();
 initMobileUI();
 initBottomSheet();
 initTouchGestures();
+initLogo();

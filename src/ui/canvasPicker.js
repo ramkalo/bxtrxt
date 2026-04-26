@@ -13,6 +13,11 @@ let _instId     = null;
 let _dragging   = false;
 let _xKey       = null;
 let _yKey       = null;
+let _shapeKey   = null;   // fade: param key for shape enum
+let _wKey       = null;   // fade: param key for W (ellipse X / rect half-width)
+let _hKey       = null;   // fade: param key for H (ellipse Y / rect half-height)
+let _angleKey   = null;   // fade: param key for rotation angle (degrees)
+let _enabledKey = null;   // fade: param key for enabled boolean
 let _handle     = null;   // blackBox/crop/viewport: handle name
 let _dragAnchor = null;   // crop corner drag: { oppX, oppY, signX, signY }
 
@@ -45,8 +50,21 @@ onStackChange((key) => {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
-export function showFadeOverlay(inst) {
-    _activate('fade', inst, 'basicFadeX', 'basicFadeY');
+export function showFadeOverlay(inst,
+    xKey       = 'basicFadeX',
+    yKey       = 'basicFadeY',
+    shapeKey   = 'basicFadeShape',
+    wKey       = 'basicFadeW',
+    hKey       = 'basicFadeH',
+    angleKey   = 'basicFadeAngle',
+    enabledKey = 'basicFadeEnabled',
+) {
+    _shapeKey   = shapeKey;
+    _wKey       = wKey;
+    _hKey       = hKey;
+    _angleKey   = angleKey;
+    _enabledKey = enabledKey;
+    _activate('fade', inst, xKey, yKey);
     drawFade(inst.params);
 }
 
@@ -110,6 +128,11 @@ function _hideActive() {
     _dragging   = false;
     _xKey       = null;
     _yKey       = null;
+    _shapeKey   = null;
+    _wKey       = null;
+    _hKey       = null;
+    _angleKey   = null;
+    _enabledKey = null;
     _handle     = null;
     _dragAnchor = null;
     clear();
@@ -152,29 +175,109 @@ function drawHandle(cx, cy) {
     uiCtx.stroke();
 }
 
-// Basic Adjustments fade — handle dot always visible, dashed circle only while dragging
+// Fade — center handle always visible; shape outline + edge handles when fade enabled
 function drawFade(p) {
     syncSize();
     const w = uiOverlay.width, h = uiOverlay.height;
     uiCtx.clearRect(0, 0, w, h);
 
-    const cx = (0.5 + p.basicFadeX / 100) * w;
-    const cy = (0.5 - p.basicFadeY / 100) * h;
+    const cx = (0.5 + p[_xKey] / 100) * w;
+    const cy = (0.5 - p[_yKey] / 100) * h;
 
-    if (_dragging) {
-        const mxX = Math.max(cx, w - cx);
-        const mxY = Math.max(cy, h - cy);
-        const r   = Math.sqrt(mxX * mxX + mxY * mxY) * (p.basicFadeRadius / 100);
-        uiCtx.beginPath();
-        uiCtx.arc(cx, cy, r, 0, Math.PI * 2);
+    if (p[_enabledKey]) {
+        const shape = p[_shapeKey] ?? 'ellipse';
+        const angle = (p[_angleKey] ?? 0) * Math.PI / 180;
+        const cosA  = Math.cos(angle), sinA = Math.sin(angle);
+        const rotPt = (lx, ly) => [cx + lx * cosA - ly * sinA, cy + lx * sinA + ly * cosA];
+
         uiCtx.strokeStyle = 'rgba(255,255,255,0.55)';
         uiCtx.lineWidth   = 1.5;
         uiCtx.setLineDash([5, 5]);
-        uiCtx.stroke();
+
+        let edgeW, edgeH, rotHandle, topEdge;
+        if (shape === 'ellipse') {
+            const a = (p[_wKey] / 100) * w / 2;
+            const b = (p[_hKey] / 100) * h / 2;
+            uiCtx.beginPath();
+            uiCtx.ellipse(cx, cy, Math.max(1, a), Math.max(1, b), angle, 0, Math.PI * 2);
+            uiCtx.stroke();
+            edgeW     = rotPt(a, 0);
+            edgeH     = rotPt(0, -b);
+            topEdge   = edgeH;
+            rotHandle = rotPt(0, -(b + 22));
+        } else {
+            const hw = (p[_wKey] / 100) * w / 2;
+            const hh = (p[_hKey] / 100) * h / 2;
+            uiCtx.save();
+            uiCtx.translate(cx, cy);
+            uiCtx.rotate(angle);
+            uiCtx.beginPath();
+            uiCtx.rect(-hw, -hh, hw * 2, hh * 2);
+            uiCtx.stroke();
+            uiCtx.restore();
+            edgeW     = rotPt(hw, 0);
+            edgeH     = rotPt(0, -hh);
+            topEdge   = edgeH;
+            rotHandle = rotPt(0, -(hh + 22));
+        }
+
         uiCtx.setLineDash([]);
+
+        // Connector: top of shape → rotation handle
+        uiCtx.beginPath();
+        uiCtx.moveTo(topEdge[0], topEdge[1]);
+        uiCtx.lineTo(rotHandle[0], rotHandle[1]);
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.4)';
+        uiCtx.lineWidth   = 1;
+        uiCtx.stroke();
+
+        drawCornerHandle(edgeW[0], edgeW[1]);
+        drawCornerHandle(edgeH[0], edgeH[1]);
+        drawRotHandle(rotHandle[0], rotHandle[1]);
     }
 
     drawHandle(cx, cy);
+}
+
+function hitTestFade(e) {
+    const inst = getStack().find(i => i.id === _instId);
+    if (!inst) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const p = inst.params;
+    const cx = (0.5 + p[_xKey] / 100) * W;
+    const cy = (0.5 - p[_yKey] / 100) * H;
+
+    if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
+
+    if (!p[_enabledKey]) return null;
+
+    const angle = (p[_angleKey] ?? 0) * Math.PI / 180;
+    const cosA  = Math.cos(angle), sinA = Math.sin(angle);
+    const rotPt = (lx, ly) => [cx + lx * cosA - ly * sinA, cy + lx * sinA + ly * cosA];
+
+    const shape = p[_shapeKey] ?? 'ellipse';
+    let edgeW, edgeH, rotHandle;
+    if (shape === 'ellipse') {
+        const a = (p[_wKey] / 100) * W / 2;
+        const b = (p[_hKey] / 100) * H / 2;
+        edgeW     = rotPt(a, 0);
+        edgeH     = rotPt(0, -b);
+        rotHandle = rotPt(0, -(b + 22));
+    } else {
+        const hw = (p[_wKey] / 100) * W / 2;
+        const hh = (p[_hKey] / 100) * H / 2;
+        edgeW     = rotPt(hw, 0);
+        edgeH     = rotPt(0, -hh);
+        rotHandle = rotPt(0, -(hh + 22));
+    }
+
+    if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';
+    if (Math.hypot(mx - edgeW[0],     my - edgeW[1])     <= HIT_RADIUS) return 'edgeW';
+    if (Math.hypot(mx - edgeH[0],     my - edgeH[1])     <= HIT_RADIUS) return 'edgeH';
+    return null;
 }
 
 // Blur — ellipse/rectangle always visible, handle dot always visible
@@ -206,6 +309,26 @@ function drawBlur(p) {
     uiCtx.restore();
 
     drawHandle(cx, cy);
+}
+
+// BlackBox grab selector — same geometry as main box but using grab params
+function getGrabBoxHandles(p) {
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const cx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
+    const cy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
+    const bw  = ((p.blackBoxGrabW ?? 20) / 100) * W;
+    const bh  = ((p.blackBoxGrabH ?? 10) / 100) * H;
+    const ang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
+    const cos = Math.cos(ang), sin = Math.sin(ang);
+    const rot = (lx, ly) => [cx + lx * cos - ly * sin, cy + lx * sin + ly * cos];
+    return {
+        grab_center: [cx, cy],
+        grab_tl:  rot(-bw / 2, -bh / 2),
+        grab_tr:  rot(+bw / 2, -bh / 2),
+        grab_br:  rot(+bw / 2, +bh / 2),
+        grab_bl:  rot(-bw / 2, +bh / 2),
+        grab_rot: rot(0, -bh / 2 - 20),
+    };
 }
 
 // BlackBox — rotated box outline + center move handle + 4 corner resize handles
@@ -296,6 +419,42 @@ function drawBlackBox(p) {
         drawCornerHandle(handles[key][0], handles[key][1]);
     }
     drawRotHandle(handles.rot[0], handles.rot[1]);
+
+    // Grab selector box — only when image-grab fill is active
+    if (p.blackBoxFill === 'image-grab') {
+        const gcx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
+        const gcy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
+        const gbw  = ((p.blackBoxGrabW ?? 20) / 100) * W;
+        const gbh  = ((p.blackBoxGrabH ?? 10) / 100) * H;
+        const gang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
+
+        uiCtx.save();
+        uiCtx.translate(gcx, gcy);
+        uiCtx.rotate(gang);
+        uiCtx.strokeStyle = 'rgba(100,210,255,0.75)';
+        uiCtx.lineWidth   = 1.5;
+        uiCtx.setLineDash([3, 3]);
+        uiCtx.strokeRect(-gbw / 2, -gbh / 2, gbw, gbh);
+        uiCtx.setLineDash([]);
+        uiCtx.restore();
+
+        const grabHandles = getGrabBoxHandles(p);
+        const gcosG = Math.cos(gang), gsinG = Math.sin(gang);
+        const gtcx = gcx + (gbh / 2) * gsinG;
+        const gtcy = gcy - (gbh / 2) * gcosG;
+        uiCtx.beginPath();
+        uiCtx.moveTo(gtcx, gtcy);
+        uiCtx.lineTo(grabHandles.grab_rot[0], grabHandles.grab_rot[1]);
+        uiCtx.strokeStyle = 'rgba(100,210,255,0.4)';
+        uiCtx.lineWidth   = 1;
+        uiCtx.stroke();
+
+        drawHandle(grabHandles.grab_center[0], grabHandles.grab_center[1]);
+        for (const key of ['grab_tl', 'grab_tr', 'grab_br', 'grab_bl']) {
+            drawCornerHandle(grabHandles[key][0], grabHandles[key][1]);
+        }
+        drawRotHandle(grabHandles.grab_rot[0], grabHandles.grab_rot[1]);
+    }
 }
 
 // ── Crop overlay ──────────────────────────────────────────────────────────────
@@ -663,6 +822,13 @@ function hitTestBlackBox(e) {
         const dx = mx - hx, dy = my - hy;
         if (Math.sqrt(dx * dx + dy * dy) <= HIT_RADIUS) return name;
     }
+    if (inst.params.blackBoxFill === 'image-grab') {
+        const grabHandles = getGrabBoxHandles(inst.params);
+        for (const [name, [hx, hy]] of Object.entries(grabHandles)) {
+            const dx = mx - hx, dy = my - hy;
+            if (Math.sqrt(dx * dx + dy * dy) <= HIT_RADIUS) return name;
+        }
+    }
     return null;
 }
 
@@ -672,13 +838,18 @@ function onHover(e) {
     if (_dragging) return;
     if (_mode === 'blackBox') {
         const h = hitTestBlackBox(e);
-        uiOverlay.style.cursor = h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h ? 'nwse-resize' : 'default';
+        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grab'
+            : (h === 'rot' || h === 'grab_rot') ? 'crosshair'
+            : h ? 'nwse-resize' : 'default';
     } else if (_mode === 'crop') {
         const h = hitTestCrop(e);
         uiOverlay.style.cursor = h ? (CROP_CURSOR[h] || 'default') : 'default';
     } else if (_mode === 'viewport') {
         const h = hitTestViewport(e);
         uiOverlay.style.cursor = h === 'center' ? 'grab' : h ? 'nwse-resize' : 'default';
+    } else if (_mode === 'fade') {
+        const h = hitTestFade(e);
+        uiOverlay.style.cursor = h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
     } else {
         uiOverlay.style.cursor = hitTest(e) ? 'grab' : 'default';
     }
@@ -691,7 +862,8 @@ function onDown(e) {
         _handle   = h;
         _dragging = true;
         uiOverlay.setPointerCapture(e.pointerId);
-        uiOverlay.style.cursor = h === 'center' ? 'grabbing' : h === 'rot' ? 'crosshair' : 'nwse-resize';
+        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grabbing'
+            : (h === 'rot' || h === 'grab_rot') ? 'crosshair' : 'nwse-resize';
     } else if (_mode === 'crop') {
         const h = hitTestCrop(e);
         if (!h) return;
@@ -720,6 +892,13 @@ function onDown(e) {
         _dragging = true;
         uiOverlay.setPointerCapture(e.pointerId);
         uiOverlay.style.cursor = h === 'center' ? 'grabbing' : 'nwse-resize';
+    } else if (_mode === 'fade') {
+        const h = hitTestFade(e);
+        if (!h) return;
+        _handle   = h;
+        _dragging = true;
+        uiOverlay.setPointerCapture(e.pointerId);
+        uiOverlay.style.cursor = h === 'center' ? 'grabbing' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : 'ns-resize';
     } else {
         if (!hitTest(e)) return;
         _dragging = true;
@@ -753,6 +932,30 @@ function onDrag(e) {
             if (deg > 180)  deg -= 360;
             if (deg < -180) deg += 360;
             setInstanceParam(_instId, 'blackBoxAngle', Math.round(deg));
+        } else if (_handle === 'grab_center') {
+            const x = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)));
+            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)));
+            setInstanceParam(_instId, 'blackBoxGrabX', x);
+            setInstanceParam(_instId, 'blackBoxGrabY', y);
+        } else if (_handle === 'grab_rot') {
+            const p  = inst.params;
+            const cx = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
+            const cy = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
+            let deg  = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
+            if (deg > 180)  deg -= 360;
+            if (deg < -180) deg += 360;
+            setInstanceParam(_instId, 'blackBoxGrabAngle', Math.round(deg));
+        } else if (_handle && _handle.startsWith('grab_')) {
+            const p   = inst.params;
+            const cx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
+            const cy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
+            const ang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
+            const cos = Math.cos(ang), sin = Math.sin(ang);
+            const dx  = mx - cx, dy = my - cy;
+            const lx  = dx * cos + dy * sin;
+            const ly  = -dx * sin + dy * cos;
+            setInstanceParam(_instId, 'blackBoxGrabW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
+            setInstanceParam(_instId, 'blackBoxGrabH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
         } else {
             // Symmetric resize around center — project mouse onto local box axes
             const p   = inst.params;
@@ -827,6 +1030,30 @@ function onDrag(e) {
             const oy = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)) - p.vpY);
             setInstanceParam(_instId, `vpV${idx}x`, Math.max(-50, Math.min(50, ox)));
             setInstanceParam(_instId, `vpV${idx}y`, Math.max(-50, Math.min(50, oy)));
+        }
+    } else if (_mode === 'fade') {
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const W  = uiOverlay.width, H = uiOverlay.height;
+        const p  = inst.params;
+        const cx = (0.5 + p[_xKey] / 100) * W;
+        const cy = (0.5 - p[_yKey] / 100) * H;
+        if (_handle === 'center') {
+            const x = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)));
+            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)));
+            setInstanceParam(_instId, _xKey, x);
+            setInstanceParam(_instId, _yKey, y);
+        } else if (_handle === 'edgeW') {
+            const newW = Math.abs(mx - cx) / (W / 2) * 100;
+            setInstanceParam(_instId, _wKey, Math.round(Math.max(1, Math.min(200, newW))));
+        } else if (_handle === 'edgeH') {
+            const newH = Math.abs(my - cy) / (H / 2) * 100;
+            setInstanceParam(_instId, _hKey, Math.round(Math.max(1, Math.min(200, newH))));
+        } else if (_handle === 'rot') {
+            let deg = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
+            if (deg > 180)  deg -= 360;
+            if (deg < -180) deg += 360;
+            setInstanceParam(_instId, _angleKey, Math.round(deg));
         }
     } else {
         const x = Math.round(Math.max(-50, Math.min(50, ((e.clientX - rect.left) / rect.width  - 0.5) * 100)));
