@@ -40,7 +40,7 @@ jobs:
         # VITE_BASE must match your repo name, e.g. /vikritinator/
         # If you have a custom domain pointed at this repo, set it to /
         env:
-          VITE_BASE: /Vikritinator/
+          VITE_BASE: /vikritinator/
         run: npm run build
 
       - name: Upload Pages artifact
