@@ -37,7 +37,7 @@ const PARAM_LABELS = {
     vignetteMinor: 'Minor Axis', vignetteAngle: 'Angle', vignetteEdge: 'Edge Brightness',
     vignetteCenter: 'Center Brightness', vignetteCenterX: 'Center X', vignetteCenterY: 'Center Y',
     // chroma
-    chromaEnabled: 'Enable', chromaScale: 'Scale',
+    chromaEnabled: 'Enable', chromaMode: 'Mode', chromaScale: 'Scale',
     chromaRedX: 'Red X', chromaRedY: 'Red Y', chromaGreenX: 'Green X', chromaGreenY: 'Green Y',
     chromaBlueX: 'Blue X', chromaBlueY: 'Blue Y', chromaCyanX: 'Cyan X', chromaCyanY: 'Cyan Y',
     chromaMagentaX: 'Magenta X', chromaMagentaY: 'Magenta Y', chromaYellowX: 'Yellow X', chromaYellowY: 'Yellow Y',
@@ -108,6 +108,7 @@ const PARAM_OPTIONS = {
     cropAspect: [['original', 'Original'], ['1:1', '1:1 (Square)'], ['4:3', '4:3'], ['16:9', '16:9'], ['3:2', '3:2']],
     blurMode:     [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
     vignetteMode: [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
+    chromaMode:   [['classic', 'Linear'], ['outline', 'Radial'], ['waves', 'Waves']],
     invertColorA: [
         ['bk', 'Black'],
         ['r',  'Red'],
@@ -220,8 +221,9 @@ export function buildEffectBody(inst, onRebuild) {
     const content = document.createElement('div');
     content.className = 'tool-content';
 
-    const groups = effect.uiGroups
-        ? effect.uiGroups
+    const rawGroups = typeof effect.uiGroups === 'function' ? effect.uiGroups(inst.params) : effect.uiGroups;
+    const groups = rawGroups
+        ? rawGroups
         : [{ keys: Object.keys(effect.params).filter(k => k !== enabledKey && k !== 'rotate180' && k !== 'rotate270') }];
 
     for (const group of groups) {
@@ -237,7 +239,7 @@ export function buildEffectBody(inst, onRebuild) {
             if (effect.handleParams?.includes(key)) continue;
             const schema = effect.params[key];
             if (!schema) continue;
-            const controlEl = buildControl(inst, key, schema, onRebuild);
+            const controlEl = buildControl(inst, key, schema, onRebuild, group.labels?.[key]);
             if (controlEl) content.appendChild(controlEl);
         }
     }
@@ -271,11 +273,29 @@ export function buildEffectBody(inst, onRebuild) {
         content.insertBefore(row, content.firstChild ? content.firstChild.nextSibling : null);
     }
 
+    if (inst.effectName === 'invert') {
+        const swapRow = document.createElement('div');
+        swapRow.className = 'control-group';
+        swapRow.innerHTML = `<div class="control-row"><button class="btn">⇄ Swap Colors</button></div>`;
+        swapRow.querySelector('button').addEventListener('click', () => {
+            saveState();
+            const a = inst.params.invertColorA;
+            const b = inst.params.invertColorB;
+            setInstanceParam(inst.id, 'invertColorA', b);
+            setInstanceParam(inst.id, 'invertColorB', a);
+            if (onRebuild) onRebuild();
+        });
+        const colorASelect = content.querySelector('[data-inst-param="invertColorA"]');
+        const colorAGroup = colorASelect?.closest('.control-group');
+        if (colorAGroup) colorAGroup.after(swapRow);
+        else content.appendChild(swapRow);
+    }
+
     return content;
 }
 
-function buildControl(inst, key, schema, onRebuild) {
-    const label = PARAM_LABELS[key] || key;
+function buildControl(inst, key, schema, onRebuild, labelOverride) {
+    const label = labelOverride ?? PARAM_LABELS[key] ?? key;
     const currentVal = inst.params[key];
 
     // Action button — schema.button names the param to randomize when clicked

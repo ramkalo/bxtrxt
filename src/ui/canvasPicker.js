@@ -8,7 +8,7 @@ const uiOverlay = document.getElementById('uiOverlay');
 const uiCtx     = uiOverlay.getContext('2d');
 
 // Active overlay state — only one active at a time
-let _mode       = null;   // 'fade' | 'blur' | 'blackBox' | 'crop' | 'viewport' | 'lineDrag' | null
+let _mode       = null;   // 'fade' | 'blur' | 'blackBox' | 'crop' | 'viewport' | 'lineDrag' | 'chroma' | null
 let _instId     = null;
 let _dragging   = false;
 let _xKey       = null;
@@ -34,6 +34,7 @@ onStackChange((key) => {
     if (_mode === 'crop')       drawCrop(inst.params);
     if (_mode === 'matrixRain') drawMatrixRain(inst.params);
     if (_mode === 'lineDrag')   drawLineDrag(inst.params);
+    if (_mode === 'chroma')     drawChroma(inst.params);
     if (_mode === 'viewport') {
         const p = inst.params;
         const shape = p.vpShape;
@@ -117,6 +118,15 @@ export function showLineDragOverlay(inst) {
 
 export function hideLineDragOverlay() {
     if (_mode === 'lineDrag') _hideActive();
+}
+
+export function showChromaOverlay(inst) {
+    _activate('chroma', inst, 'chromaOutlineX', 'chromaOutlineY');
+    drawChroma(inst.params);
+}
+
+export function hideChromaOverlay() {
+    if (_mode === 'chroma') _hideActive();
 }
 
 // ── Activation / deactivation ─────────────────────────────────────────────────
@@ -422,6 +432,15 @@ function hitTestLineDrag(e) {
 }
 
 // Blur — ellipse/rectangle always visible, handle dot always visible
+function drawChroma(p) {
+    syncSize();
+    clear();
+    if (p.chromaMode !== 'outline') return;
+    const cx = (0.5 + p.chromaOutlineX / 100) * uiOverlay.width;
+    const cy = (0.5 - p.chromaOutlineY / 100) * uiOverlay.height;
+    drawHandle(cx, cy);
+}
+
 function drawBlur(p) {
     syncSize();
     const w = uiOverlay.width, h = uiOverlay.height;
@@ -1266,4 +1285,5 @@ function onUp() {
     if (_mode === 'matrixRain') drawMatrixRain(inst.params);
     if (_mode === 'viewport')   drawViewport(inst.params);
     if (_mode === 'lineDrag')   drawLineDrag(inst.params);
+    if (_mode === 'chroma')     drawChroma(inst.params);
 }

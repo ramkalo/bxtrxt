@@ -11,6 +11,10 @@ function pickRandom(exclude) {
 export function initLogo() {
     const el = document.getElementById('logo');
     if (!el || logos.length === 0) return;
-    el.src = pickRandom();
-    el.addEventListener('click', () => { el.src = pickRandom(el.src); });
+    let current = pickRandom();
+    el.src = current;
+    el.addEventListener('click', () => {
+        current = pickRandom(current);
+        el.src = current;
+    });
 }

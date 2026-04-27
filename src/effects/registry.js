@@ -9,7 +9,6 @@ import vignetteEffect       from './vignette.js';
 import blurEffect           from './blur.js';
 import invertEffect          from './invert.js';
 import { vhsEffect, vhsTimestampEffect } from './vhs.js';
-import wavesEffect          from './waves.js';
 import digitalSmearEffect   from './digitalSmear.js';
 import lineDragEffect       from './lineDrag.js';
 import corruptedEffect      from './corrupted.js';
@@ -54,7 +53,6 @@ export const EFFECTS = [
     vhsEffect,
     vhsTimestampEffect,
     matrixRainEffect,
-    wavesEffect,
     digitalSmearEffect,
     lineDragEffect,
     corruptedEffect,
@@ -129,7 +127,6 @@ export const EFFECT_CATALOG = [
     { name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
     { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
     { name: 'vhsTimestamp',   label: 'VHS Timestamp',        description: 'Retro timestamp text overlay' },
-    { name: 'waves',          label: 'Chroma Waves',         description: 'Per-channel wave distortion with radial fade' },
 ];
 
 /**

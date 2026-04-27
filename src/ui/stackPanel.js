@@ -2,7 +2,7 @@ import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
-import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showBlackBoxOverlay, hideBlackBoxOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay } from './canvasPicker.js';
+import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showBlackBoxOverlay, hideBlackBoxOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -210,15 +210,21 @@ export function renderStackList() {
     if (newEffect !== 'viewport')    hideViewportOverlay();
     if (newEffect !== 'matrixRain') hideMatrixRainOverlay();
     if (newEffect !== 'lineDrag') hideLineDragOverlay();
+    if (newEffect !== 'chroma')   hideChromaOverlay();
 
     if      (newEffect === 'basic')    showFadeOverlay(expandedInst);
-    else if (newEffect === 'waves')    showFadeOverlay(expandedInst, 'wavesFadeX', 'wavesFadeY', 'wavesFadeShape', 'wavesFadeW', 'wavesFadeH', 'wavesFadeAngle', 'wavesFadeEnabled');
     else if (newEffect === 'blur')     showBlurOverlay(expandedInst);
     else if (newEffect === 'blackBox') showBlackBoxOverlay(expandedInst);
     else if (newEffect === 'crop')     showCropOverlay(expandedInst);
     else if (newEffect === 'viewport')    showViewportOverlay(expandedInst);
     else if (newEffect === 'matrixRain') showMatrixRainOverlay(expandedInst);
     else if (newEffect === 'lineDrag') showLineDragOverlay(expandedInst);
+    else if (newEffect === 'chroma') {
+        if (expandedInst.params.chromaMode === 'outline')
+            showChromaOverlay(expandedInst);
+        else
+            hideChromaOverlay();
+    }
 }
 
 // --- Drag-and-drop ---
