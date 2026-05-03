@@ -1,4 +1,3 @@
-import blackBoxEffect       from './blackBox.js';
 import doubleExposureEffect from './doubleExposure.js';
 import basicEffect          from './basic.js';
 import digitizeEffect       from './digitize.js';
@@ -22,6 +21,7 @@ import cropEffect           from './crop.js';
 import glowEffect           from './glow.js';
 import viewportEffect       from './viewport.js';
 import { matrixRainEffect } from './matrixRain.js';
+import { shapeStickerEffect } from './shapeSticker.js';
 
 /**
  * Master ordered list of all effects.
@@ -41,7 +41,6 @@ import { matrixRainEffect } from './matrixRain.js';
 export const EFFECTS = [
     transformEffect,
     cropEffect,
-    blackBoxEffect,
     doubleExposureEffect,
     basicEffect,
     digitizeEffect,
@@ -63,6 +62,7 @@ export const EFFECTS = [
     crtStaticEffect,
     moireEffect,
     viewportEffect,
+    shapeStickerEffect,
 ];
 
 // ---------------------------------------------------------------------------
@@ -107,7 +107,6 @@ export function buildControlLimits() {
  */
 export const EFFECT_CATALOG = [
     { name: 'basic',          label: 'Basic Adjustments',    description: 'Brightness, contrast, saturation, and color' },
-    { name: 'blackBox',       label: 'Black Box',            description: 'Solid black rectangle / censor bar' },
     { name: 'blur',           label: 'Blur',                 description: 'Gaussian blur shaped like a vignette — sharp center, soft edges' },
     { name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
     { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
@@ -126,6 +125,7 @@ export const EFFECT_CATALOG = [
     { name: 'matrixRain',   label: 'Matrix Rain',          description: 'Tile text characters across the image in configurable grid patterns' },
     // { name: 'moire',        label: 'Moire',                description: 'Two overlapping line grids that interfere to produce wave and band patterns' },
     { name: 'transform',      label: 'Rotate',               description: 'Flip and rotate' },
+    { name: 'shapeSticker',   label: 'Shape Sticker',         description: 'Apply a shape filled with solid color, static, or image grab' },
     { name: 'text',            label: 'Text',                 description: 'Text overlay with paragraph box, formatting, and canvas handles' },
     { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
     { name: 'viewport',      label: 'Viewport',             description: 'Reveal a shaped window that cuts through selected effects' },

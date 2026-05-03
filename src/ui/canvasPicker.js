@@ -8,7 +8,7 @@ const uiOverlay = document.getElementById('uiOverlay');
 const uiCtx     = uiOverlay.getContext('2d');
 
 // Active overlay state — only one active at a time
-let _mode       = null;   // 'fade' | 'blur' | 'blackBox' | 'crop' | 'viewport' | 'lineDrag' | 'chroma' | 'vignette' | 'text' | null
+let _mode       = null;   // 'fade' | 'blur' | 'crop' | 'viewport' | 'lineDrag' | 'chroma' | 'vignette' | 'text' | 'doubleExposure' | null
 let _instId     = null;
 let _dragging   = false;
 let _xKey       = null;
@@ -19,10 +19,10 @@ let _hKey       = null;   // fade: param key for H
 let _angleKey   = null;   // fade/text: param key for rotation angle (degrees)
 let _enabledKey = null;   // fade: param key for enabled boolean
 let _skewKey    = null;   // text: param key for skew X angle
-let _handle     = null;   // blackBox/crop/viewport/text: handle name
+let _handle     = null;   // crop/viewport/text: handle name
 let _dragAnchor = null;   // crop corner drag: { oppX, oppY, signX, signY }
 
-let _vpResetting = false;  // re-entrancy guard for _resetPolygonVertices
+let _vpResetting    = false;  // re-entrancy guard for _resetPolygonVertices
 
 // Redraw whenever any stack param changes (e.g. a slider)
 onStackChange((key) => {
@@ -31,15 +31,30 @@ onStackChange((key) => {
     if (!inst) { _hideActive(); return; }
     if (_mode === 'fade')       drawFade(inst.params);
     if (_mode === 'blur')       drawBlur(inst.params);
-    if (_mode === 'blackBox')   drawBlackBox(inst.params);
     if (_mode === 'crop')       drawCrop(inst.params);
     if (_mode === 'matrixRain') drawMatrixRain(inst.params);
     if (_mode === 'lineDrag')   drawLineDrag(inst.params);
     if (_mode === 'chroma')     drawChroma(inst.params);
     if (_mode === 'vignette')   drawVignette(inst.params);
     if (_mode === 'crtCurvature') drawCRTCurvature(inst.params);
-    if (_mode === 'corrupted')  drawCorrupted(inst.params);
-    if (_mode === 'text')       drawTextOverlay(inst.params);
+    if (_mode === 'corrupted')       drawCorrupted(inst.params);
+    if (_mode === 'text')            drawTextOverlay(inst.params);
+    if (_mode === 'doubleExposure')  drawDoubleExposure(inst.params);
+    if (_mode === 'shapeSticker') {
+        const p = inst.params;
+        const shape = p.shapeStickerShape || 'rectangle';
+        const sides = Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+        if (shape === 'triangle' || shape === 'polygon') {
+            const n = shape === 'triangle' ? 3 : sides;
+            const allZero = Array.from({ length: n }, (_, i) =>
+                (p[`shapeStickerV${i}x`] ?? 0) === 0 && (p[`shapeStickerV${i}y`] ?? 0) === 0
+            ).every(Boolean);
+            const shouldReset = key === 'shapeStickerShape' || key === 'shapeStickerSides' ||
+                key === 'shapeStickerW' || key === 'shapeStickerH';
+            if (shouldReset) { _resetShapeStickerVertices(inst.id, shape, p); return; }
+        }
+        drawShapeSticker(p);
+    }
     if (_mode === 'viewport') {
         const p = inst.params;
         const shape = p.vpShape;
@@ -79,6 +94,29 @@ export function hideFadeOverlay() {
     if (_mode === 'fade') _hideActive();
 }
 
+export function showDoubleExposureOverlay(inst) {
+    _shapeKey   = 'doubleExposureFadeShape';
+    _wKey       = 'doubleExposureFadeW';
+    _hKey       = 'doubleExposureFadeH';
+    _angleKey   = 'doubleExposureFadeAngle';
+    _enabledKey = 'doubleExposureFadeEnabled';
+    _activate('doubleExposure', inst, 'doubleExposureFadeX', 'doubleExposureFadeY');
+    drawDoubleExposure(inst.params);
+}
+
+export function hideDoubleExposureOverlay() {
+    if (_mode === 'doubleExposure') _hideActive();
+}
+
+export function showShapeStickerOverlay(inst) {
+    _activate('shapeSticker', inst, 'shapeStickerX', 'shapeStickerY');
+    drawShapeSticker(inst.params);
+}
+
+export function hideShapeStickerOverlay() {
+    if (_mode === 'shapeSticker') _hideActive();
+}
+
 export function showBlurOverlay(inst) {
     _activate('blur', inst, 'blurCenterX', 'blurCenterY');
     drawBlur(inst.params);
@@ -88,14 +126,6 @@ export function hideBlurOverlay() {
     if (_mode === 'blur') _hideActive();
 }
 
-export function showBlackBoxOverlay(inst) {
-    _activate('blackBox', inst, 'blackBoxX', 'blackBoxY');
-    drawBlackBox(inst.params);
-}
-
-export function hideBlackBoxOverlay() {
-    if (_mode === 'blackBox') _hideActive();
-}
 
 export function showCropOverlay(inst) {
     _activate('crop', inst, 'cropX', 'cropY');
@@ -338,6 +368,453 @@ function hitTestFade(e) {
     if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';
     if (Math.hypot(mx - edgeW[0],     my - edgeW[1])     <= HIT_RADIUS) return 'edgeW';
     if (Math.hypot(mx - edgeH[0],     my - edgeH[1])     <= HIT_RADIUS) return 'edgeH';
+    return null;
+}
+
+// DoubleExposure — crosshair handle for second image position + optional fade shape handles
+function drawDoubleExposure(p) {
+    syncSize();
+    const w = uiOverlay.width, h = uiOverlay.height;
+    uiCtx.clearRect(0, 0, w, h);
+
+    const imgX = (0.5 + p.doubleExposureTexX / 100) * w;
+    const imgY = (0.5 - p.doubleExposureTexY / 100) * h;
+
+    // Fade shape + handles when fade enabled
+    if (p[_enabledKey]) {
+        const shape  = p[_shapeKey] ?? 'ellipse';
+        const fAngle = (p[_angleKey] ?? 0) * Math.PI / 180;
+        const cosA   = Math.cos(fAngle), sinA = Math.sin(fAngle);
+        const fcx    = (0.5 + p[_xKey] / 100) * w;
+        const fcy    = (0.5 - p[_yKey] / 100) * h;
+        const rotPt  = (lx, ly) => [fcx + lx * cosA - ly * sinA, fcy + lx * sinA + ly * cosA];
+
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.55)';
+        uiCtx.lineWidth   = 1.5;
+        uiCtx.setLineDash([5, 5]);
+
+        let edgeW, edgeH, rotHandle, topEdge;
+        if (shape === 'ellipse') {
+            const a = (p[_wKey] / 100) * w / 2;
+            const b = (p[_hKey] / 100) * h / 2;
+            uiCtx.beginPath();
+            uiCtx.ellipse(fcx, fcy, Math.max(1, a), Math.max(1, b), fAngle, 0, Math.PI * 2);
+            uiCtx.stroke();
+            edgeW     = rotPt(a, 0);
+            edgeH     = rotPt(0, -b);
+            topEdge   = edgeH;
+            rotHandle = rotPt(0, -(b + 22));
+        } else {
+            const hw = (p[_wKey] / 100) * w / 2;
+            const hh = (p[_hKey] / 100) * h / 2;
+            uiCtx.save();
+            uiCtx.translate(fcx, fcy);
+            uiCtx.rotate(fAngle);
+            uiCtx.beginPath();
+            uiCtx.rect(-hw, -hh, hw * 2, hh * 2);
+            uiCtx.stroke();
+            uiCtx.restore();
+            edgeW     = rotPt(hw, 0);
+            edgeH     = rotPt(0, -hh);
+            topEdge   = edgeH;
+            rotHandle = rotPt(0, -(hh + 22));
+        }
+
+        uiCtx.setLineDash([]);
+        uiCtx.beginPath();
+        uiCtx.moveTo(topEdge[0], topEdge[1]);
+        uiCtx.lineTo(rotHandle[0], rotHandle[1]);
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.4)';
+        uiCtx.lineWidth   = 1;
+        uiCtx.stroke();
+
+        drawCornerHandle(edgeW[0], edgeW[1]);
+        drawCornerHandle(edgeH[0], edgeH[1]);
+        drawRotHandle(rotHandle[0], rotHandle[1]);
+        drawHandle(fcx, fcy);
+    }
+
+    // Second image position handle — diamond shape drawn on top
+    const S = 9;
+    uiCtx.beginPath();
+    uiCtx.moveTo(imgX,     imgY - S);
+    uiCtx.lineTo(imgX + S, imgY);
+    uiCtx.lineTo(imgX,     imgY + S);
+    uiCtx.lineTo(imgX - S, imgY);
+    uiCtx.closePath();
+    uiCtx.fillStyle   = 'rgba(255,255,255,0.92)';
+    uiCtx.strokeStyle = 'rgba(0,0,0,0.4)';
+    uiCtx.lineWidth   = 1.5;
+    uiCtx.fill();
+    uiCtx.stroke();
+}
+
+function hitTestDoubleExposure(e) {
+    const inst = getStack().find(i => i.id === _instId);
+    if (!inst) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const p = inst.params;
+
+    const imgX = (0.5 + p.doubleExposureTexX / 100) * W;
+    const imgY = (0.5 - p.doubleExposureTexY / 100) * H;
+    if (Math.hypot(mx - imgX, my - imgY) <= HIT_RADIUS) return 'imgPos';
+
+    if (!p[_enabledKey]) return null;
+
+    const fcx = (0.5 + p[_xKey] / 100) * W;
+    const fcy = (0.5 - p[_yKey] / 100) * H;
+    if (Math.hypot(mx - fcx, my - fcy) <= HIT_RADIUS) return 'center';
+
+    const angle  = (p[_angleKey] ?? 0) * Math.PI / 180;
+    const cosA   = Math.cos(angle), sinA = Math.sin(angle);
+    const rotPt  = (lx, ly) => [fcx + lx * cosA - ly * sinA, fcy + lx * sinA + ly * cosA];
+    const shape  = p[_shapeKey] ?? 'ellipse';
+
+    let edgeW, edgeH, rotHandle, topEdge;
+    if (shape === 'ellipse') {
+        const a = (p[_wKey] / 100) * W / 2;
+        const b = (p[_hKey] / 100) * H / 2;
+        edgeW     = rotPt(a, 0);
+        edgeH     = rotPt(0, -b);
+        topEdge   = edgeH;
+        rotHandle = rotPt(0, -(b + 22));
+    } else {
+        const hw = (p[_wKey] / 100) * W / 2;
+        const hh = (p[_hKey] / 100) * H / 2;
+        edgeW     = rotPt(hw, 0);
+        edgeH     = rotPt(0, -hh);
+        topEdge   = edgeH;
+        rotHandle = rotPt(0, -(hh + 22));
+    }
+
+    if (Math.hypot(mx - fcx, my - fcy) <= HIT_RADIUS) return 'center';
+    if (Math.hypot(mx - edgeW[0], my - edgeW[1]) <= HIT_RADIUS) return 'edgeW';
+    if (Math.hypot(mx - edgeH[0], my - edgeH[1]) <= HIT_RADIUS) return 'edgeH';
+    if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';
+    return null;
+}
+
+// ── Shape Sticker ─────────────────────────────────────────────────────
+
+function _ssVertexScreenPositions(p) {
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const cx = (0.5 + p.shapeStickerX / 100) * W;
+    const cy = (0.5 - p.shapeStickerY / 100) * H;
+    const sw = (p.shapeStickerW / 100) * W;
+    const sh = (p.shapeStickerH / 100) * H;
+    const angle = (p.shapeStickerAngle ?? 0) * Math.PI / 180;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const shape = p.shapeStickerShape || 'rectangle';
+    const sides = Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+    const n = shape === 'triangle' ? 3 : (shape === 'polygon' ? sides : 0);
+    if (n === 0) return [];
+    const allZero = Array.from({ length: n }, (_, i) =>
+        (p[`shapeStickerV${i}x`] ?? 0) === 0 && (p[`shapeStickerV${i}y`] ?? 0) === 0
+    ).every(Boolean);
+    const verts = [];
+    for (let i = 0; i < n; i++) {
+        let lx, ly;
+        if (allZero) {
+            const a = -Math.PI / 2 + i * (2 * Math.PI / n);
+            lx = Math.cos(a) * sw / 2;
+            ly = Math.sin(a) * sh / 2;
+        } else {
+            lx = (p[`shapeStickerV${i}x`] ?? 0) / 100 * W;
+            ly = -(p[`shapeStickerV${i}y`] ?? 0) / 100 * H;
+        }
+        verts.push([cx + lx * cosA - ly * sinA, cy + lx * sinA + ly * cosA]);
+    }
+    return verts;
+}
+
+function _ssGrabHandles(p) {
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const cx = (0.5 + (p.shapeStickerGrabX ?? 30) / 100) * W;
+    const cy = (0.5 - (p.shapeStickerGrabY ?? 30) / 100) * H;
+    const gw = (p.shapeStickerGrabW ?? 20) / 100 * W;
+    const gh = (p.shapeStickerGrabH ?? 20) / 100 * H;
+    const angle = (p.shapeStickerGrabAngle ?? 0) * Math.PI / 180;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const handle = (lx, ly) => [cx + lx * cosA - ly * sinA, cy + lx * sinA + ly * cosA];
+    return {
+        center: [cx, cy],
+        rot: handle(0, -(Math.max(gh, gw) / 2 + 22)),
+        tl: handle(-gw / 2, -gh / 2),
+        tr: handle(gw / 2, -gh / 2),
+        br: handle(gw / 2, gh / 2),
+        bl: handle(-gw / 2, gh / 2),
+    };
+}
+
+function drawShapeSticker(p) {
+    syncSize();
+    const W = uiOverlay.width, H = uiOverlay.height;
+    uiCtx.clearRect(0, 0, W, H);
+
+    const cx = (0.5 + p.shapeStickerX / 100) * W;
+    const cy = (0.5 - p.shapeStickerY / 100) * H;
+    const sw = Math.max(1, (p.shapeStickerW / 100) * W);
+    const sh = Math.max(1, (p.shapeStickerH / 100) * H);
+    const angle = (p.shapeStickerAngle ?? 0) * Math.PI / 180;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const shape = p.shapeStickerShape || 'rectangle';
+    const sides = Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+
+    // Get vertices in LOCAL space (Y-up, matching effect file)
+    const localVerts = [];
+    const n = shape === 'rectangle' ? 4 : shape === 'ellipse' ? 0 : (shape === 'triangle' ? 3 : sides);
+
+    if (shape === 'rectangle') {
+        localVerts.push({ x: -sw/2, y:  sh/2 }); // tl (Y-up, matching shapeSticker.js)
+        localVerts.push({ x:  sw/2, y:  sh/2 }); // tr
+        localVerts.push({ x:  sw/2, y: -sh/2 }); // br
+        localVerts.push({ x: -sw/2, y: -sh/2 }); // bl
+    } else if (shape === 'ellipse') {
+        // For ellipse, compute bounding radius for rotation handle
+    } else {
+        const allZero = Array.from({ length: n }, (_, i) =>
+            (p[`shapeStickerV${i}x`] ?? 0) === 0 && (p[`shapeStickerV${i}y`] ?? 0) === 0
+        ).every(Boolean);
+        for (let i = 0; i < n; i++) {
+            if (allZero) {
+                const a = -Math.PI / 2 + i * (2 * Math.PI / n);
+                localVerts.push({ x: Math.cos(a) * sw / 2, y: Math.sin(a) * sh / 2 }); // Y-up
+            } else {
+                // Param Y is up, so use as-is for local space
+                localVerts.push({
+                    x: (p[`shapeStickerV${i}x`] ?? 0) / 100 * W,
+                    y: (p[`shapeStickerV${i}y`] ?? 0) / 100 * H  // Y-up in local space
+                });
+            }
+        }
+    }
+
+    // Compute shape radius for rotation handle (distance to farthest vertex)
+    let shapeRadius = Math.hypot(sw/2, sh/2); // default for rectangle/ellipse
+    if (n > 0) {
+        for (const v of localVerts) {
+            shapeRadius = Math.max(shapeRadius, Math.hypot(v.x, v.y));
+        }
+    }
+    const rotDist = shapeRadius + 18; // 18px offset from farthest point
+    const rotHandle = [
+        cx + 0 * cosA - (-rotDist) * sinA,
+        cy + 0 * sinA + (-rotDist) * cosA
+    ];
+
+    // Draw shape outline
+    uiCtx.save();
+    uiCtx.translate(cx, cy);
+    uiCtx.rotate(angle);
+
+    uiCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+    uiCtx.lineWidth   = 1.5;
+    uiCtx.setLineDash([]);
+
+    if (shape === 'rectangle') {
+        // Draw rectangle using vertices (consistent with polygon approach)
+        uiCtx.beginPath();
+        for (let i = 0; i < localVerts.length; i++) {
+            const vx = localVerts[i].x;
+            const vy = -localVerts[i].y; // Negate Y for canvas Y-down
+            i === 0 ? uiCtx.moveTo(vx, vy) : uiCtx.lineTo(vx, vy);
+        }
+        uiCtx.closePath();
+        uiCtx.stroke();
+        uiCtx.restore();
+        // Convert to screen coords (local Y-up → canvas Y-down: negate local Y)
+        for (const v of localVerts) {
+            const sx = cx + v.x * cosA - (-v.y) * sinA;
+            const sy = cy + v.x * sinA + (-v.y) * cosA;
+            drawCornerHandle(sx, sy);
+        }
+    } else if (shape === 'ellipse') {
+        uiCtx.beginPath();
+        uiCtx.ellipse(0, 0, sw/2, sh/2, 0, 0, Math.PI * 2);
+        uiCtx.stroke();
+        uiCtx.restore();
+        const edgeW = [cx + (sw/2) * cosA, cy + (sw/2) * sinA];
+        const edgeH = [cx + 0 * cosA - (sh/2) * sinA, cy + 0 * sinA + (sh/2) * cosA];
+        drawCornerHandle(edgeW[0], edgeW[1]);
+        drawCornerHandle(edgeH[0], edgeH[1]);
+    } else {
+        uiCtx.beginPath();
+        for (let i = 0; i < localVerts.length; i++) {
+            const vx = localVerts[i].x;
+            const vy = -localVerts[i].y; // Negate Y for canvas Y-down (matching shapeSticker.js)
+            i === 0 ? uiCtx.moveTo(vx, vy) : uiCtx.lineTo(vx, vy);
+        }
+        uiCtx.closePath();
+        uiCtx.stroke();
+        uiCtx.restore();
+        // Convert to screen coords (local Y-up → canvas Y-down: negate local Y)
+        for (const v of localVerts) {
+            const sx = cx + v.x * cosA - (-v.y) * sinA;
+            const sy = cy + v.x * sinA + (-v.y) * cosA;
+            drawCornerHandle(sx, sy);
+        }
+    }
+
+    drawRotHandle(rotHandle[0], rotHandle[1]);
+    drawHandle(cx, cy);
+
+    // Draw grabber overlay if fill type is image-grab
+    if (p.shapeStickerFillType === 'image-grab') {
+        const W2 = uiOverlay.width, H2 = uiOverlay.height;
+        const gcx  = (0.5 + (p.shapeStickerGrabX ?? 30) / 100) * W2;
+        const gcy  = (0.5 - (p.shapeStickerGrabY ?? 30) / 100) * H2;
+        const gwPx = Math.max(1, (p.shapeStickerGrabW ?? 20) / 100 * W2);
+        const ghPx = Math.max(1, (p.shapeStickerGrabH ?? 20) / 100 * H2);
+        const gAngle = (p.shapeStickerGrabAngle ?? 0) * Math.PI / 180;
+        const gHandles = _ssGrabHandles(p);
+
+        // Grab rect — properly rotated outline
+        uiCtx.save();
+        uiCtx.translate(gcx, gcy);
+        uiCtx.rotate(gAngle);
+        uiCtx.strokeStyle = 'rgba(255,220,0,0.7)';
+        uiCtx.lineWidth   = 1.5;
+        uiCtx.setLineDash([3, 3]);
+        uiCtx.strokeRect(-gwPx / 2, -ghPx / 2, gwPx, ghPx);
+        uiCtx.setLineDash([]);
+        uiCtx.restore();
+
+        // Connector: top-centre of grab rect → rot handle
+        const cosG = Math.cos(gAngle), sinG = Math.sin(gAngle);
+        const topCx = gcx + (ghPx / 2) * sinG;
+        const topCy = gcy - (ghPx / 2) * cosG;
+        uiCtx.beginPath();
+        uiCtx.moveTo(topCx, topCy);
+        uiCtx.lineTo(gHandles.rot[0], gHandles.rot[1]);
+        uiCtx.strokeStyle = 'rgba(255,220,0,0.4)';
+        uiCtx.lineWidth   = 1;
+        uiCtx.stroke();
+
+        // Circle (move / rotate), square (resize)
+        const drawYelCircle = (hx, hy) => {
+            uiCtx.beginPath();
+            uiCtx.arc(hx, hy, 6, 0, Math.PI * 2);
+            uiCtx.fillStyle   = 'rgba(255,220,0,0.92)';
+            uiCtx.shadowColor = 'rgba(0,0,0,0.55)';
+            uiCtx.shadowBlur  = 4;
+            uiCtx.fill();
+            uiCtx.shadowBlur  = 0;
+            uiCtx.strokeStyle = 'rgba(0,0,0,0.4)';
+            uiCtx.lineWidth   = 1.5;
+            uiCtx.stroke();
+        };
+        const drawYelSquare = (hx, hy) => {
+            const s = 5;
+            uiCtx.save();
+            uiCtx.translate(hx, hy);
+            uiCtx.shadowColor = 'rgba(0,0,0,0.55)';
+            uiCtx.shadowBlur  = 4;
+            uiCtx.fillStyle   = 'rgba(255,220,0,0.92)';
+            uiCtx.fillRect(-s, -s, s * 2, s * 2);
+            uiCtx.shadowBlur  = 0;
+            uiCtx.strokeStyle = 'rgba(0,0,0,0.4)';
+            uiCtx.lineWidth   = 1.5;
+            uiCtx.strokeRect(-s, -s, s * 2, s * 2);
+            uiCtx.restore();
+        };
+
+        drawYelCircle(gHandles.center[0], gHandles.center[1]);
+        drawYelSquare(gHandles.tl[0],     gHandles.tl[1]);
+        drawYelSquare(gHandles.tr[0],     gHandles.tr[1]);
+        drawYelSquare(gHandles.br[0],     gHandles.br[1]);
+        drawYelSquare(gHandles.bl[0],     gHandles.bl[1]);
+        drawYelCircle(gHandles.rot[0],    gHandles.rot[1]);
+    }
+}
+
+function hitTestShapeSticker(e) {
+    const inst = getStack().find(i => i.id === _instId);
+    if (!inst) return null;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const p = inst.params;
+    const W = uiOverlay.width, H = uiOverlay.height;
+
+    const cx = (0.5 + p.shapeStickerX / 100) * W;
+    const cy = (0.5 - p.shapeStickerY / 100) * H;
+    if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
+
+    const angle = (p.shapeStickerAngle ?? 0) * Math.PI / 180;
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+
+    // Get vertices in LOCAL space (Y-up, matching effect file)
+    const sw = (p.shapeStickerW / 100) * W;
+    const sh = (p.shapeStickerH / 100) * H;
+    const shape = p.shapeStickerShape || 'rectangle';
+    const sides = Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+    const n = shape === 'triangle' ? 3 : (shape === 'polygon' ? sides : 0);
+
+    // Compute local vertices (Y-up)
+    let localVerts = [];
+    if (shape === 'rectangle') {
+        localVerts = [{x:-sw/2, y:-sh/2}, {x:sw/2, y:-sh/2}, {x:sw/2, y:sh/2}, {x:-sw/2, y:sh/2}];
+    } else if (shape === 'ellipse') {
+        // For ellipse, use bounding box corners
+        localVerts = [{x:-sw/2, y:-sh/2}, {x:sw/2, y:-sh/2}, {x:sw/2, y:sh/2}, {x:-sw/2, y:sh/2}];
+    } else if (n > 0) {
+        const allZero = Array.from({ length: n }, (_, i) =>
+            (p[`shapeStickerV${i}x`] ?? 0) === 0 && (p[`shapeStickerV${i}y`] ?? 0) === 0
+        ).every(Boolean);
+        for (let i = 0; i < n; i++) {
+            if (allZero) {
+                const a = -Math.PI / 2 + i * (2 * Math.PI / n);
+                localVerts.push({ x: Math.cos(a) * sw / 2, y: Math.sin(a) * sh / 2 }); // Y-up
+            } else {
+                // Param Y is up, so use as-is for local space
+                localVerts.push({
+                    x: (p[`shapeStickerV${i}x`] ?? 0) / 100 * W,
+                    y: (p[`shapeStickerV${i}y`] ?? 0) / 100 * H  // Y-up in local space
+                });
+            }
+        }
+    }
+
+    // Compute shape radius for rotation handle (distance to farthest vertex)
+    let shapeRadius = Math.hypot(sw/2, sh/2); // default
+    for (const v of localVerts) {
+        shapeRadius = Math.max(shapeRadius, Math.hypot(v.x, v.y));
+    }
+    const rotDist = shapeRadius + 18; // 18px offset
+    const rotH = [cx + 0 * cosA - (-rotDist) * sinA,
+                  cy + 0 * sinA + (-rotDist) * cosA];
+    if (Math.hypot(mx - rotH[0], my - rotH[1]) <= HIT_RADIUS) return 'rot';
+
+    // Convert local verts to screen coords (negate Y for canvas)
+    const screenVerts = localVerts.map(v => [
+        cx + v.x * cosA - (-v.y) * sinA,
+        cy + v.x * sinA + (-v.y) * cosA
+    ]);
+
+    if (shape === 'rectangle' || shape === 'ellipse') {
+        const corners = {
+            tr: screenVerts[1], br: screenVerts[2], bl: screenVerts[3], tl: screenVerts[0]
+        };
+        for (const [name, [hx, hy]] of Object.entries(corners)) {
+            if (Math.hypot(mx - hx, my - hy) <= HIT_RADIUS) return name;
+        }
+    } else {
+        for (let i = 0; i < screenVerts.length; i++) {
+            if (Math.hypot(mx - screenVerts[i][0], my - screenVerts[i][1]) <= HIT_RADIUS) return `v${i}`;
+        }
+    }
+
+    if (p.shapeStickerFillType === 'image-grab') {
+        const gh = _ssGrabHandles(p);
+        if (Math.hypot(mx - gh.center[0], my - gh.center[1]) <= HIT_RADIUS) return 'grab_center';
+        if (Math.hypot(mx - gh.rot[0], my - gh.rot[1]) <= HIT_RADIUS) return 'grab_rot';
+        for (const [name, pos] of [['grab_tl', gh.tl], ['grab_tr', gh.tr], ['grab_br', gh.br], ['grab_bl', gh.bl]]) {
+            if (Math.hypot(mx - pos[0], my - pos[1]) <= HIT_RADIUS) return name;
+        }
+    }
     return null;
 }
 
@@ -736,44 +1213,19 @@ function hitTestBlur(e) {
     return null;
 }
 
-// BlackBox grab selector — same geometry as main box but using grab params
-function getGrabBoxHandles(p) {
-    const W = uiOverlay.width, H = uiOverlay.height;
-    const cx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
-    const cy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
-    const bw  = ((p.blackBoxGrabW ?? 20) / 100) * W;
-    const bh  = ((p.blackBoxGrabH ?? 10) / 100) * H;
-    const ang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-    const rot = (lx, ly) => [cx + lx * cos - ly * sin, cy + lx * sin + ly * cos];
-    return {
-        grab_center: [cx, cy],
-        grab_tl:  rot(-bw / 2, -bh / 2),
-        grab_tr:  rot(+bw / 2, -bh / 2),
-        grab_br:  rot(+bw / 2, +bh / 2),
-        grab_bl:  rot(-bw / 2, +bh / 2),
-        grab_rot: rot(0, -bh / 2 - 20),
-    };
-}
-
-// BlackBox — rotated box outline + center move handle + 4 corner resize handles
-function getBlackBoxHandles(p) {
-    const W = uiOverlay.width, H = uiOverlay.height;
-    const cx  = (0.5 + p.blackBoxX / 100) * W;
-    const cy  = (0.5 - p.blackBoxY / 100) * H;
-    const bw  = (p.blackBoxW / 100) * W;
-    const bh  = (p.blackBoxH / 100) * H;
-    const ang = (p.blackBoxAngle ?? 0) * Math.PI / 180;
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-    const rot = (lx, ly) => [cx + lx * cos - ly * sin, cy + lx * sin + ly * cos];
-    return {
-        center: [cx, cy],
-        tl:  rot(-bw / 2, -bh / 2),
-        tr:  rot(+bw / 2, -bh / 2),
-        br:  rot(+bw / 2, +bh / 2),
-        bl:  rot(-bw / 2, +bh / 2),
-        rot: rot(0, -bh / 2 - 20),
-    };
+// Sets all shapeSticker vertex params to a regular polygon inscribed in the current bounds.
+function _resetShapeStickerVertices(instId, shape, p) {
+    const n = shape === 'triangle' ? 3 : Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+    const startAngle = -Math.PI / 2;
+    for (let i = 0; i < 24; i++) {
+        const a  = startAngle + i * (2 * Math.PI / n);
+        const vx = i < n ? Math.round(Math.cos(a) * p.shapeStickerW / 2 * 100) / 100 : 0;
+        const vy = i < n ? Math.round(-Math.sin(a) * p.shapeStickerH / 2 * 100) / 100 : 0;
+        setInstanceParam(instId, `shapeStickerV${i}x`, vx);
+        setInstanceParam(instId, `shapeStickerV${i}y`, vy);
+    }
+    const inst = getStack().find(i => i.id === instId);
+    if (inst) drawShapeSticker(inst.params);
 }
 
 function drawRotHandle(cx, cy) {
@@ -802,84 +1254,6 @@ function drawCornerHandle(cx, cy) {
     uiCtx.lineWidth   = 1.5;
     uiCtx.strokeRect(-s, -s, s * 2, s * 2);
     uiCtx.restore();
-}
-
-function drawBlackBox(p) {
-    syncSize();
-    const W = uiOverlay.width, H = uiOverlay.height;
-    uiCtx.clearRect(0, 0, W, H);
-
-    const cx  = (0.5 + p.blackBoxX / 100) * W;
-    const cy  = (0.5 - p.blackBoxY / 100) * H;
-    const bw  = (p.blackBoxW / 100) * W;
-    const bh  = (p.blackBoxH / 100) * H;
-    const ang = (p.blackBoxAngle ?? 0) * Math.PI / 180;
-
-    uiCtx.save();
-    uiCtx.translate(cx, cy);
-    uiCtx.rotate(ang);
-    uiCtx.strokeStyle = 'rgba(255,255,255,0.55)';
-    uiCtx.lineWidth   = 1.5;
-    uiCtx.setLineDash([5, 5]);
-    uiCtx.strokeRect(-bw / 2, -bh / 2, bw, bh);
-    uiCtx.setLineDash([]);
-    uiCtx.restore();
-
-    const handles = getBlackBoxHandles(p);
-
-    // Connector line: top-centre of box → rotation handle
-    // Local [0, -bh/2] rotated: screen_x = cx + (bh/2)*sin, screen_y = cy - (bh/2)*cos
-    const cos = Math.cos(ang), sin = Math.sin(ang);
-    const tcx = cx + (bh / 2) * sin;
-    const tcy = cy - (bh / 2) * cos;
-    uiCtx.beginPath();
-    uiCtx.moveTo(tcx, tcy);
-    uiCtx.lineTo(handles.rot[0], handles.rot[1]);
-    uiCtx.strokeStyle = 'rgba(255,255,255,0.4)';
-    uiCtx.lineWidth   = 1;
-    uiCtx.stroke();
-
-    drawHandle(handles.center[0], handles.center[1]);
-    for (const key of ['tl', 'tr', 'br', 'bl']) {
-        drawCornerHandle(handles[key][0], handles[key][1]);
-    }
-    drawRotHandle(handles.rot[0], handles.rot[1]);
-
-    // Grab selector box — only when image-grab fill is active
-    if (p.blackBoxFill === 'image-grab') {
-        const gcx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
-        const gcy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
-        const gbw  = ((p.blackBoxGrabW ?? 20) / 100) * W;
-        const gbh  = ((p.blackBoxGrabH ?? 10) / 100) * H;
-        const gang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
-
-        uiCtx.save();
-        uiCtx.translate(gcx, gcy);
-        uiCtx.rotate(gang);
-        uiCtx.strokeStyle = 'rgba(100,210,255,0.75)';
-        uiCtx.lineWidth   = 1.5;
-        uiCtx.setLineDash([3, 3]);
-        uiCtx.strokeRect(-gbw / 2, -gbh / 2, gbw, gbh);
-        uiCtx.setLineDash([]);
-        uiCtx.restore();
-
-        const grabHandles = getGrabBoxHandles(p);
-        const gcosG = Math.cos(gang), gsinG = Math.sin(gang);
-        const gtcx = gcx + (gbh / 2) * gsinG;
-        const gtcy = gcy - (gbh / 2) * gcosG;
-        uiCtx.beginPath();
-        uiCtx.moveTo(gtcx, gtcy);
-        uiCtx.lineTo(grabHandles.grab_rot[0], grabHandles.grab_rot[1]);
-        uiCtx.strokeStyle = 'rgba(100,210,255,0.4)';
-        uiCtx.lineWidth   = 1;
-        uiCtx.stroke();
-
-        drawHandle(grabHandles.grab_center[0], grabHandles.grab_center[1]);
-        for (const key of ['grab_tl', 'grab_tr', 'grab_br', 'grab_bl']) {
-            drawCornerHandle(grabHandles[key][0], grabHandles[key][1]);
-        }
-        drawRotHandle(grabHandles.grab_rot[0], grabHandles.grab_rot[1]);
-    }
 }
 
 // ── Crop overlay ──────────────────────────────────────────────────────────────
@@ -1319,37 +1693,11 @@ function hitTest(e) {
     return Math.sqrt(dx * dx + dy * dy) <= HIT_RADIUS;
 }
 
-function hitTestBlackBox(e) {
-    const inst = getStack().find(i => i.id === _instId);
-    if (!inst) return null;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const handles = getBlackBoxHandles(inst.params);
-    for (const [name, [hx, hy]] of Object.entries(handles)) {
-        const dx = mx - hx, dy = my - hy;
-        if (Math.sqrt(dx * dx + dy * dy) <= HIT_RADIUS) return name;
-    }
-    if (inst.params.blackBoxFill === 'image-grab') {
-        const grabHandles = getGrabBoxHandles(inst.params);
-        for (const [name, [hx, hy]] of Object.entries(grabHandles)) {
-            const dx = mx - hx, dy = my - hy;
-            if (Math.sqrt(dx * dx + dy * dy) <= HIT_RADIUS) return name;
-        }
-    }
-    return null;
-}
-
 const CROP_CURSOR = { center: 'grab', tl: 'nw-resize', tr: 'ne-resize', br: 'se-resize', bl: 'sw-resize' };
 
 function onHover(e) {
     if (_dragging) return;
-    if (_mode === 'blackBox') {
-        const h = hitTestBlackBox(e);
-        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grab'
-            : (h === 'rot' || h === 'grab_rot') ? 'crosshair'
-            : h ? 'nwse-resize' : 'default';
-    } else if (_mode === 'crop') {
+    if (_mode === 'crop') {
         const h = hitTestCrop(e);
         uiOverlay.style.cursor = h ? (CROP_CURSOR[h] || 'default') : 'default';
     } else if (_mode === 'viewport') {
@@ -1376,6 +1724,12 @@ function onHover(e) {
             : h === 'rot'   ? 'crosshair'
             : h === 'edgeW' ? 'ew-resize'
             : h === 'edgeH' ? 'ns-resize' : 'default';
+    } else if (_mode === 'doubleExposure') {
+        const h = hitTestDoubleExposure(e);
+        uiOverlay.style.cursor = (h === 'imgPos' || h === 'center') ? 'grab'
+            : h === 'rot' ? 'crosshair'
+            : h === 'edgeW' ? 'ew-resize'
+            : h === 'edgeH' ? 'ns-resize' : 'default';
     } else if (_mode === 'corrupted') {
         uiOverlay.style.cursor = hitTestCorrupted(e) ? 'grab' : 'default';
     } else if (_mode === 'text') {
@@ -1385,21 +1739,20 @@ function onHover(e) {
             : (h === 'tl' || h === 'br') ? 'nwse-resize'
             : (h === 'tr' || h === 'bl') ? 'nesw-resize'
             : 'default';
+    } else if (_mode === 'shapeSticker') {
+        const h = hitTestShapeSticker(e);
+        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grab'
+            : (h === 'rot' || h === 'grab_rot') ? 'crosshair'
+            : (h === 'edgeW' || h === 'edgeH' || h === 'grab_tl' || h === 'grab_tr' || h === 'grab_br' || h === 'grab_bl') ? 'nwse-resize'
+            : (h && h.startsWith('v')) ? 'move'
+            : h ? 'nwse-resize' : 'default';
     } else {
         uiOverlay.style.cursor = hitTest(e) ? 'grab' : 'default';
     }
 }
 
 function onDown(e) {
-    if (_mode === 'blackBox') {
-        const h = hitTestBlackBox(e);
-        if (!h) return;
-        _handle   = h;
-        _dragging = true;
-        uiOverlay.setPointerCapture(e.pointerId);
-        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grabbing'
-            : (h === 'rot' || h === 'grab_rot') ? 'crosshair' : 'nwse-resize';
-    } else if (_mode === 'crop') {
+    if (_mode === 'crop') {
         const h = hitTestCrop(e);
         if (!h) return;
         _handle   = h;
@@ -1434,6 +1787,14 @@ function onDown(e) {
         _dragging = true;
         uiOverlay.setPointerCapture(e.pointerId);
         uiOverlay.style.cursor = h === 'center' ? 'grabbing' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : 'ns-resize';
+    } else if (_mode === 'doubleExposure') {
+        const h = hitTestDoubleExposure(e);
+        if (!h) return;
+        _handle   = h;
+        _dragging = true;
+        uiOverlay.setPointerCapture(e.pointerId);
+        uiOverlay.style.cursor = (h === 'imgPos' || h === 'center') ? 'grabbing'
+            : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : 'ns-resize';
     } else if (_mode === 'lineDrag') {
         const h = hitTestLineDrag(e);
         if (!h) return;
@@ -1497,6 +1858,15 @@ function onDown(e) {
                 blx0: p2.textBLx ?? 10, bly0: p2.textBLy ?? 95,
             };
         }
+    } else if (_mode === 'shapeSticker') {
+        const h = hitTestShapeSticker(e);
+        if (!h) return;
+        _handle   = h;
+        _dragging = true;
+        uiOverlay.setPointerCapture(e.pointerId);
+        uiOverlay.style.cursor = (h === 'center' || h === 'grab_center') ? 'grabbing'
+            : (h === 'rot' || h === 'grab_rot') ? 'crosshair'
+            : 'nwse-resize';
     } else {
         if (!hitTest(e)) return;
         _dragging = true;
@@ -1512,62 +1882,7 @@ function onDrag(e) {
     if (!inst) return;
     const rect = canvas.getBoundingClientRect();
 
-    if (_mode === 'blackBox') {
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        const W  = uiOverlay.width, H = uiOverlay.height;
-        if (_handle === 'center') {
-            const x = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)));
-            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)));
-            setInstanceParam(_instId, 'blackBoxX', x);
-            setInstanceParam(_instId, 'blackBoxY', y);
-        } else if (_handle === 'rot') {
-            // Rotation — angle of mouse relative to box center, offset so 0° = up
-            const p  = inst.params;
-            const cx = (0.5 + p.blackBoxX / 100) * W;
-            const cy = (0.5 - p.blackBoxY / 100) * H;
-            let deg  = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
-            if (deg > 180)  deg -= 360;
-            if (deg < -180) deg += 360;
-            setInstanceParam(_instId, 'blackBoxAngle', Math.round(deg));
-        } else if (_handle === 'grab_center') {
-            const x = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)));
-            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)));
-            setInstanceParam(_instId, 'blackBoxGrabX', x);
-            setInstanceParam(_instId, 'blackBoxGrabY', y);
-        } else if (_handle === 'grab_rot') {
-            const p  = inst.params;
-            const cx = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
-            const cy = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
-            let deg  = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
-            if (deg > 180)  deg -= 360;
-            if (deg < -180) deg += 360;
-            setInstanceParam(_instId, 'blackBoxGrabAngle', Math.round(deg));
-        } else if (_handle && _handle.startsWith('grab_')) {
-            const p   = inst.params;
-            const cx  = (0.5 + (p.blackBoxGrabX ?? 30) / 100) * W;
-            const cy  = (0.5 - (p.blackBoxGrabY ?? 30) / 100) * H;
-            const ang = (p.blackBoxGrabAngle ?? 0) * Math.PI / 180;
-            const cos = Math.cos(ang), sin = Math.sin(ang);
-            const dx  = mx - cx, dy = my - cy;
-            const lx  = dx * cos + dy * sin;
-            const ly  = -dx * sin + dy * cos;
-            setInstanceParam(_instId, 'blackBoxGrabW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
-            setInstanceParam(_instId, 'blackBoxGrabH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
-        } else {
-            // Symmetric resize around center — project mouse onto local box axes
-            const p   = inst.params;
-            const cx  = (0.5 + p.blackBoxX / 100) * W;
-            const cy  = (0.5 - p.blackBoxY / 100) * H;
-            const ang = (p.blackBoxAngle ?? 0) * Math.PI / 180;
-            const cos = Math.cos(ang), sin = Math.sin(ang);
-            const dx  = mx - cx, dy = my - cy;
-            const lx  = dx * cos + dy * sin;
-            const ly  = -dx * sin + dy * cos;
-            setInstanceParam(_instId, 'blackBoxW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
-            setInstanceParam(_instId, 'blackBoxH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
-        }
-    } else if (_mode === 'crop') {
+    if (_mode === 'crop') {
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
         const W  = uiOverlay.width, H = uiOverlay.height;
@@ -1649,6 +1964,33 @@ function onDrag(e) {
             setInstanceParam(_instId, _hKey, Math.round(Math.max(1, Math.min(200, newH))));
         } else if (_handle === 'rot') {
             let deg = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
+            if (deg > 180)  deg -= 360;
+            if (deg < -180) deg += 360;
+            setInstanceParam(_instId, _angleKey, Math.round(deg));
+        }
+    } else if (_mode === 'doubleExposure') {
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const W  = uiOverlay.width, H = uiOverlay.height;
+        const p  = inst.params;
+        const fcx = (0.5 + p[_xKey] / 100) * W;
+        const fcy = (0.5 - p[_yKey] / 100) * H;
+        if (_handle === 'imgPos') {
+            const x = Math.round(Math.max(-100, Math.min(100,  (mx / W - 0.5) * 100)));
+            const y = Math.round(Math.max(-100, Math.min(100, -(my / H - 0.5) * 100)));
+            setInstanceParam(_instId, 'doubleExposureTexX', x);
+            setInstanceParam(_instId, 'doubleExposureTexY', y);
+        } else if (_handle === 'center') {
+            const x = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)));
+            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)));
+            setInstanceParam(_instId, _xKey, x);
+            setInstanceParam(_instId, _yKey, y);
+        } else if (_handle === 'edgeW') {
+            setInstanceParam(_instId, _wKey, Math.round(Math.max(1, Math.min(200, Math.abs(mx - fcx) / (W / 2) * 100))));
+        } else if (_handle === 'edgeH') {
+            setInstanceParam(_instId, _hKey, Math.round(Math.max(1, Math.min(200, Math.abs(my - fcy) / (H / 2) * 100))));
+        } else if (_handle === 'rot') {
+            let deg = Math.atan2(my - fcy, mx - fcx) * 180 / Math.PI + 90;
             if (deg > 180)  deg -= 360;
             if (deg < -180) deg += 360;
             setInstanceParam(_instId, _angleKey, Math.round(deg));
@@ -1804,6 +2146,75 @@ function onDrag(e) {
             setInstanceParam(_instId, 'textBLx', toP(mx, W));
             setInstanceParam(_instId, 'textBLy', toP(my, H));
         }
+    } else if (_mode === 'shapeSticker') {
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const W  = uiOverlay.width, H = uiOverlay.height;
+        const p   = inst.params;
+        const cx  = (0.5 + p.shapeStickerX / 100) * W;
+        const cy  = (0.5 - p.shapeStickerY / 100) * H;
+        const sw  = (p.shapeStickerW / 100) * W;
+        const sh  = (p.shapeStickerH / 100) * H;
+        const angle = (p.shapeStickerAngle ?? 0) * Math.PI / 180;
+        const cosA = Math.cos(angle), sinA = Math.sin(angle);
+        const shape = p.shapeStickerShape || 'rectangle';
+        const sides = Math.max(3, Math.min(24, Math.round(p.shapeStickerSides || 6)));
+
+        if (_handle === 'center') {
+            const x = Math.round(Math.max(-50, Math.min(50, (mx / W - 0.5) * 100)) * 100) / 100;
+            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)) * 100) / 100;
+            setInstanceParam(_instId, 'shapeStickerX', x);
+            setInstanceParam(_instId, 'shapeStickerY', y);
+        } else if (_handle === 'rot') {
+            let deg = Math.atan2(my - cy, mx - cx) * 180 / Math.PI + 90;
+            if (deg > 180)  deg -= 360;
+            if (deg < -180) deg += 360;
+            setInstanceParam(_instId, 'shapeStickerAngle', Math.round(deg));
+        } else if (_handle === 'grab_center') {
+            const x = Math.round(Math.max(-50, Math.min(50, (mx / W - 0.5) * 100)) * 100) / 100;
+            const y = Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100)) * 100) / 100;
+            setInstanceParam(_instId, 'shapeStickerGrabX', x);
+            setInstanceParam(_instId, 'shapeStickerGrabY', y);
+        } else if (_handle === 'grab_rot') {
+            const gcx = (0.5 + (p.shapeStickerGrabX ?? 30) / 100) * W;
+            const gcy = (0.5 - (p.shapeStickerGrabY ?? 30) / 100) * H;
+            let deg = Math.atan2(my - gcy, mx - gcx) * 180 / Math.PI + 90;
+            if (deg > 180)  deg -= 360;
+            if (deg < -180) deg += 360;
+            setInstanceParam(_instId, 'shapeStickerGrabAngle', Math.round(deg));
+        } else if (_handle === 'grab_tl' || _handle === 'grab_tr' || _handle === 'grab_br' || _handle === 'grab_bl') {
+            const gcx = (0.5 + (p.shapeStickerGrabX ?? 30) / 100) * W;
+            const gcy = (0.5 - (p.shapeStickerGrabY ?? 30) / 100) * H;
+            const gsw = (p.shapeStickerGrabW ?? 20) / 100 * W;
+            const gsh = (p.shapeStickerGrabH ?? 20) / 100 * H;
+            const gAngle = (p.shapeStickerGrabAngle ?? 0) * Math.PI / 180;
+            const gcosA = Math.cos(gAngle), gsinA = Math.sin(gAngle);
+            const dx  = mx - gcx, dy = my - gcy;
+            const lx  =  dx * gcosA + dy * gsinA;
+            const ly  = -dx * gsinA + dy * gcosA;
+            setInstanceParam(_instId, 'shapeStickerGrabW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
+            setInstanceParam(_instId, 'shapeStickerGrabH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
+        } else if (_handle && _handle.startsWith('v')) {
+            const idx = parseInt(_handle.slice(1), 10);
+            const dx  = mx - cx, dy = my - cy;
+            const lx  =  dx * cosA + dy * sinA;
+            const ly  = -dx * sinA + dy * cosA;
+            const vx  = Math.round(Math.max(-50, Math.min(50, lx / W * 100)) * 100) / 100;
+            const vy  = Math.round(Math.max(-50, Math.min(50, -ly / H * 100)) * 100) / 100;
+            setInstanceParam(_instId, `shapeStickerV${idx}x`, vx);
+            setInstanceParam(_instId, `shapeStickerV${idx}y`, vy);
+        } else if (_handle === 'edgeW') {
+            const lx  = (mx - cx) * cosA + (my - cy) * sinA;
+            setInstanceParam(_instId, 'shapeStickerW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
+        } else if (_handle === 'edgeH') {
+            const ly  = -(mx - cx) * sinA + (my - cy) * cosA;
+            setInstanceParam(_instId, 'shapeStickerH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
+        } else {
+            const lx  = (mx - cx) * cosA + (my - cy) * sinA;
+            const ly  = -(mx - cx) * sinA + (my - cy) * cosA;
+            setInstanceParam(_instId, 'shapeStickerW', Math.round(Math.max(1, Math.min(100, Math.abs(lx) * 2 / W * 100))));
+            setInstanceParam(_instId, 'shapeStickerH', Math.round(Math.max(1, Math.min(100, Math.abs(ly) * 2 / H * 100))));
+        }
     } else {
         const x = Math.round(Math.max(-50, Math.min(50, ((e.clientX - rect.left) / rect.width  - 0.5) * 100)));
         const y = Math.round(Math.max(-50, Math.min(50, -((e.clientY - rect.top)  / rect.height - 0.5) * 100)));
@@ -1825,12 +2236,13 @@ function onUp() {
     if (!inst) return;
     if (_mode === 'fade')       drawFade(inst.params);
     if (_mode === 'blur')       drawBlur(inst.params);
-    if (_mode === 'blackBox')   drawBlackBox(inst.params);
     if (_mode === 'crop')       drawCrop(inst.params);
     if (_mode === 'matrixRain') drawMatrixRain(inst.params);
     if (_mode === 'viewport')   drawViewport(inst.params);
     if (_mode === 'lineDrag')   drawLineDrag(inst.params);
     if (_mode === 'chroma')     drawChroma(inst.params);
-    if (_mode === 'vignette')   drawVignette(inst.params);
-    if (_mode === 'text')       drawTextOverlay(inst.params);
+    if (_mode === 'vignette')        drawVignette(inst.params);
+    if (_mode === 'text')            drawTextOverlay(inst.params);
+    if (_mode === 'doubleExposure')  drawDoubleExposure(inst.params);
+    if (_mode === 'shapeSticker')   drawShapeSticker(inst.params);
 }

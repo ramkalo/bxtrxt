@@ -118,7 +118,7 @@ export default {
         glowRadius:     { default: 60,  min: 1,    max: 60  },
         glowThreshold:  { default: 0,   min: 0,    max: 255 },
         glowFade:       { default: 0,   min: 0,    max: 100 },
-        glowFadeEnabled:{ default: true },
+        glowFadeEnabled:{ default: false },
         glowFadeShape:  { default: 'ellipse' },
         glowFadeSlope:  { default: 3,   min: 0.1,  max: 8   },
         glowFadeInvert: { default: false },

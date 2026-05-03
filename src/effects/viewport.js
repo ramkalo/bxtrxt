@@ -74,7 +74,7 @@ export default {
         vpW:       { default: 30,  min: 1,   max: 100 },
         vpH:       { default: 20,  min: 1,   max: 100 },
         vpR:       { default: 25,  min: 1,   max: 100 },
-        vpSides:   { default: 6,   min: 3,   max: 12  },
+        vpSides:   { default: 6,   min: 3,   max: 24  },
         // Vertex offsets from center (all zero = uninitialized; canvas overlay resets on first show)
         vpV0x:  { default: 0 }, vpV0y:  { default: 0 },
         vpV1x:  { default: 0 }, vpV1y:  { default: 0 },

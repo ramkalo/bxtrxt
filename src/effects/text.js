@@ -16,10 +16,32 @@ const BG_COLORS = {
     'semi-white':  'rgba(255,255,255,0.45)',
 };
 
-function resolveTextColor(key) {
+function seededRandom(seed, idx) {
+    let h = ((seed * 2654435761) ^ (idx * 2246822519)) >>> 0;
+    h ^= h >>> 16;
+    h = Math.imul(h, 0x45d9f3b) >>> 0;
+    h ^= h >>> 16;
+    return h / 0x100000000;
+}
+
+function samplePalette(ctx, seed, count = 64) {
+    const W = ctx.canvas.width, H = ctx.canvas.height;
+    const data = ctx.getImageData(0, 0, W, H).data;
+    const palette = [];
+    for (let i = 0; i < count; i++) {
+        const px = Math.floor(seededRandom(seed, i * 2) * W);
+        const py = Math.floor(seededRandom(seed, i * 2 + 1) * H);
+        const off = (py * W + px) * 4;
+        palette.push(`rgb(${data[off]},${data[off + 1]},${data[off + 2]})`);
+    }
+    return palette;
+}
+
+function resolveTextColor(key, rng, palette) {
     if (NAMED_TEXT_COLORS[key]) return NAMED_TEXT_COLORS[key];
-    if (key === 'greyNoise') { const v = Math.floor(Math.random() * 256); return `rgb(${v},${v},${v})`; }
-    if (key === 'colorNoise') return `hsl(${Math.floor(Math.random() * 360)},100%,55%)`;
+    if (key === 'greyNoise') { const v = Math.floor(rng() * 256); return `rgb(${v},${v},${v})`; }
+    if (key === 'colorNoise') return `hsl(${Math.floor(rng() * 360)},100%,55%)`;
+    if (key === 'paletteNoise' && palette?.length) return palette[Math.floor(rng() * palette.length)];
     return 'rgba(255,255,255,0.92)';
 }
 
@@ -80,8 +102,11 @@ export function applyText(ctx, p) {
     if      (va === 'middle') startY = (th - totalH) / 2;
     else if (va === 'bottom') startY = th - totalH;
 
-    const fillColor   = resolveTextColor(p.textColor ?? 'white');
-    const strokeColor = (p.textColor === 'black') ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+    const colorKey    = p.textColor ?? 'white';
+    const strokeColor = (colorKey === 'black') ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+    const seed        = p.textNoiseSeed ?? 0;
+    const palette     = colorKey === 'paletteNoise' ? samplePalette(ctx, seed) : null;
+    let   noiseIdx    = 0;
 
     // Background: fill the actual quad shape
     if (p.textBg && p.textBg !== 'none' && BG_COLORS[p.textBg]) {
@@ -96,7 +121,6 @@ export function applyText(ctx, p) {
     }
 
     ctx.globalAlpha = opacity;
-    ctx.fillStyle   = fillColor;
     ctx.strokeStyle = strokeColor;
 
     // Rubber-sheet rendering: per-character bilinear Jacobian transform.
@@ -146,6 +170,7 @@ export function applyText(ctx, p) {
             const dPdv_y = (1 - u) * (bly - tly) + u * (bry - try_);
 
             ctx.save();
+            ctx.fillStyle = resolveTextColor(colorKey, () => seededRandom(seed, noiseIdx++), palette);
             ctx.transform(
                 dPdu_x / tw,  dPdu_y / tw,
                 dPdv_x / th,  dPdv_y / th,
@@ -178,7 +203,7 @@ export const textEffect = {
         'textWrap', 'textAlign', 'textVAlign',
         'textTLx', 'textTLy', 'textTRx', 'textTRy',
         'textBRx', 'textBRy', 'textBLx', 'textBLy',
-        'textOpacity',
+        'textOpacity', 'textNoiseSeed',
     ],
     handleParams: ['textTLx', 'textTLy', 'textTRx', 'textTRy', 'textBRx', 'textBRy', 'textBLx', 'textBLy'],
     params: {
@@ -189,13 +214,15 @@ export const textEffect = {
         textBold:       { default: false },
         textItalic:     { default: false },
         textStrike:     { default: false },
-        textLineHeight: { default: 1.2, min: 0.5, max: 3   },
-        textColor:      { default: 'white' },
+        textLineHeight: { default: 1.2, min: 0.5, max: 3, step: 0.1 },
+        textColor:          { default: 'white' },
+        textNoiseSeed:      { default: 0 },
+        textNoiseRandomize: { default: null },
         textOpacity: { default: 1, min: 0, max: 1, step: 0.01 },
         textBg:         { default: 'none' },
         textWrap:       { default: true },
-        textAlign:      { default: 'left' },
-        textVAlign:     { default: 'top' },
+        textAlign:      { default: 'center' },
+        textVAlign:     { default: 'middle' },
         // All 4 corners stored independently (% of canvas W/H).
         // TL, TR, BR, BL — each corner only controls itself.
         textTLx:        { default: 10 },
@@ -211,7 +238,7 @@ export const textEffect = {
     enabled: (p) => p.textEnabled && !!p.text,
     uiGroups: [
         { keys: ['text', 'textFont', 'textSize', 'textBold', 'textItalic', 'textStrike', 'textLineHeight'] },
-        { label: 'Color', keys: ['textColor', 'textBg', 'textOpacity'] },
+        { label: 'Color', keys: ['textColor', 'textNoiseRandomize', 'textBg', 'textOpacity'] },
         { label: 'Layout', keys: ['textWrap', 'textAlign', 'textVAlign', 'textBoxReset'] },
     ],
     canvas2d: applyText,

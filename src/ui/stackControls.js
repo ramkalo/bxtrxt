@@ -10,10 +10,6 @@ const PARAM_LABELS = {
     transformEnabled: 'Enable', rotate90: '90°', rotate180: '180°', rotate270: '270°', flipH: 'Flip H', flipV: 'Flip V',
     // crop
     cropEnabled: 'Enable', cropAspect: 'Aspect', cropFlipAspect: 'Flip Aspect', cropX: 'X', cropY: 'Y', cropScale: 'Scale',
-    // blackBox
-    blackBoxEnabled: 'Enable', blackBoxX: 'X', blackBoxY: 'Y', blackBoxW: 'Width', blackBoxH: 'Height', blackBoxAngle: 'Angle',
-    blackBoxFill: 'Fill', blackBoxGrainSize: 'Grain Size', blackBoxStaticSeed: 'Static',
-    blackBoxGrabMode: 'Grab Mode',
     // basic
     basicEnabled: 'Enable', brightness: 'Brightness', contrast: 'Contrast',
     saturation: 'Saturation', highlights: 'Highlights', shadows: 'Shadows',
@@ -64,7 +60,7 @@ const PARAM_LABELS = {
     textWrap: 'Word Wrap', textAlign: 'Justify', textVAlign: 'V-Align',
     textTLx: 'TL X', textTLy: 'TL Y', textTRx: 'TR X', textTRy: 'TR Y',
     textBRx: 'BR X', textBRy: 'BR Y', textBLx: 'BL X', textBLy: 'BL Y',
-    textBoxReset: 'Reset Box',
+    textBoxReset: 'Reset Box', textNoiseRandomize: 'Randomize',
     // waves
     wavesEnabled: 'Enable', wavesR: 'Red', wavesG: 'Green', wavesB: 'Blue', wavesPhase: 'Phase',
     wavesFadeEnabled: 'Enable Fade', wavesFadeShape: 'Shape',
@@ -95,9 +91,26 @@ const PARAM_LABELS = {
     // viewport
     vpEnabled: 'Enable', vpShape: 'Shape', vpPost: 'Post Mode', vpInvert: 'Invert', vpSides: 'Sides',
     // doubleExposure
-    doubleExposureEnabled: 'Enable', doubleExposureChannelMode: 'Channels',
-    doubleExposureBlendMode: 'Blend Mode', doubleExposureIntensity: 'Threshold',
-    doubleExposureReverse: 'Reverse Threshold',
+    doubleExposureEnabled: 'Enable',
+    doubleExposureOrigOpacity: 'Image Opacity', doubleExposureOpacity: 'Blend Opacity',
+    doubleExposureChannelMode: 'Target Channel', doubleExposureBlendMode: 'Blend Mode',
+    doubleExposureIntensity: 'Luminance', doubleExposureReverseLum: 'Reverse',
+    doubleExposureThreshSat: 'Saturation', doubleExposureReverseSat: 'Reverse',
+    doubleExposureFadeEnabled: 'Enable Fade', doubleExposureFadeShape: 'Shape',
+    doubleExposureFade: 'Strength', doubleExposureFadeSlope: 'Transition', doubleExposureFadeInvert: 'Invert',
+    doubleExposureFadeX: 'Center X', doubleExposureFadeY: 'Center Y',
+    doubleExposureFadeW: 'Width', doubleExposureFadeH: 'Height', doubleExposureFadeAngle: 'Angle',
+    doubleExposureTexX: 'Image X', doubleExposureTexY: 'Image Y',
+    // shapeSticker
+    shapeStickerEnabled: 'Enable', shapeStickerX: 'Center X', shapeStickerY: 'Center Y',
+    shapeStickerW: 'Width', shapeStickerH: 'Height', shapeStickerAngle: 'Angle',
+    shapeStickerShape: 'Shape', shapeStickerSides: 'Sides',
+    shapeStickerFillType: 'Fill Type', shapeStickerSolidColor: 'Solid Color',
+    shapeStickerStaticType: 'Static Type', shapeStickerGrainSize: 'Grain Size',
+    shapeStickerStaticSeed: 'Seed',
+    shapeStickerGrabX: 'Grab X', shapeStickerGrabY: 'Grab Y',
+    shapeStickerGrabW: 'Grab Width', shapeStickerGrabH: 'Grab Height',
+    shapeStickerGrabAngle: 'Grab Angle', shapeStickerGrabMode: 'Grab Mode',
     // chanSat
     chanSatEnabled: 'Enable', chanSatRed: 'Red', chanSatGreen: 'Green', chanSatBlue: 'Blue',
     chanSatThreshold: 'Target Saturation', chanSatAmount: 'Saturation',
@@ -150,6 +163,7 @@ const PARAM_OPTIONS = {
         ['red','Red'], ['green','Green'], ['blue','Blue'],
         ['cyan','Cyan'], ['yellow','Yellow'], ['magenta','Magenta'],
         ['greyNoise','Grey Noise'], ['colorNoise','Color Noise'],
+        ['paletteNoise','Image Palette'],
     ],
     textBg: [
         ['none','None'], ['black','Black'], ['white','White'],
@@ -169,8 +183,9 @@ const PARAM_OPTIONS = {
     ],
     glowFadeShape: [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
     crtStaticType: [['white', 'White'], ['grey', 'Greyscale'], ['color', 'Color'], ['luma', 'Luma'], ['image', 'Image']],
-    doubleExposureChannelMode: [['all', 'All'], ['r', 'R only'], ['g', 'G only'], ['b', 'B only'], ['rg', 'R + G'], ['rb', 'R + B'], ['gb', 'G + B']],
+    doubleExposureChannelMode: [['all', 'All'], ['r', 'Red'], ['g', 'Green'], ['b', 'Blue']],
     doubleExposureBlendMode: [['screen', 'Screen'], ['multiply', 'Multiply'], ['add', 'Add'], ['overlay', 'Overlay'], ['difference', 'Difference']],
+    doubleExposureFadeShape: [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
     smearDirection: [['ltr', 'Left → Right'], ['rtl', 'Right → Left'], ['ttb', 'Top → Bottom'], ['btu', 'Bottom → Top']],
     corruptedPattern: [
         ['splat',        'Splat'],
@@ -221,22 +236,11 @@ const PARAM_OPTIONS = {
         ['imagePaletteNoise',   'Image Palette Inside'],
         ['imagePaletteRandom',  'Image Palette Noise'],
     ],
-    blackBoxFill: [
-        ['black', 'Black'],
-        ['white', 'White'],
-        ['red', 'Red'],
-        ['green', 'Green'],
-        ['blue', 'Blue'],
-        ['cyan', 'Cyan'],
-        ['yellow', 'Yellow'],
-        ['magenta', 'Magenta'],
-        ['random', 'Random'],
-        ['bw', 'B&W'],
-        ['image', 'Image'],
-        ['image-static', 'Image Static'],
-        ['image-grab', 'Image Grab'],
-    ],
-    blackBoxGrabMode: [['skew', 'Skew'], ['wrap', 'Wrap']],
+    shapeStickerShape: [['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['polygon', 'Polygon']],
+    shapeStickerFillType: [['solid', 'Solid Color'], ['static', 'Static'], ['image-grab', 'Image Grab']],
+    shapeStickerSolidColor: [['r', 'Red'], ['g', 'Green'], ['b', 'Blue'], ['c', 'Cyan'], ['y', 'Yellow'], ['m', 'Magenta'], ['black', 'Black'], ['white', 'White']],
+    shapeStickerStaticType: [['greyscale', 'Greyscale'], ['random-rgbcym', 'Random RGBYM'], ['image-color-static', 'Image Color Static']],
+    shapeStickerGrabMode: [['skew', 'Skew'], ['wrap', 'Wrap']],
     basicFadeShape:   [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
     wavesFadeShape:   [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']],
     lineDragDir:       [['down', 'Down'], ['up', 'Up'], ['right', 'Right'], ['left', 'Left']],
@@ -280,20 +284,7 @@ export function buildEffectBody(inst, onRebuild) {
         }
     }
 
-    if (inst.effectName === 'blackBox' && inst.params.blackBoxFill === 'image-grab') {
-        const modeControl = buildControl(inst, 'blackBoxGrabMode', effect.params.blackBoxGrabMode, onRebuild);
-        if (modeControl) content.appendChild(modeControl);
 
-        const matchRow = document.createElement('div');
-        matchRow.className = 'control-group';
-        matchRow.innerHTML = `<div class="control-row"><button class="btn">Match Dimensions</button></div>`;
-        matchRow.querySelector('button').addEventListener('click', () => {
-            saveState();
-            setInstanceParam(inst.id, 'blackBoxW', inst.params.blackBoxGrabW);
-            setInstanceParam(inst.id, 'blackBoxH', inst.params.blackBoxGrabH);
-        });
-        content.appendChild(matchRow);
-    }
 
     if (inst.effectName === 'doubleExposure') {
         const row = document.createElement('div');
@@ -341,6 +332,19 @@ export function buildEffectBody(inst, onRebuild) {
         syncAllColorsState();
     }
 
+    if (inst.effectName === 'text') {
+        const colorSelect     = content.querySelector('[data-inst-param="textColor"]');
+        const randomizeGroup  = content.querySelector('[data-key="textNoiseRandomize"]');
+        const noiseValues     = new Set(['greyNoise', 'colorNoise', 'paletteNoise']);
+
+        function syncNoiseBtn() {
+            if (randomizeGroup) randomizeGroup.style.display = noiseValues.has(colorSelect?.value) ? '' : 'none';
+        }
+
+        colorSelect?.addEventListener('change', syncNoiseBtn);
+        syncNoiseBtn();
+    }
+
     return content;
 }
 
@@ -385,6 +389,25 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
             setInstanceParam(inst.id, 'textBRy', 95);
             setInstanceParam(inst.id, 'textBLx', 10);
             setInstanceParam(inst.id, 'textBLy', 95);
+        });
+        row.appendChild(btn);
+        group.appendChild(row);
+        return group;
+    }
+
+    // Noise randomize button for text effect
+    if (key === 'textNoiseRandomize') {
+        const group = document.createElement('div');
+        group.className = 'control-group';
+        group.dataset.key = 'textNoiseRandomize';
+        const row = document.createElement('div');
+        row.className = 'control-row';
+        const btn = document.createElement('button');
+        btn.className = 'btn';
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+            saveState();
+            setInstanceParam(inst.id, 'textNoiseSeed', Math.floor(Math.random() * 999999) + 1);
         });
         row.appendChild(btn);
         group.appendChild(row);
@@ -519,7 +542,7 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
     }
 
     // Seed → Randomize button
-    if (key === 'vhsTrackingSeed' || key === 'blackBoxStaticSeed' || key === 'corruptedSeed'
+    if (key === 'vhsTrackingSeed' || key === 'corruptedSeed'
         || key === 'matrixRainInjectSeed') {
         const group = document.createElement('div');
         group.className = 'control-group';

@@ -200,6 +200,9 @@ function noop() {}
 // Initialization
 // ---------------------------------------------------------------------------
 
+document.fonts.load('1px splitbitsv2');
+document.fonts.load('1px neogreekrunic');
+
 renderPresetList();
 initStackPanel();
 initMobileUI();

@@ -2,7 +2,7 @@ import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
-import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showBlackBoxOverlay, hideBlackBoxOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay } from './canvasPicker.js';
+import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -206,7 +206,6 @@ export function renderStackList() {
     if (newEffect !== 'text')       hideTextOverlay();
     if (newEffect !== 'fade')       hideFadeOverlay();
     if (newEffect !== 'blur')       hideBlurOverlay();
-    if (newEffect !== 'blackBox')   hideBlackBoxOverlay();
     if (newEffect !== 'crop')       hideCropOverlay();
     if (newEffect !== 'viewport')   hideViewportOverlay();
     if (newEffect !== 'matrixRain') hideMatrixRainOverlay();
@@ -214,12 +213,13 @@ export function renderStackList() {
     if (newEffect !== 'chroma')     hideChromaOverlay();
     if (newEffect !== 'vignette')   hideVignetteOverlay();
     if (newEffect !== 'crtCurvature') hideCRTCurvatureOverlay();
-    if (newEffect !== 'corrupted')  hideCorruptedOverlay();
+    if (newEffect !== 'corrupted')     hideCorruptedOverlay();
+    if (newEffect !== 'doubleExposure') hideDoubleExposureOverlay();
+    if (newEffect !== 'shapeSticker') hideShapeStickerOverlay();
 
     if      (newEffect === 'text')     showTextOverlay(expandedInst);
     else if (newEffect === 'basic')    showFadeOverlay(expandedInst);
     else if (newEffect === 'blur')     showBlurOverlay(expandedInst);
-    else if (newEffect === 'blackBox') showBlackBoxOverlay(expandedInst);
     else if (newEffect === 'crop')     showCropOverlay(expandedInst);
     else if (newEffect === 'viewport')    showViewportOverlay(expandedInst);
     else if (newEffect === 'matrixRain') showMatrixRainOverlay(expandedInst);
@@ -234,9 +234,12 @@ export function renderStackList() {
     }
     else if (newEffect === 'glow')
         showFadeOverlay(expandedInst, 'glowFadeX', 'glowFadeY', 'glowFadeShape', 'glowFadeW', 'glowFadeH', 'glowFadeAngle', 'glowFadeEnabled');
+    else if (newEffect === 'doubleExposure')
+        showDoubleExposureOverlay(expandedInst);
     else if (newEffect === 'vignette')  showVignetteOverlay(expandedInst);
     else if (newEffect === 'crtCurvature') showCRTCurvatureOverlay(expandedInst);
     else if (newEffect === 'corrupted') showCorruptedOverlay(expandedInst);
+    else if (newEffect === 'shapeSticker') showShapeStickerOverlay(expandedInst);
 }
 
 // --- Drag-and-drop ---
