@@ -24,16 +24,57 @@ import { matrixRainEffect } from './matrixRain.js';
 import { shapeStickerEffect } from './shapeSticker.js';
 
 /**
+ * @typedef {Object} EffectBase
+ * @property {string} name
+ * @property {string} label
+ * @property {'transform'|'pre-crt'|'post'|'context'|'viewport'} pass
+ * @property {Record<string, {default: *, min?: number, max?: number, step?: number}>} params
+ * @property {(p: object) => boolean} enabled
+ * @property {string[]} [paramKeys]       — param names auto-bound to GLSL uniforms
+ * @property {string[]} [handleParams]    — param names driven by canvas drag handles
+ * @property {(gl: WebGL2RenderingContext, prog: WebGLProgram, params: object, dstW: number, dstH: number, srcTex?: WebGLTexture, origTex?: WebGLTexture) => void} [bindUniforms]
+ * @property {Object} [uiGroups]
+ */
+
+/**
+ * @typedef {EffectBase & { glsl: string, getOutputDimensions?: (p: object, w: number, h: number) => {w: number, h: number} }} TransformEffect
+ * @typedef {EffectBase & { glsl: string }} GlslEffect
+ * @typedef {EffectBase & { glslPasses: Array<{glsl: string, needsOriginal?: boolean}> | ((p: object) => Array<{glsl: string, needsOriginal?: boolean}>) }} MultiPassEffect
+ * @typedef {EffectBase & { canvas2d: (ctx: CanvasRenderingContext2D, params: object) => void }} ContextEffect
+ * @typedef {TransformEffect|GlslEffect|MultiPassEffect|ContextEffect} EffectDef
+ */
+
+const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport']);
+
+/** @param {EffectDef} effect */
+function validateEffect(effect) {
+    const id = `Effect "${effect?.name ?? '(unknown)'}"`;
+    if (typeof effect.name   !== 'string')   throw new Error(`${id}: "name" must be a string`);
+    if (typeof effect.label  !== 'string')   throw new Error(`${id}: "label" must be a string`);
+    if (typeof effect.pass   !== 'string')   throw new Error(`${id}: "pass" must be a string`);
+    if (typeof effect.params !== 'object')   throw new Error(`${id}: "params" must be an object`);
+    if (typeof effect.enabled !== 'function') throw new Error(`${id}: "enabled" must be a function`);
+    if (!KNOWN_PASSES.has(effect.pass))       throw new Error(`${id}: unknown pass "${effect.pass}"`);
+
+    if (effect.pass === 'context') {
+        if (typeof effect.canvas2d !== 'function')
+            throw new Error(`${id}: pass "context" requires a canvas2d function`);
+    } else {
+        if (!effect.glsl && !effect.glslPasses)
+            throw new Error(`${id}: pass "${effect.pass}" requires glsl or glslPasses`);
+    }
+}
+
+/**
  * Master ordered list of all effects.
- * Order matters: effects are applied in this sequence by the canvas 2D pipeline.
- * Each entry is an effect definition object:
- *   { name, label, pass, params, enabled(p), canvas2d }
+ * Order matters: effects are applied in this sequence by the rendering pipeline.
  *
  * pass values:
- *   'transform' — canvas transform (crop, flip, rotate), applied first
- *   'pre-crt'   — imageData effect, applied before any context drawing
- *   'context'   — draws directly to the 2D canvas context (e.g. text overlays)
- *   'post'      — imageData effect, applied after context effects
+ *   'transform' — resizes canvas (crop, flip, rotate), applied first; needs glsl
+ *   'pre-crt'   — GLSL/multi-pass effect before context drawing; needs glsl or glslPasses
+ *   'context'   — draws to a 2D canvas context (text, stickers); needs canvas2d
+ *   'post'      — GLSL/multi-pass effect after context drawing; needs glsl or glslPasses
+ *   'viewport'  — composites a reveal window over the full result; needs glsl
  *
  * To add a new effect: create src/effects/myEffect.js, import it here,
  * add it to EFFECTS in the correct position. That's it.
@@ -64,6 +105,8 @@ export const EFFECTS = [
     viewportEffect,
     shapeStickerEffect,
 ];
+
+for (const effect of EFFECTS) validateEffect(effect);
 
 // ---------------------------------------------------------------------------
 // Derived param schema — auto-generated from EFFECTS, replaces hand-maintained

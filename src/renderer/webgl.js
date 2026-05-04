@@ -3,7 +3,7 @@ import {
     originalImage,
     fboPool, programCache, quadVAO,
     overlayCanvas, overlayCtx,
-    setOriginalTexture, setFboPool,
+    setFboPool, setSecondTexture,
 } from './glstate.js';
 import { getEffect } from '../effects/registry.js';
 import { isCropPreviewActive } from '../state/cropPreview.js';
@@ -188,6 +188,30 @@ function runPass(fragSrc, srcTex, dstFbo, effect, params) {
 let _origTex = null;
 let _lastOriginalImage = null;
 
+// --- Overlay texture cache ---
+let _overlayTex  = null;
+let _overlayTexW = 0;
+let _overlayTexH = 0;
+
+function _getOverlayTex() {
+    const w = overlayCanvas.width, h = overlayCanvas.height;
+    if (!_overlayTex || _overlayTexW !== w || _overlayTexH !== h) {
+        if (_overlayTex) gl.deleteTexture(_overlayTex);
+        _overlayTex  = createTexture(w, h);
+        _overlayTexW = w;
+        _overlayTexH = h;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, _overlayTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, overlayCanvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return _overlayTex;
+}
+
+// --- Transform FBO cache ---
+let _transformFBO = null;
+
 // --- Viewport composite FBOs ---
 let _vpPreFBO  = null;
 let _vpFullFBO = null;
@@ -236,8 +260,11 @@ function _runLinear(stack, startTex) {
             const prog = getProgram(effect.glsl);
             if (!prog) continue;
 
-            const tmpFbo = createFBO(outDims.w, outDims.h);
-            gl.bindFramebuffer(gl.FRAMEBUFFER, tmpFbo.fbo);
+            if (!_transformFBO || _transformFBO.width !== outDims.w || _transformFBO.height !== outDims.h) {
+                destroyFBO(_transformFBO);
+                _transformFBO = createFBO(outDims.w, outDims.h);
+            }
+            gl.bindFramebuffer(gl.FRAMEBUFFER, _transformFBO.fbo);
             gl.viewport(0, 0, outDims.w, outDims.h);
             gl.useProgram(prog);
             bindTex0(prog, srcTex);
@@ -253,8 +280,7 @@ function _runLinear(stack, startTex) {
             }
 
             const poolDst = fboPool[pingIdx % 2];
-            runPass(PASSTHROUGH_FRAG, tmpFbo.tex, poolDst, null, null);
-            destroyFBO(tmpFbo);
+            runPass(PASSTHROUGH_FRAG, _transformFBO.tex, poolDst, null, null);
 
             srcTex = poolDst.tex;
             pingIdx++;
@@ -278,9 +304,7 @@ function _runLinear(stack, startTex) {
             effect.canvas2d(overlayCtx, instance.params);
 
             const dstFbo = fboPool[pingIdx % 2];
-            const overlayTex = uploadToTexture(overlayCanvas);
-            runPass(PASSTHROUGH_FRAG, overlayTex, dstFbo, null, null);
-            gl.deleteTexture(overlayTex);
+            runPass(PASSTHROUGH_FRAG, _getOverlayTex(), dstFbo, null, null);
 
             srcTex = dstFbo.tex;
             pingIdx++;
@@ -379,6 +403,11 @@ function _runEffects(stack) {
     });
 
     if (vpIdx === -1) {
+        if (_vpPreFBO) {
+            destroyFBO(_vpPreFBO);  _vpPreFBO  = null;
+            destroyFBO(_vpFullFBO); _vpFullFBO = null;
+            destroyFBO(_vpPostFBO); _vpPostFBO = null;
+        }
         const srcTex = _runLinear(stack, _origTex);
         runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
         if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -439,7 +468,6 @@ export function processWebGLStack(stack) {
     if (originalImage !== _lastOriginalImage) {
         if (_origTex) gl.deleteTexture(_origTex);
         _origTex = uploadToTexture(originalImage);
-        setOriginalTexture(_origTex);
         _lastOriginalImage = originalImage;
     }
 
@@ -463,7 +491,6 @@ export function renderForExport(stack) {
 
         if (_origTex) gl.deleteTexture(_origTex);
         _origTex = uploadToTexture(originalImage);
-        setOriginalTexture(_origTex);
 
         if (!fboPool[0] || fboPool[0].width !== w || fboPool[0].height !== h) reallocFBOs(w, h);
 
@@ -476,4 +503,19 @@ export function renderForExport(stack) {
     }
 
     _runEffects(stack);
+}
+
+export function cleanupWebGL() {
+    fboPool.forEach(f => destroyFBO(f));
+    setFboPool([null, null]);
+    destroyFBO(_transformFBO); _transformFBO = null;
+    destroyFBO(_vpPreFBO);     _vpPreFBO  = null;
+    destroyFBO(_vpFullFBO);    _vpFullFBO = null;
+    destroyFBO(_vpPostFBO);    _vpPostFBO = null;
+    if (_origTex)    { gl.deleteTexture(_origTex);    _origTex    = null; }
+    if (_overlayTex) { gl.deleteTexture(_overlayTex); _overlayTex = null; }
+    setSecondTexture(null);
+    programCache.forEach(prog => gl.deleteProgram(prog));
+    programCache.clear();
+    gl.deleteVertexArray(quadVAO);
 }

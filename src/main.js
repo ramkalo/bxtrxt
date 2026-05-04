@@ -3,6 +3,7 @@ import { undo, redo } from './state/undo.js';
 import { showNotification } from './utils/notifications.js';
 import { canvas } from './renderer/glstate.js';
 import { processImage } from './renderer/pipeline.js';
+import { cleanupWebGL } from './renderer/webgl.js';
 import { loadImage, loadSecondImage } from './utils/image.js';
 import { exportImage } from './ui/export.js';
 import { savePreset, loadPreset, renderPresetList, importPreset } from './ui/presets.js';
@@ -209,6 +210,7 @@ initMobileUI();
 initBottomSheet();
 initTouchGestures();
 initLogo();
+window.addEventListener('beforeunload', cleanupWebGL);
 
 // Mobile warning
 const mobileWarningModal = document.getElementById('mobileWarningModal');

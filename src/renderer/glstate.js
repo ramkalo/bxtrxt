@@ -1,7 +1,6 @@
 export const canvas = document.getElementById('mainCanvas');
 
 export let gl = null;
-export let originalTexture = null;
 export let secondTexture = null;
 export let fboPool = [null, null]; // [{ fbo, tex, width, height }, ...]
 export let programCache = new Map(); // fragSrc → WebGLProgram (with ._locs)
@@ -24,6 +23,5 @@ init();
 
 export function setOriginalImage(v)   { originalImage = v; }
 export function setSecondImage(v)     { secondImage = v; }
-export function setOriginalTexture(v) { originalTexture = v; }
 export function setSecondTexture(v)   { if (secondTexture && gl) gl.deleteTexture(secondTexture); secondTexture = v; }
 export function setFboPool(v)         { fboPool = v; }
