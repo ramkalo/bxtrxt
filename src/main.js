@@ -223,10 +223,10 @@ window.addEventListener('beforeunload', cleanupWebGL);
 
 // Mobile warning
 const mobileWarningModal = document.getElementById('mobileWarningModal');
-const isMobile = window.innerWidth < 1024 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const isMobile = window.innerWidth < 768 || /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 if (!isMobile) {
     mobileWarningModal.classList.add('hidden');
 }
-document.getElementById('mobileWarningOk').addEventListener('click', () => {
-    mobileWarningModal.classList.add('hidden');
-});
+const dismissMobileWarning = () => mobileWarningModal.classList.add('hidden');
+document.getElementById('mobileWarningOk').addEventListener('click', dismissMobileWarning);
+mobileWarningModal.addEventListener('click', dismissMobileWarning);
