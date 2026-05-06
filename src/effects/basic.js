@@ -1,4 +1,4 @@
-import { buildFadeControl } from './controls/index.js';
+import { buildFadeControl, buildThresholdControl, buildBlendControl } from './controls/index.js';
 
 const fade = buildFadeControl('basic');
 const threshold = buildThresholdControl('basic');
