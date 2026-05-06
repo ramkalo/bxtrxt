@@ -1,69 +1,19 @@
-import { buildParamDefaults, buildControlLimits } from '../effects/registry.js';
-
-// Internal mutable data — derived from the effect registry so the
-// params list and controlLimits never need to be hand-maintained again.
-const _data = buildParamDefaults();
-
-// Snapshot defaults BEFORE proxy wrapping so it's a clean plain object
-export const defaultParams = JSON.parse(JSON.stringify(_data));
-
-// --- Reactivity ---------------------------------------------------------
-
-const _listeners = new Set();
-
-function _notify(paramKey = null) {
-    for (const fn of _listeners) fn(paramKey);
-}
-
-/**
- * params proxy: reads pass through, writes notify all listeners.
- * All existing code that reads params.brightness etc. keeps working.
- * All existing code that writes params.x = y now auto-triggers renders.
- */
-export const params = new Proxy(_data, {
-    set(target, key, value) {
-        target[key] = value;
-        _notify(key);
-        return true;
-    }
-});
-
-/**
- * Subscribe to any param change. Callback receives (paramKey) or nothing.
- * Usage: const unsub = onParamsChange((key) => processImage(key));
- */
-export function onParamsChange(fn) {
-    _listeners.add(fn);
-    return () => _listeners.delete(fn);
-}
-
-/**
- * Apply many params at once and fire listeners only once.
- * Use for preset load, undo/redo restore, reset — avoids N renders for N params.
- */
-export function setParamsBulk(obj) {
-    Object.assign(_data, obj);
-    _notify(null); // null indicates bulk change
-}
-
-/** Return a lightweight plain-object copy of the current param state. */
-export function snapshotParams() {
-    return JSON.parse(JSON.stringify(_data));
-}
-
-/** Restore params from a snapshot and notify listeners (triggers re-render). */
-export function restoreParams(snapshot) {
-    Object.assign(_data, snapshot);
-    _notify(null);
-}
-
-// --- Control metadata — derived from registry, no longer hand-maintained ---
-export const controlLimits = buildControlLimits();
-
 // --- Preset storage -----------------------------------------------------
 
 export let presets = JSON.parse(localStorage.getItem('retroPresets') || '{}');
 
 export function savePresetsToStorage() {
     localStorage.setItem('retroPresets', JSON.stringify(presets));
+}
+
+// --- Undo/redo param snapshots ------------------------------------------
+// Global params are no longer the source of truth (effect state lives in
+// effectStack.js), but these stubs keep undo.js working without breakage.
+
+export function snapshotParams() {
+    return {};
+}
+
+export function restoreParams(_snapshot) {
+    // no-op: nothing to restore
 }

@@ -25,6 +25,9 @@ export function loadImage(file) {
             processImage();
             showNotification('Image loaded');
         };
+        img.onerror = function() {
+            showNotification('Failed to load image');
+        };
         img.src = e.target.result;
     };
     reader.readAsDataURL(file);

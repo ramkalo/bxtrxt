@@ -1,4 +1,3 @@
-import { params } from './state/params.js';
 import { undo, redo } from './state/undo.js';
 import { showNotification } from './utils/notifications.js';
 import { canvas } from './renderer/glstate.js';
