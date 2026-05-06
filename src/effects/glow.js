@@ -1,6 +1,6 @@
 import { buildFadeControl } from './controls/index.js';
 
-const fade = buildFadeControl('glow', { fade: 0, w: 50, h: 50, invert: false });
+const fade = buildFadeControl('glow');
 
 const GLOW_THRESHOLD_GLSL = `
 uniform float glowThreshold;

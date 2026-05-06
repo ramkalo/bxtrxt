@@ -1,6 +1,6 @@
 import { buildFadeControl, buildThresholdControl } from './controls/index.js';
 
-const fade      = buildFadeControl('chroma', { fade: 0, w: 100, h: 100, invert: false });
+const fade      = buildFadeControl('chroma');
 const threshold = buildThresholdControl('chroma');
 
 export default {

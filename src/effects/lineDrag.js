@@ -1,6 +1,6 @@
 import { buildFadeControl, buildThresholdControl } from './controls/index.js';
 
-const fade      = buildFadeControl('lineDrag', { fade: 20, w: 40, h: 40, invert: true });
+const fade      = buildFadeControl('lineDrag');
 const threshold = buildThresholdControl('lineDrag');
 
 export default {

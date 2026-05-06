@@ -1,7 +1,7 @@
 import { secondTexture } from '../renderer/glstate.js';
 import { buildFadeControl } from './controls/index.js';
 
-const fade = buildFadeControl('doubleExposure', { fade: 20, w: 40, h: 40, invert: true });
+const fade = buildFadeControl('doubleExposure');
 
 export default {
     name: 'doubleExposure',
