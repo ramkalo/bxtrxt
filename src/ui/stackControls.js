@@ -35,7 +35,8 @@ export function buildEffectBody(inst, onRebuild) {
         let subWrapper = null;
         if (condKey) {
             subWrapper = document.createElement('div');
-            subWrapper.style.display = inst.params[condKey] ? '' : 'none';
+            subWrapper.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+            if (!inst.params[condKey]) subWrapper.style.display = 'none';
         }
 
         for (const key of group.keys) {
@@ -54,7 +55,7 @@ export function buildEffectBody(inst, onRebuild) {
                 if (condKey && key === condKey) {
                     const chk = controlEl.querySelector('input[type="checkbox"]');
                     if (chk) chk.addEventListener('change', () => {
-                        subWrapper.style.display = chk.checked ? '' : 'none';
+                        subWrapper.style.display = chk.checked ? 'flex' : 'none';
                     });
                     content.appendChild(subWrapper);
                 }

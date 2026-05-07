@@ -261,8 +261,9 @@ void main() {
                ${blend.blendChFn}(c.g, src.g),
                ${blend.blendChFn}(c.b, src.b))
         : src.rgb;
+    float blendAlpha = (${blendEnabledUniform} == 1) ? ${opacityUniform} / 100.0 : 1.0;
     float weight = ${fade ? `${fade.fnName}()` : '1.0'};
-    fragColor = vec4(mix(c.rgb, srcColor, src.a * ${opacityUniform} / 100.0 * weight), c.a);
+    fragColor = vec4(mix(c.rgb, srcColor, src.a * blendAlpha * weight), c.a);
 }`;
 }
 
