@@ -526,16 +526,59 @@ input[type="checkbox"] {
 
 .drop-zone-blanks {
     margin-top: 100px;
+    justify-content: center;
 }
 
 .drop-zone-blanks-portrait {
     margin-top: 8px;
+    justify-content: center;
+    align-items: flex-end;
 }
 
 .btn-row .btn {
     flex: 1;
     padding: 6px 10px;
     font-size: 0.8rem;
+}
+
+.drop-zone-blanks .btn,
+.drop-zone-blanks-portrait .btn {
+    flex: none;
+    font-size: 0.6rem;
+    padding: 3px 5px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.drop-zone-blanks .btn {
+    height: 48px;
+}
+
+.drop-zone-blanks-portrait .btn {
+    width: 48px;
+}
+
+.blank-white {
+    background: #ffffff;
+    color: #333;
+    border-color: #aaa;
+}
+
+.blank-white:hover {
+    background: #e8e8e8;
+    border-color: var(--accent);
+}
+
+.blank-black {
+    background: #141414;
+    color: #ccc;
+    border-color: #555;
+}
+
+.blank-black:hover {
+    background: #2a2a2a;
+    border-color: var(--accent);
 }
 
 .image-info {

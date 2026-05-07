@@ -1,11 +1,16 @@
+import { buildBlendControl } from './controls/index.js';
+
+const blend = buildBlendControl('blur');
+
 export default {
     name:  'blur',
     label: 'Blur',
     pass:  'pre-crt',
-    paramKeys: ['blurEdge', 'blurCenter', 'blurPasses', 'blurMode', 'blurMajor', 'blurMinor', 'blurAngle', 'blurCenterX', 'blurCenterY'],
+    paramKeys: ['blurEdge', 'blurCenter', 'blurPasses', 'blurMode', 'blurMajor', 'blurMinor', 'blurAngle', 'blurCenterX', 'blurCenterY', ...blend.paramKeys],
     handleParams: ['blurMajor', 'blurMinor', 'blurAngle'],
     uiGroups: [
         { keys: ['blurEdge', 'blurCenter', 'blurPasses', 'blurMode'] },
+        blend.uiGroup,
     ],
     params: {
         blurEnabled: { default: false, label: 'Enable' },
@@ -18,13 +23,14 @@ export default {
         blurAngle:   { default: 0,   min: 0,   max: 180, label: 'Angle' },
         blurCenterX: { default: 0,   min: -50, max: 50,  label: 'Center X' },
         blurCenterY: { default: 0,   min: -50, max: 50,  label: 'Center Y' },
+        ...blend.params,
     },
     enabled:  (p) => p.blurEnabled,
     bindUniforms: (gl, prog, p) => {
         const loc = prog._locs['blurMode'];
         if (loc != null) gl.uniform1i(loc, p.blurMode === 'rectangle' ? 1 : 0);
+        blend.bindUniforms(gl, prog, p);
     },
-    // glslPasses is a function so the h+v pair repeats blurPasses times
     glslPasses: (p) => {
         const nPasses = Math.round(p.blurPasses ?? 1);
         const passes = [];
@@ -81,9 +87,10 @@ uniform float blurAngle;
 uniform float blurCenterX;
 uniform float blurCenterY;
 uniform int   blurMode;
-
+${blend.glsl}
 void main() {
     vec4 orig    = texture(uTexOriginal, vUV);
+    if (!${blend.thresholdFn}(orig)) { fragColor = orig; return; }
     vec4 blurred = texture(uTex, vUV);
 
     float centerUX = 0.5 + blurCenterX / 100.0;
@@ -106,6 +113,7 @@ void main() {
     float centerStr = blurCenter / 100.0;
     float weight = clamp(falloff * edgeStr + (1.0 - falloff) * centerStr, 0.0, 1.0);
 
-    fragColor = vec4(mix(orig.rgb, blurred.rgb, weight), orig.a);
+    vec3 adjusted = mix(orig.rgb, blurred.rgb, weight);
+    fragColor = vec4(${blend.blendFn}(orig.rgb, adjusted), orig.a);
 }
 `;

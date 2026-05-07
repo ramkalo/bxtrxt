@@ -1,8 +1,12 @@
+import { buildBlendControl } from './controls/index.js';
+
+const blend = buildBlendControl('moire');
+
 export default {
     name: 'moire',
     label: 'Moire',
     pass: 'post',
-    paramKeys: ['moireStrength', 'moireFrequency', 'moireOffset', 'moireAngle', 'moireRotation'],
+    paramKeys: ['moireStrength', 'moireFrequency', 'moireOffset', 'moireAngle', 'moireRotation', ...blend.paramKeys],
     params: {
         moireEnabled:   { default: false },
         moireStrength:  { default: 80,  min: 0,   max: 100 },
@@ -10,21 +14,25 @@ export default {
         moireOffset:    { default: 10,  min: 0,   max: 50  },
         moireAngle:     { default: 5,   min: 0,   max: 45  },
         moireRotation:  { default: 0,   min: 0,   max: 360 },
+        ...blend.params,
     },
     uiGroups: [
         { keys: ['moireEnabled', 'moireStrength', 'moireFrequency'] },
         { label: 'Pattern', keys: ['moireOffset', 'moireAngle', 'moireRotation'] },
+        blend.uiGroup,
     ],
     enabled: (p) => p.moireEnabled,
+    bindUniforms: (gl, prog, p) => blend.bindUniforms(gl, prog, p),
     glsl: `
 uniform float moireStrength;
 uniform float moireFrequency;
 uniform float moireOffset;
 uniform float moireAngle;
 uniform float moireRotation;
-
+${blend.glsl}
 void main() {
     vec4 c = texture(uTex, vUV);
+    if (!${blend.thresholdFn}(c)) { fragColor = c; return; }
 
     vec2 pos = vec2(vUV.x * uResolution.x, (1.0 - vUV.y) * uResolution.y);
 
@@ -46,7 +54,8 @@ void main() {
     float pattern = grid1 * grid2;
 
     float intensity = (moireStrength / 100.0) * 0.9;
-    fragColor = vec4(c.rgb * (1.0 - intensity * (1.0 - pattern)), c.a);
+    vec3 adjusted = c.rgb * (1.0 - intensity * (1.0 - pattern));
+    fragColor = vec4(${blend.blendFn}(c.rgb, adjusted), c.a);
 }
 `,
 };

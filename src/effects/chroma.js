@@ -1,7 +1,7 @@
-import { buildFadeControl, buildThresholdControl } from './controls/index.js';
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
 
-const fade      = buildFadeControl('chroma');
-const threshold = buildThresholdControl('chroma');
+const fade  = buildFadeControl('chroma');
+const blend = buildBlendControl('chroma');
 
 export default {
     name: 'chroma',
@@ -10,7 +10,7 @@ export default {
     paramKeys: [
         'chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY',
         'chromaScale', 'wavesPhase',
-        ...threshold.paramKeys,
+        ...blend.paramKeys,
         ...fade.paramKeys,
         'chromaOutlineX', 'chromaOutlineY',
     ],
@@ -26,7 +26,7 @@ export default {
         chromaBlueY:    { default: 0, min: -20, max: 20, label: 'Blue Y' },
         chromaScale:    { default: 1,   min: 1,   max: 10, label: 'Scale' },
         wavesPhase:     { default: 0,   min: 0,   max: 100, label: 'Phase' },
-        ...threshold.params,
+        ...blend.params,
         ...fade.params,
         chromaOutlineX: { default: 0, min: -50, max: 50 },
         chromaOutlineY: { default: 0, min: -50, max: 50 },
@@ -34,12 +34,12 @@ export default {
     enabled: (p) => p.chromaEnabled,
     uiGroups: (p) => {
         const sharedBottom = [
-            { label: 'Scale & Threshold', keys: ['chromaScale', ...threshold.uiGroup.keys] },
+            blend.uiGroup,
             fade.uiGroup,
         ];
         if (p.chromaMode === 'waves') return [
             { keys: ['chromaMode'] },
-            { keys: ['chromaRedX', 'chromaGreenX', 'chromaBlueX', 'wavesPhase'],
+            { keys: ['chromaRedX', 'chromaGreenX', 'chromaBlueX', 'wavesPhase', 'chromaScale'],
               labels: { chromaRedX: 'Red', chromaGreenX: 'Green', chromaBlueX: 'Blue', wavesPhase: 'Phase' } },
             ...sharedBottom,
         ];
@@ -47,8 +47,8 @@ export default {
         return [
             { keys: ['chromaMode'] },
             { label: 'Channel Shifts', keys: outline
-                ? ['chromaRedX', 'chromaGreenX', 'chromaBlueX']
-                : ['chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY'],
+                ? ['chromaRedX', 'chromaGreenX', 'chromaBlueX', 'chromaScale']
+                : ['chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY', 'chromaScale'],
               labels: outline ? { chromaRedX: 'Red', chromaGreenX: 'Green', chromaBlueX: 'Blue' } : undefined },
             ...sharedBottom,
         ];
@@ -60,7 +60,7 @@ export default {
         const modeInt = { classic: 0, outline: 1, waves: 2 }[p.chromaMode] ?? 0;
         if (prog._locs['chromaMode'] != null) gl.uniform1i(prog._locs['chromaMode'], modeInt);
         fade.bindUniforms(gl, prog, p);
-        threshold.bindUniforms(gl, prog, p);
+        blend.bindUniforms(gl, prog, p);
     },
     glsl: `
 uniform float chromaRedX; uniform float chromaRedY;
@@ -71,7 +71,7 @@ uniform int   chromaMode;
 uniform float chromaOutlineX;
 uniform float chromaOutlineY;
 uniform float wavesPhase;
-${threshold.glsl}
+${blend.glsl}
 ${fade.glsl}
 vec4 chromaSample(vec2 offsetPx) {
     return texture(uTex, clamp(vUV + vec2(-offsetPx.x, -offsetPx.y) / uResolution, vec2(0.0), vec2(1.0)));
@@ -89,7 +89,7 @@ float wavesFormula(float xN, float yN) {
 void main() {
     vec4 orig = texture(uTex, vUV);
 
-    if (!${threshold.fnName}(orig)) { fragColor = orig; return; }
+    if (!${blend.thresholdFn}(orig)) { fragColor = orig; return; }
 
     float weight = ${fade.fnName}();
 
@@ -106,7 +106,8 @@ void main() {
         r = texture(uTex, clamp(vec2(vUV.x + wave * ampR / uResolution.x, vUV.y), vec2(0.0), vec2(1.0))).r;
         g = texture(uTex, clamp(vec2(vUV.x + wave * ampG / uResolution.x, vUV.y), vec2(0.0), vec2(1.0))).g;
         b = texture(uTex, clamp(vec2(vUV.x + wave * ampB / uResolution.x, vUV.y), vec2(0.0), vec2(1.0))).b;
-        fragColor = vec4(mix(orig.r, r, weight), mix(orig.g, g, weight), mix(orig.b, b, weight), orig.a);
+        vec3 adjusted = vec3(mix(orig.r, r, weight), mix(orig.g, g, weight), mix(orig.b, b, weight));
+        fragColor = vec4(${blend.blendFn}(orig.rgb, adjusted), orig.a);
         return;
     }
 
@@ -130,7 +131,7 @@ void main() {
         g = chromaSample(gShift).g;
         b = chromaSample(bShift).b;
     }
-    fragColor = vec4(r, g, b, orig.a);
+    fragColor = vec4(${blend.blendFn}(orig.rgb, vec3(r, g, b)), orig.a);
 }
 `,
 };

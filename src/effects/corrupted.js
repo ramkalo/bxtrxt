@@ -1,3 +1,8 @@
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
+
+const fade  = buildFadeControl('corrupted');
+const blend = buildBlendControl('corrupted');
+
 function mulberry32(seed) {
     return function() {
         seed |= 0; seed = seed + 0x6D2B79F5 | 0;
@@ -253,8 +258,14 @@ export default {
     name:  'corrupted',
     label: 'Corrupted',
     pass:  'pre-crt',
-    handleParams: ['corruptedX', 'corruptedY'],
-    paramKeys: ['corruptedSeeds', 'corruptedSeed', 'corruptedPattern', 'corruptedColor', 'corruptedColorMode', 'corruptedInfect', 'corruptedChunkSize', 'corruptedCluster', 'corruptedX', 'corruptedY'],
+    handleParams: ['corruptedX', 'corruptedY', ...fade.handleParams],
+    overlays: { fade: fade.overlay },
+    paramKeys: ['corruptedSeeds', 'corruptedSeed', 'corruptedPattern', 'corruptedColor', 'corruptedColorMode', 'corruptedInfect', 'corruptedChunkSize', 'corruptedCluster', 'corruptedX', 'corruptedY', ...fade.paramKeys, ...blend.paramKeys],
+    uiGroups: [
+        { keys: ['corruptedSeeds', 'corruptedSeed', 'corruptedPattern', 'corruptedColor', 'corruptedColorMode', 'corruptedInfect', 'corruptedChunkSize', 'corruptedCluster'] },
+        fade.uiGroup,
+        blend.uiGroup,
+    ],
     params: {
         corruptedEnabled:   { default: false, label: 'Enable' },
         corruptedSeeds:     { default: 3,   min: 1,   max: 10,    label: 'Seeds' },
@@ -277,6 +288,8 @@ export default {
         corruptedCluster:   { default: 30,  min: 0,   max: 100,   label: 'Cluster' },
         corruptedX:         { default: 0,   min: -50, max: 50,    label: 'Center X' },
         corruptedY:         { default: 0,   min: -50, max: 50,    label: 'Center Y' },
+        ...fade.params,
+        ...blend.params,
     },
     enabled:  (p) => p.corruptedEnabled,
     bindUniforms: corruptedBindUniforms,
@@ -286,10 +299,13 @@ uniform sampler2D uColorTex;
 uniform float corruptedChunkSize;
 uniform int   corruptedIsStatic;
 uniform int   corruptedIsGlitched;
-
+${fade.glsl}
+${blend.glsl}
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 void main() {
+    vec4 c = texture(uTex, vUV);
+
     float chunkW = ceil(uResolution.x / corruptedChunkSize);
     float chunkH = ceil(uResolution.y / corruptedChunkSize);
 
@@ -303,11 +319,16 @@ void main() {
     float zoneF = texture(uChunkTex, vec2(u, v)).r * 255.0;
     int zone = int(zoneF + 0.5) - 1;
 
-    if (zone < 0) { fragColor = texture(uTex, vUV); return; }
+    if (zone < 0) { fragColor = c; return; }
+
+    if (!${blend.thresholdFn}(c)) { fragColor = c; return; }
+
+    float weight = ${fade.fnName}();
 
     if (corruptedIsStatic == 1) {
         float n = hash21(vec2(cx, cy));
-        fragColor = vec4(n, n, n, 1.0);
+        vec3 faded = mix(c.rgb, vec3(n, n, n), weight);
+        fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
         return;
     }
 
@@ -315,18 +336,23 @@ void main() {
         float r = hash21(vec2(cx,        cy       ));
         float g = hash21(vec2(cy + 47.0, cx + 23.0));
         float b = hash21(vec2(cx + 83.0, cy + 61.0));
-        fragColor = vec4(r, g, b, 1.0);
+        vec3 faded = mix(c.rgb, vec3(r, g, b), weight);
+        fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
         return;
     }
 
     if (corruptedIsGlitched == 1) {
         vec2 encoded = texture(uColorTex, vec2(u, v)).rg;
         vec2 offset  = encoded * 2.0 - 1.0;
-        fragColor = vec4(texture(uTex, fract(vUV + offset)).rgb, 1.0);
+        vec3 adjusted = texture(uTex, fract(vUV + offset)).rgb;
+        vec3 faded = mix(c.rgb, adjusted, weight);
+        fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
         return;
     }
 
-    fragColor = vec4(texture(uColorTex, vec2(u, v)).rgb, 1.0);
+    vec3 adjusted = texture(uColorTex, vec2(u, v)).rgb;
+    vec3 faded    = mix(c.rgb, adjusted, weight);
+    fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
 }
 `,
 };
@@ -517,4 +543,6 @@ function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
     if (colorLoc != null) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.colorTex); gl.uniform1i(colorLoc, 2); }
     if (statLoc  != null) { gl.uniform1i(statLoc, p.corruptedColor === 'static' ? 1 : p.corruptedColor === 'color-static' ? 2 : 0); }
     if (glitLoc  != null) { gl.uniform1i(glitLoc, (p.corruptedColorMode ?? 'per-chunk') === 'glitched' ? 1 : 0); }
+    fade.bindUniforms(gl, prog, p);
+    blend.bindUniforms(gl, prog, p);
 }

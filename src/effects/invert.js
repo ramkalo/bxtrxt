@@ -1,8 +1,19 @@
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
+
+const fade  = buildFadeControl('invert');
+const blend = buildBlendControl('invert');
+
 export default {
     name: 'invert',
     label: 'Invert',
     pass: 'pre-crt',
-    paramKeys: ['invertColorA', 'invertColorB', 'invertTarget', 'invertIntensity', 'invertReverse'],
+    paramKeys: ['invertColorA', 'invertColorB', ...fade.paramKeys, ...blend.paramKeys],
+    handleParams: [...fade.handleParams],
+    uiGroups: [
+        { keys: ['invertColorA', 'invertColorB'] },
+        fade.uiGroup,
+        blend.uiGroup,
+    ],
     params: {
         invertEnabled:   { default: false, label: 'Enable' },
         invertColorA:    { default: 'all', label: 'Color A', options: [
@@ -16,56 +27,45 @@ export default {
             ['c',  'Cyan'], ['y',  'Yellow'], ['m',  'Magenta'],
             ['w',  'White'], ['bk', 'Black'],
         ] },
-        invertTarget:    { default: 'lum', label: 'Target', options: [['lum', 'Luminance'], ['r', 'Red'], ['g', 'Green'], ['b', 'Blue']] },
-        invertIntensity: { default: 0, min: 0, max: 100, label: 'Threshold' },
-        invertReverse:   { default: false, label: 'Reverse Threshold' },
+        ...fade.params,
+        ...blend.params,
     },
     enabled: (p) => p.invertEnabled,
-    bindUniforms: (gl, prog, params) => {
+    overlays: { fade: fade.overlay },
+    bindUniforms: (gl, prog, p) => {
         const colorVec = {
             r: [1,0,0], g: [0,1,0], b: [0,0,1],
             c: [0,1,1], y: [1,1,0], m: [1,0,1],
             bk: [0,0,0], w: [1,1,1],
         };
-        const targetMap = { lum: 0, r: 1, g: 2, b: 3 };
-        const aLoc      = prog._locs['invertColorA'];
-        const bLoc      = prog._locs['invertColorB'];
-        const targetLoc = prog._locs['invertTarget'];
-        const allLoc    = prog._locs['invertAllColors'];
-        const isAll     = params.invertColorA === 'all';
-        const a = colorVec[params.invertColorA] ?? [0,0,0];
-        const b = colorVec[params.invertColorB] ?? [1,1,1];
-        if (aLoc      != null) gl.uniform3f(aLoc,      ...a);
-        if (bLoc      != null) gl.uniform3f(bLoc,      ...b);
-        if (targetLoc != null) gl.uniform1i(targetLoc, targetMap[params.invertTarget] ?? 0);
-        if (allLoc    != null) gl.uniform1i(allLoc,    isAll ? 1 : 0);
+        const aLoc   = prog._locs['invertColorA'];
+        const bLoc   = prog._locs['invertColorB'];
+        const allLoc = prog._locs['invertAllColors'];
+        const isAll  = p.invertColorA === 'all';
+        const a = colorVec[p.invertColorA] ?? [0,0,0];
+        const b = colorVec[p.invertColorB] ?? [1,1,1];
+        if (aLoc   != null) gl.uniform3f(aLoc,   ...a);
+        if (bLoc   != null) gl.uniform3f(bLoc,   ...b);
+        if (allLoc != null) gl.uniform1i(allLoc, isAll ? 1 : 0);
+        fade.bindUniforms(gl, prog, p);
+        blend.bindUniforms(gl, prog, p);
     },
     glsl: `
-uniform float invertIntensity;
-uniform int   invertReverse;
-uniform int   invertAllColors;
-uniform vec3  invertColorA;  // dark pole
-uniform vec3  invertColorB;  // bright pole
-uniform int   invertTarget;  // 0=lum 1=r 2=g 3=b
-
+uniform int  invertAllColors;
+uniform vec3 invertColorA;
+uniform vec3 invertColorB;
+${fade.glsl}
+${blend.glsl}
 void main() {
     vec4 c = texture(uTex, vUV);
-    float r = c.r*255.0, g = c.g*255.0, b = c.b*255.0;
-    float lum = 0.299*r + 0.587*g + 0.114*b;
-    float threshold = 255.0 * (invertIntensity / 100.0);
-    float targetVal = (invertTarget==1)?r : (invertTarget==2)?g : (invertTarget==3)?b : lum;
-    bool inv = (invertReverse==1) ? (targetVal <= threshold) : (targetVal >= threshold);
-    if (inv) {
-        if (invertAllColors == 1) {
-            fragColor = vec4(1.0 - c.r, 1.0 - c.g, 1.0 - c.b, c.a);
-            return;
-        }
-        vec3 mapped = mix(invertColorA, invertColorB, lum / 255.0);
-        r = mapped.r * 255.0;
-        g = mapped.g * 255.0;
-        b = mapped.b * 255.0;
-    }
-    fragColor = vec4(r/255.0, g/255.0, b/255.0, c.a);
+    if (!${blend.thresholdFn}(c)) { fragColor = c; return; }
+    float lum = 0.299*c.r + 0.587*c.g + 0.114*c.b;
+    vec3 adjusted = (invertAllColors == 1)
+        ? vec3(1.0 - c.r, 1.0 - c.g, 1.0 - c.b)
+        : mix(invertColorA, invertColorB, lum);
+    float weight = ${fade.fnName}();
+    vec3 faded = mix(c.rgb, adjusted, weight);
+    fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
 }
 `,
 };

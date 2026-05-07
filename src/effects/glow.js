@@ -1,6 +1,7 @@
-import { buildFadeControl } from './controls/index.js';
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
 
-const fade = buildFadeControl('glow');
+const fade  = buildFadeControl('glow');
+const blend = buildBlendControl('glow');
 
 const GLOW_THRESHOLD_GLSL = `
 uniform float glowThreshold;
@@ -59,8 +60,10 @@ const GLOW_COMPOSITE_GLSL = `
 uniform sampler2D uTexOriginal;
 uniform float glowIntensity;
 ${fade.glsl}
+${blend.glsl}
 void main() {
     vec4 orig    = texture(uTexOriginal, vUV);
+    if (!${blend.thresholdFn}(orig)) { fragColor = orig; return; }
     vec4 blurred = texture(uTex, vUV);
 
     float weight = ${fade.fnName}();
@@ -68,7 +71,7 @@ void main() {
     float intensity = glowIntensity / 100.0;
     vec3 glow = blurred.rgb * intensity * weight;
     vec3 result = 1.0 - (1.0 - orig.rgb) * (1.0 - glow);
-    fragColor = vec4(clamp(result, 0.0, 1.0), orig.a);
+    fragColor = vec4(${blend.blendFn}(orig.rgb, clamp(result, 0.0, 1.0)), orig.a);
 }
 `;
 
@@ -79,6 +82,7 @@ export default {
     paramKeys: [
         'glowThreshold', 'glowRadius', 'glowIntensity',
         ...fade.paramKeys,
+        ...blend.paramKeys,
     ],
     handleParams: [...fade.handleParams],
     params: {
@@ -87,14 +91,19 @@ export default {
         glowRadius:    { default: 60,  min: 1,   max: 60,  label: 'Radius' },
         glowThreshold: { default: 0,   min: 0,   max: 255, label: 'Threshold' },
         ...fade.params,
+        ...blend.params,
     },
     enabled: (p) => p.glowEnabled,
     uiGroups: [
         { keys: ['glowThreshold', 'glowRadius', 'glowIntensity'] },
         fade.uiGroup,
+        blend.uiGroup,
     ],
     overlays: { fade: fade.overlay },
-    bindUniforms: (gl, prog, p) => fade.bindUniforms(gl, prog, p),
+    bindUniforms: (gl, prog, p) => {
+        fade.bindUniforms(gl, prog, p);
+        blend.bindUniforms(gl, prog, p);
+    },
     glslPasses: [
         { glsl: GLOW_THRESHOLD_GLSL },
         { glsl: GLOW_BLUR_H_GLSL },

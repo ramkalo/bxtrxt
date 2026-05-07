@@ -1,7 +1,7 @@
-import { buildFadeControl, buildThresholdControl } from './controls/index.js';
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
 
-const fade      = buildFadeControl('lineDrag');
-const threshold = buildThresholdControl('lineDrag');
+const fade  = buildFadeControl('lineDrag');
+const blend = buildBlendControl('lineDrag');
 
 export default {
     name:  'lineDrag',
@@ -13,7 +13,7 @@ export default {
     paramKeys: [
         'lineDragX', 'lineDragY', 'lineDragAngle', 'lineDragDir',
         'lineDragThresholdOnDest',
-        ...threshold.paramKeys,
+        ...blend.paramKeys,
         ...fade.paramKeys,
     ],
 
@@ -24,13 +24,13 @@ export default {
         lineDragAngle:            { default: 0, min: -89, max: 89, step: 1, label: 'Angle' },
         lineDragDir:              { default: 'down', label: 'Direction', options: [['down', 'Down'], ['up', 'Up'], ['right', 'Right'], ['left', 'Left']] },
         lineDragThresholdOnDest:  { default: false, label: 'On Destination' },
-        ...threshold.params,
+        ...blend.params,
         ...fade.params,
     },
 
     uiGroups: [
         { keys: ['lineDragEnabled', 'lineDragAngle', 'lineDragDir'] },
-        { label: 'Threshold', keys: ['lineDragThresholdOnDest', ...threshold.uiGroup.keys] },
+        { label: 'Blend', keys: ['lineDragThresholdOnDest', ...blend.uiGroup.keys] },
         fade.uiGroup,
     ],
 
@@ -41,7 +41,7 @@ export default {
         const si = (k, v) => { if (s[k] != null) gl.uniform1i(s[k], v); };
         si('lineDragDir', { down: 0, up: 1, right: 2, left: 3 }[p.lineDragDir] ?? 0);
         fade.bindUniforms(gl, prog, p);
-        threshold.bindUniforms(gl, prog, p);
+        blend.bindUniforms(gl, prog, p);
     },
 
     glsl: `
@@ -50,17 +50,15 @@ uniform float lineDragY;
 uniform float lineDragAngle;
 uniform int   lineDragDir;
 uniform int   lineDragThresholdOnDest;
-${threshold.glsl}
+${blend.glsl}
 ${fade.glsl}
 void main() {
     vec2 uv = vUV;
 
-    // Anchor in UV space; negate slope because UV y=0 is bottom (screen y is flipped)
     float lineX = lineDragX / 100.0;
     float lineY = 1.0 - lineDragY / 100.0;
     float slope = -tan(lineDragAngle * 3.14159265 / 180.0);
 
-    // Step 1-2: determine drag region and sample point
     vec2 sampleUV;
     bool inDragRegion;
 
@@ -80,20 +78,17 @@ void main() {
         sampleUV      = vec2(sampleX, uv.y);
     }
 
-    // Step 3: sample colors
     vec4 origColor    = texture(uTex, uv);
     vec4 sampledColor = texture(uTex, sampleUV);
 
-    // Step 4: threshold check
     vec4 checkColor = (lineDragThresholdOnDest == 1) ? origColor : sampledColor;
-    bool passThreshold = ${threshold.fnName}(checkColor);
+    bool passThreshold = ${blend.thresholdFn}(checkColor);
     vec4 effectColor = (inDragRegion && passThreshold) ? sampledColor : origColor;
 
-    // Step 5: fade weight
     float weight = ${fade.fnName}();
 
-    // Step 6: output
-    fragColor = mix(origColor, effectColor, weight);
+    vec3 mixed = mix(origColor.rgb, effectColor.rgb, weight);
+    fragColor = vec4(${blend.blendFn}(origColor.rgb, mixed), origColor.a);
 }
 `,
 };

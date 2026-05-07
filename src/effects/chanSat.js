@@ -1,24 +1,40 @@
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
+
+const fade  = buildFadeControl('chanSat');
+const blend = buildBlendControl('chanSat');
+
 export default {
     name:  'chanSat',
     label: 'Channel Saturation',
     pass:  'pre-crt',
-    paramKeys: ['chanSatRed', 'chanSatGreen', 'chanSatBlue', 'chanSatThreshold', 'chanSatAmount'],
+    paramKeys: ['chanSatRed', 'chanSatGreen', 'chanSatBlue', 'chanSatMinSat', 'chanSatAmount', ...fade.paramKeys, ...blend.paramKeys],
+    handleParams: [...fade.handleParams],
+    uiGroups: [
+        { keys: ['chanSatRed', 'chanSatGreen', 'chanSatBlue', 'chanSatMinSat', 'chanSatAmount'] },
+        fade.uiGroup,
+        blend.uiGroup,
+    ],
     params: {
         chanSatEnabled:   { default: false, label: 'Enable' },
         chanSatRed:       { default: false, label: 'Red' },
         chanSatGreen:     { default: false, label: 'Green' },
         chanSatBlue:      { default: false, label: 'Blue' },
-        chanSatThreshold: { default: 0,  min: 0,    max: 100, label: 'Target Saturation' },
+        chanSatMinSat: { default: 0,  min: 0,    max: 100, label: 'Target Saturation' },
         chanSatAmount:    { default: 100,   min: -100, max: 100, label: 'Saturation'  },
+        ...fade.params,
+        ...blend.params,
     },
     enabled:  (p) => p.chanSatEnabled,
+    overlays: { fade: fade.overlay },
+    bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     glsl: `
-uniform float chanSatThreshold;
+uniform float chanSatMinSat;
 uniform float chanSatAmount;
 uniform int   chanSatRed;
 uniform int   chanSatGreen;
 uniform int   chanSatBlue;
-
+${fade.glsl}
+${blend.glsl}
 vec3 rgb2hsl(vec3 c) {
     float mx = max(c.r, max(c.g, c.b));
     float mn = min(c.r, min(c.g, c.b));
@@ -48,9 +64,10 @@ vec3 hsl2rgb(float h, float s, float l) {
 
 void main() {
     vec4 c = texture(uTex, vUV);
+    if (!${blend.thresholdFn}(c)) { fragColor = c; return; }
     vec3 hsl = rgb2hsl(c.rgb);
     float h = hsl.x, s = hsl.y, l = hsl.z;
-    float threshold = chanSatThreshold / 100.0;
+    float threshold = chanSatMinSat / 100.0;
     float satDelta  = chanSatAmount    / 100.0;
     if (s < threshold) { fragColor = c; return; }
     bool isRed   = h < 1.0/6.0 || h >= 5.0/6.0;
@@ -58,9 +75,11 @@ void main() {
     bool isBlue  = h >= 0.5     && h < 5.0/6.0;
     bool match = (isRed&&chanSatRed==1)||(isGreen&&chanSatGreen==1)||(isBlue&&chanSatBlue==1);
     if (!match) { fragColor = c; return; }
+    float weight = ${fade.fnName}();
     float newS   = clamp(s + satDelta, 0.0, 1.0);
     vec3  modRgb = hsl2rgb(h, newS, l);
-    fragColor = vec4(modRgb, c.a);
+    vec3  faded  = mix(c.rgb, modRgb, weight);
+    fragColor = vec4(${blend.blendFn}(c.rgb, faded), c.a);
 }
 `,
 };

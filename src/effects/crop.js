@@ -1,4 +1,4 @@
-const ASPECT_MAP = { '1:1': 1, '4:3': 4/3, '16:9': 16/9, '3:2': 3/2 };
+const ASPECT_MAP = { '1:1': 1, '4:3': 4/3, '16:9': 16/9, '3:2': 3/2, '22:17': 22/17 };
 
 function computeCropRegion(p, srcW, srcH) {
     const scale = p.cropScale / 100;
@@ -27,7 +27,7 @@ export default {
     paramKeys: ['cropAspect', 'cropFlipAspect', 'cropX', 'cropY', 'cropScale'],
     params: {
         cropEnabled:    { default: false, label: 'Enable' },
-        cropAspect:     { default: 'original', label: 'Aspect', options: [['original', 'Original'], ['1:1', '1:1 (Square)'], ['4:3', '4:3'], ['16:9', '16:9'], ['3:2', '3:2']] },
+        cropAspect:     { default: 'original', label: 'Aspect', options: [['original', 'Original'], ['1:1', '1:1 (Square)'], ['4:3', '4:3'], ['16:9', '16:9'], ['3:2', '3:2'], ['22:17', '22:17']] },
         cropFlipAspect: { default: false, label: 'Flip Aspect' },
         cropX:          { default: 0, min: -50, max: 50, label: 'X' },
         cropY:          { default: 0, min: -50, max: 50, label: 'Y' },

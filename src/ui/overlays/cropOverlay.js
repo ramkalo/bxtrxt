@@ -3,7 +3,7 @@ import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
 import { uiCtx, uiOverlay, syncSize, drawHandle, drawCornerHandle, HIT_RADIUS } from '../overlayUtils.js';
 
-const CROP_ASPECT_MAP = { '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9, '3:2': 3 / 2 };
+const CROP_ASPECT_MAP = { '1:1': 1, '4:3': 4 / 3, '16:9': 16 / 9, '3:2': 3 / 2, '22:17': 22 / 17 };
 
 // Replicates crop.js computeCropRegion to work in image-pixel space.
 function cropRegion(p, srcW, srcH) {
