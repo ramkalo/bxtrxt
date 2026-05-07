@@ -1,6 +1,7 @@
 import { getEffect } from '../effects/registry.js';
 import { setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
+import { getCustomFonts } from '../state/customFonts.js';
 
 let activeSliderGroup = null;
 
@@ -249,6 +250,22 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
             opt.textContent = text;
             if (val === currentVal) opt.selected = true;
             select.appendChild(opt);
+        }
+        if (schema.fontSelector) {
+            const customs = getCustomFonts();
+            if (customs.length) {
+                const divider = document.createElement('option');
+                divider.disabled = true;
+                divider.textContent = '── Custom Fonts ──';
+                select.appendChild(divider);
+                for (const { name, label: fontLabel } of customs) {
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = fontLabel;
+                    if (name === currentVal) opt.selected = true;
+                    select.appendChild(opt);
+                }
+            }
         }
         select.addEventListener('change', () => {
             saveState();

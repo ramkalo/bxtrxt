@@ -294,7 +294,7 @@ export const matrixRainEffect = {
         matrixRainCharSpacing:   { default: 0,   min: -20, max: 100, label: 'Char Spacing' },
         matrixRainLineSpacing:   { default: 0,   min: -20, max: 100, label: 'Line Spacing' },
         matrixRainWordSpacing:   { default: 0,   min: 0,   max: 20,  label: 'Word Spacing' },
-        matrixRainFont:          { default: 'monospace', label: 'Font', options: [
+        matrixRainFont:          { default: 'monospace', label: 'Font', fontSelector: true, options: [
             ['monospace',                   'Monospace'],
             ["'Courier New', monospace",    'Courier New'],
             ["'JetBrains Mono', monospace", 'JetBrains Mono'],

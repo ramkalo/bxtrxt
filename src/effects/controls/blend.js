@@ -36,7 +36,7 @@ float __P__BlendCh(float a, float b) {
     else if (__P__BlendMode == 3) return min(1.0, a + b);
     else if (__P__BlendMode == 4) return a < 0.5 ? 2.0*a*b : 1.0 - 2.0*(1.0-a)*(1.0-b);
     else if (__P__BlendMode == 5) return abs(a - b);
-    return a;
+    return b;
 }
 
 vec3 __P__Blend(vec3 base, vec3 src) {
@@ -109,8 +109,8 @@ export function buildBlendControl(prefix, defaults = {}) {
         blendChFn: `${p}BlendCh`,
         params: {
             [`${p}BlendEnabled`]:      { default: false, label: 'Enable Blend' },
-            [`${p}BlendMode`]:         { default: defaults.mode    ?? 'screen', options: BLEND_MODES, label: 'Blend Mode' },
-            [`${p}Opacity`]:           { default: defaults.opacity ?? 100, min: 0, max: 100, label: 'Opacity' },
+            [`${p}BlendMode`]:         { default: defaults.mode    ?? 'normal', options: BLEND_MODES, label: 'Blend Mode' },
+            [`${p}Opacity`]:           { default: defaults.opacity ?? 50, min: 0, max: 100, label: 'Opacity' },
             [`${p}Threshold`]:         { default: defaults.threshold ?? 0, min: 0, max: 100, label: 'Threshold' },
             [`${p}ThresholdTarget`]:   { default: 'lum', options: [['lum', 'Luminance'], ['r', 'Red'], ['g', 'Green'], ['b', 'Blue']], label: 'Threshold Target' },
             [`${p}ThresholdReverse`]:  { default: false, label: 'Reverse Threshold' },

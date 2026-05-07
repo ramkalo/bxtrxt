@@ -3,6 +3,7 @@ import { saveState } from '../state/undo.js';
 import { showNotification } from '../utils/notifications.js';
 import { snapshotStack, restoreStack } from '../state/effectStack.js';
 import { renderStackList } from './stackPanel.js';
+import { collectUsedCustomFonts, registerFontFromData } from '../state/customFonts.js';
 
 export function savePreset() {
     const name = document.getElementById('presetName').value.trim();
@@ -10,7 +11,9 @@ export function savePreset() {
         showNotification('Enter a preset name');
         return;
     }
-    presets[name] = { stack: snapshotStack() };
+    const stack = snapshotStack();
+    const customFonts = collectUsedCustomFonts(stack);
+    presets[name] = { stack, ...(Object.keys(customFonts).length && { customFonts }) };
     savePresetsToStorage();
     renderPresetList();
     showNotification('Preset saved');
@@ -25,8 +28,17 @@ export function loadPreset(name) {
     }
 
     saveState();
-    restoreStack(preset.stack);  // triggers onStackChange → re-render
-    renderStackList();
+    if (preset.customFonts) {
+        Promise.all(Object.entries(preset.customFonts).map(([n, { label, data }]) =>
+            registerFontFromData(n, label, data)
+        )).finally(() => {
+            restoreStack(preset.stack);
+            renderStackList();
+        });
+    } else {
+        restoreStack(preset.stack);
+        renderStackList();
+    }
     showNotification('Preset loaded');
 }
 
@@ -104,10 +116,19 @@ export function importPreset(file) {
             }
 
             saveState();
-            restoreStack(imported.stack);  // triggers onStackChange → re-render
-            renderStackList();
-            document.getElementById('presetModal').classList.add('hidden');
-            showNotification('Preset imported');
+            const doRestore = () => {
+                restoreStack(imported.stack);
+                renderStackList();
+                document.getElementById('presetModal').classList.add('hidden');
+                showNotification('Preset imported');
+            };
+            if (imported.customFonts) {
+                Promise.all(Object.entries(imported.customFonts).map(([n, { label, data }]) =>
+                    registerFontFromData(n, label, data)
+                )).finally(doRestore);
+            } else {
+                doRestore();
+            }
         } catch (err) {
             showNotification('Invalid preset file');
         }

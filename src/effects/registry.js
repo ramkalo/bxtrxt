@@ -4,7 +4,7 @@ import digitizeEffect       from './digitize.js';
 import grainEffect          from './grain.js';
 import chromaEffect         from './chroma.js';
 import chanSatEffect        from './chanSat.js';
-import vignetteEffect       from './vignette.js';
+//import vignetteEffect       from './vignette.js';
 import blurEffect           from './blur.js';
 import invertEffect          from './invert.js';
 import { vhsEffect } from './vhs.js';
@@ -14,7 +14,7 @@ import lineDragEffect       from './lineDrag.js';
 import corruptedEffect      from './corrupted.js';
 import crtCurvatureEffect   from './crtCurvature.js';
 import crtScanlinesEffect   from './crtScanlines.js';
-import moireEffect          from './moire.js';
+//import moireEffect          from './moire.js';
 import crtStaticEffect      from './crtStatic.js';
 import transformEffect      from './transform.js';
 import cropEffect           from './crop.js';
@@ -88,7 +88,7 @@ export const EFFECTS = [
     grainEffect,
     chromaEffect,
     chanSatEffect,
-    vignetteEffect,
+    //vignetteEffect,
     blurEffect,
     glowEffect,
     invertEffect,
@@ -101,7 +101,7 @@ export const EFFECTS = [
     crtCurvatureEffect,
     crtScanlinesEffect,
     crtStaticEffect,
-    moireEffect,
+    //moireEffect,
     viewportEffect,
     shapeStickerEffect,
 ];
@@ -172,7 +172,7 @@ export const EFFECT_CATALOG = [
     { name: 'text',            label: 'Text',                 description: 'Text overlay with paragraph box, formatting, and canvas handles' },
     { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
     { name: 'viewport',      label: 'Viewport',             description: 'Reveal a shaped window that cuts through selected effects' },
-    { name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
+    //{ name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
 ];
 
 /**

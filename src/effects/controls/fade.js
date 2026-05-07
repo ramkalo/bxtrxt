@@ -52,8 +52,8 @@ export function buildFadeControl(prefix, defaults = {}) {
             [`${p}FadeSlope`]:   { default: defaults.slope   ?? 1,   min: 0.1, max: 8, step: 0.1, label: 'Transition Slope' },
             [`${p}FadeInvert`]:  { default: defaults.invert  ?? false,                           label: 'Invert Fade' },
             [`${p}FadeAngle`]:   { default: 0,   min: -180, max: 180 },
-            [`${p}FadeX`]:       { default: 0,   min: -50,  max: 50 },
-            [`${p}FadeY`]:       { default: 0,   min: -50,  max: 50 },
+            [`${p}FadeX`]:       { default: -25,   min: -50,  max: 50 },
+            [`${p}FadeY`]:       { default: -25,   min: -50,  max: 50 },
         },
         paramKeys: [
             `${p}FadeEnabled`, `${p}FadeShape`, `${p}Fade`,

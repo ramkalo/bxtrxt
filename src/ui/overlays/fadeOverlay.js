@@ -53,6 +53,7 @@ function drawFadeShape(p, cx, cy, w, h) {
     drawCornerHandle(edgeW[0], edgeW[1]);
     drawCornerHandle(edgeH[0], edgeH[1]);
     drawRotHandle(rotHandle[0], rotHandle[1]);
+    drawHandle(cx, cy);
 
     return { edgeW, edgeH, rotHandle };
 }
@@ -79,7 +80,6 @@ export function drawFade(p) {
     const cx = (0.5 + p[state.xKey] / 100) * w;
     const cy = (0.5 - p[state.yKey] / 100) * h;
     drawFadeShape(p, cx, cy, w, h);
-    drawHandle(cx, cy);
 }
 
 export function hitTestFade(e) {
@@ -93,8 +93,8 @@ export function hitTestFade(e) {
     const cx = (0.5 + p[state.xKey] / 100) * W;
     const cy = (0.5 - p[state.yKey] / 100) * H;
 
-    if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
     if (!p[state.enabledKey]) return null;
+    if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
     const { edgeW, edgeH, rotHandle } = getFadeHandlePositions(p, cx, cy, W, H);
     if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';

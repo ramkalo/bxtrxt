@@ -18,7 +18,7 @@ import { drawVignette,       hitTestVignette,       onDragVignette       } from 
 import { drawCRTCurvature,   hitTestCRTCurvature,   onDragCRTCurvature  } from './overlays/crtOverlay.js';
 import { drawCorrupted,      hitTestCorrupted                            } from './overlays/corruptedOverlay.js';
 import { drawTextOverlay,    hitTestText,            onDragText,          textCorners } from './overlays/textOverlay.js';
-import { drawMatrixRain                                                   } from './overlays/matrixRainOverlay.js';
+import { drawMatrixRain,       hitTestMatrixRain,       onDragMatrixRain   } from './overlays/matrixRainOverlay.js';
 import { drawViewport,       hitTestViewport,        onDragViewport,      resetPolygonVertices } from './overlays/viewportOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
@@ -282,6 +282,11 @@ function getCursorForMode(mode, h) {
                 : (h === 'rot' || h === 'lineRot') ? 'crosshair'
                 : h === 'edgeW' ? 'ew-resize'
                 : h === 'edgeH' ? 'ns-resize' : 'default';
+        case 'matrixRain':
+            return (h === 'center' || h === 'fadeCenter') ? 'grab'
+                : h === 'rot' ? 'crosshair'
+                : h === 'edgeW' ? 'ew-resize'
+                : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'vignette':
         case 'blur':
         case 'crtCurvature':
@@ -291,13 +296,18 @@ function getCursorForMode(mode, h) {
         case 'corrupted':
             return h ? 'grab' : 'default';
         case 'text':
-            return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair'
+            return (h === 'center' || h === 'fadeCenter') ? 'grab'
+                : (h === 'rot' || h === 'fadeRot') ? 'crosshair'
                 : (h === 'tl' || h === 'br') ? 'nwse-resize'
-                : (h === 'tr' || h === 'bl') ? 'nesw-resize' : 'default';
+                : (h === 'tr' || h === 'bl') ? 'nesw-resize'
+                : h === 'fadeEdgeW' ? 'ew-resize'
+                : h === 'fadeEdgeH' ? 'ns-resize' : 'default';
         case 'shapeSticker':
-            return (h === 'center' || h === 'grab_center') ? 'grab'
-                : (h === 'rot' || h === 'grab_rot') ? 'crosshair'
+            return (h === 'center' || h === 'grab_center' || h === 'fadeCenter') ? 'grab'
+                : (h === 'rot' || h === 'grab_rot' || h === 'fadeRot') ? 'crosshair'
                 : (h && h.startsWith('v')) ? 'move'
+                : h === 'fadeEdgeW' ? 'ew-resize'
+                : h === 'fadeEdgeH' ? 'ns-resize'
                 : h ? 'nwse-resize' : 'default';
         default:
             return h ? 'grab' : 'default';
@@ -316,6 +326,7 @@ const HIT_FNS = {
     corrupted:      hitTestCorrupted,
     text:           hitTestText,
     shapeSticker:   hitTestShapeSticker,
+    matrixRain:     hitTestMatrixRain,
 };
 
 const DRAG_FNS = {
@@ -329,6 +340,7 @@ const DRAG_FNS = {
     crtCurvature:   onDragCRTCurvature,
     text:           onDragText,
     shapeSticker:   onDragShapeSticker,
+    matrixRain:     onDragMatrixRain,
 };
 
 const DRAW_FNS = {

@@ -11,6 +11,7 @@ import { initBottomSheet } from './ui/bottomsheet.js';
 import { initTouchGestures } from './ui/touch.js';
 import { initStackPanel, renderStackList } from './ui/stackPanel.js';
 import { initLogo } from './ui/logo.js';
+import { restoreCustomFonts, loadFontFromFile } from './state/customFonts.js';
 
 // ---------------------------------------------------------------------------
 // Stack UI rebuild — called whenever stack changes (add/remove/reorder/undo)
@@ -40,6 +41,22 @@ document.getElementById('secondFileInput').addEventListener('change', function(e
 
 document.getElementById('loadBtn').addEventListener('click', function() {
     document.getElementById('fileInput').click();
+});
+
+document.getElementById('fontFileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    loadFontFromFile(file).then(({ label }) => {
+        showNotification(`Font '${label}' loaded`);
+        renderStackList();
+    }).catch(() => {
+        showNotification('Failed to load font');
+    });
+    e.target.value = '';
+});
+
+document.getElementById('loadFontBtn').addEventListener('click', function() {
+    document.getElementById('fontFileInput').click();
 });
 
 document.getElementById('loadCanvasBtn').addEventListener('click', function() {
@@ -234,6 +251,7 @@ function noop() {}
 
 document.fonts.load('1px splitbitsv2');
 document.fonts.load('1px neogreekrunic');
+restoreCustomFonts();
 
 renderPresetList();
 initStackPanel();

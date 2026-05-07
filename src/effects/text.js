@@ -222,7 +222,7 @@ export const textEffect = {
     params: {
         textEnabled:    { default: false, label: 'Enable' },
         text:           { default: 'DEC 31 1999 11:59:59', label: 'Text' },
-        textFont:       { default: "'JetBrains Mono', monospace", label: 'Font', options: [
+        textFont:       { default: "'JetBrains Mono', monospace", label: 'Font', fontSelector: true, options: [
             ["'JetBrains Mono', monospace",  'JetBrains Mono'],
             ['monospace',                    'Monospace'],
             ["'Courier New', monospace",     'Courier New'],
