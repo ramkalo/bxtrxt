@@ -29,6 +29,16 @@ const PALETTE_PRESETS = {
         palette3: '#8ec07c', palette4: '#b8bb26', palette5: '#928374',
         palette6: '#fabd2f', palette7: '#83a598',
     },
+    catppuccinMocha: {
+        palette0: '#1e1e2e', palette1: '#cdd6f4', palette2: '#cba6f7',
+        palette3: '#89b4fa', palette4: '#a6e3a1', palette5: '#6c7086',
+        palette6: '#f38ba8', palette7: '#fab387',
+    },
+    embark: {
+        palette0: '#1e1c31', palette1: '#cbe3e7', palette2: '#f02e6e',
+        palette3: '#91ddff', palette4: '#a1efd3', palette5: '#585273',
+        palette6: '#d4bfff', palette7: '#f2b482',
+    },
     basic: {
         palette0: '#ff0000', palette1: '#00ff00', palette2: '#0000ff',
         palette3: '#00ffff', palette4: '#ffff00', palette5: '#ff00ff',
@@ -53,6 +63,8 @@ export const colorPaletteEffect = {
                 ['oneDark',      'One Dark'],
                 ['nord',         'Nord'],
                 ['gruvbox',      'Gruvbox Dark'],
+                ['catppuccinMocha', 'Catppuccin Mocha'],
+                ['embark',       'Embark'],
                 ['basic',        'Basic RGBCYMKW'],
             ],
         },
@@ -65,6 +77,10 @@ export const colorPaletteEffect = {
         palette5: { default: '#0088ff', label: 'Color 6', type: 'color' },
         palette6: { default: '#ff00ff', label: 'Color 7', type: 'color' },
         palette7: { default: '#ffffff', label: 'Color 8', type: 'color' },
+        paletteCopyHex:      { default: null, label: 'Copy Hex' },
+        palettePaste:        { default: null, label: 'Paste Hex' },
+        paletteLoadImage:    { default: null, label: 'Load Palette Image' },
+        palettePullFromImage:{ default: null, label: 'Pull from Palette Image' },
         // Hidden backup of custom colors — preserved when switching to a named preset,
         // restored when switching back to Custom.
         paletteCustom0: { default: null },

@@ -575,6 +575,30 @@ export function processWebGLStack(stack) {
     _runEffects(stack);
 }
 
+// --- Pixel sampling ---
+
+// Render the stack up to (but not including) the given instance, read back pixels.
+// Used by the palette "Build From Image" feature.
+export function getPixelsBeforeInstance(stack, instId) {
+    if (!_origTex || !fboPool[0]) return null;
+    const idx = stack.findIndex(inst => inst.id === instId);
+    if (idx === -1) return null;
+    const preStack = stack.slice(0, idx);
+
+    const srcTex = _runLinear(preStack, _origTex);
+
+    const w = fboPool[0].width;
+    const h = fboPool[0].height;
+    const tempFBO = createFBO(w, h);
+    runPass(PASSTHROUGH_FRAG, srcTex, tempFBO, null, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, tempFBO.fbo);
+    const pixels = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    destroyFBO(tempFBO);
+    return { pixels, width: w, height: h };
+}
+
 // --- Export pipeline ---
 // Renders at full image resolution to canvas before toBlob() capture.
 

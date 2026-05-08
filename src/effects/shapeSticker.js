@@ -107,12 +107,8 @@ function applyShapeSticker(ctx, p, srcCanvas) {
     if (fillType === 'solid') {
         let hex = SOLID_COLORS[solidColor];
         if (!hex && p._activePalette) {
-            if (solidColor === 'paletteRandom') {
-                hex = p._activePalette[Math.floor(mkRng(staticSeed)() * 8)];
-            } else {
-                const m = solidColor.match(/^palette(\d)$/);
-                if (m) hex = p._activePalette[+m[1]];
-            }
+            const m = solidColor.match(/^palette(\d)$/);
+            if (m) hex = p._activePalette[+m[1]];
         }
         hex = hex || '#000000';
         const rgb = hex.match(/\w{2}/g).map(v => parseInt(v, 16));
@@ -126,13 +122,9 @@ function applyShapeSticker(ctx, p, srcCanvas) {
         const rand = mkRng(staticSeed);
         const cols = Math.ceil(warpW / grainSize);
         const rows = Math.ceil(warpH / grainSize);
-        let sourcePixels = null;
-        if (staticType === 'image-color-static') {
-            const readCtx = srcCanvas ? srcCanvas.getContext('2d') : ctx;
-            sourcePixels = readCtx.getImageData(0, 0, w, h);
-        }
         const imgData = warpCtx.createImageData(warpW, warpH);
         const data = imgData.data;
+        const RGBCYM = ['#ff0000','#00ff00','#0000ff','#00ffff','#ffff00','#ff00ff'];
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
                 const px = col * grainSize;
@@ -141,19 +133,14 @@ function applyShapeSticker(ctx, p, srcCanvas) {
                 if (staticType === 'greyscale') {
                     const val = Math.floor(rand() * 256);
                     r = g = b = val;
-                } else if (staticType === 'random-rgbcym') {
-                    const colors = ['r', 'g', 'b', 'c', 'y', 'm'];
-                    const c = colors[Math.floor(rand() * 6)];
-                    const hex = SOLID_COLORS[c];
+                } else if (staticType === 'rgbcym') {
+                    const hex = RGBCYM[Math.floor(rand() * 6)];
                     const rgb = hex.match(/\w{2}/g).map(v => parseInt(v, 16));
                     r = rgb[0]; g = rgb[1]; b = rgb[2];
-                } else if (staticType === 'image-color-static' && sourcePixels) {
-                    const sx = Math.floor(rand() * sourcePixels.width);
-                    const sy = Math.floor(rand() * sourcePixels.height);
-                    const si = (sy * sourcePixels.width + sx) * 4;
-                    r = sourcePixels.data[si];
-                    g = sourcePixels.data[si + 1];
-                    b = sourcePixels.data[si + 2];
+                } else if (staticType === 'colorPalette' && p._activePalette) {
+                    const hex = p._activePalette[Math.floor(rand() * 8)];
+                    const rgb = hex.match(/\w{2}/g).map(v => parseInt(v, 16));
+                    r = rgb[0]; g = rgb[1]; b = rgb[2];
                 } else {
                     r = g = b = 0;
                 }
@@ -169,8 +156,11 @@ function applyShapeSticker(ctx, p, srcCanvas) {
         }
         warpCtx.putImageData(imgData, 0, 0);
     } else if (fillType === 'image-grab') {
-        const fullSrc = new OffscreenCanvas(w, h);
-        fullSrc.getContext('2d').putImageData(ctx.getImageData(0, 0, w, h), 0, 0);
+        const fullSrc = srcCanvas ?? (() => {
+            const c = new OffscreenCanvas(w, h);
+            c.getContext('2d').drawImage(ctx.canvas, 0, 0);
+            return c;
+        })();
 
         const gCanvas = new OffscreenCanvas(Math.round(grabW), Math.round(grabH));
         const gCtx = gCanvas.getContext('2d');
@@ -252,14 +242,13 @@ export const shapeStickerEffect = {
         shapeStickerSides:      { default: 6,  min: 3,    max: 24,  label: 'Sides' },
         shapeStickerFillType:   { default: 'solid', label: 'Fill Type', options: [['solid', 'Solid Color'], ['static', 'Static'], ['image-grab', 'Image Grab']] },
         shapeStickerSolidColor: { default: 'black', label: 'Solid Color', options: [
-            ['r', 'Red'], ['g', 'Green'], ['b', 'Blue'], ['c', 'Cyan'], ['y', 'Yellow'], ['m', 'Magenta'], ['black', 'Black'], ['white', 'White'],
-            ['palette0','Palette 1'], ['palette1','Palette 2'], ['palette2','Palette 3'],
-            ['palette3','Palette 4'], ['palette4','Palette 5'], ['palette5','Palette 6'],
-            ['palette6','Palette 7'], ['palette7','Palette 8'],
-            ['paletteRandom','Palette Random'],
+            ['palette0','Color 1'], ['palette1','Color 2'], ['palette2','Color 3'],
+            ['palette3','Color 4'], ['palette4','Color 5'], ['palette5','Color 6'],
+            ['palette6','Color 7'], ['palette7','Color 8'],
+            ['black','Black'], ['white','White'],
         ] },
-        shapeStickerStaticType: { default: 'greyscale', label: 'Static Type', options: [['greyscale', 'Greyscale'], ['random-rgbcym', 'Random RGBYM'], ['image-color-static', 'Image Color Static']] },
-        shapeStickerGrainSize:  { default: 4,  min: 1,    max: 50,  label: 'Grain Size' },
+        shapeStickerStaticType: { default: 'greyscale', label: 'Static Type', options: [['greyscale', 'Greyscale'], ['rgbcym', 'RGBCYM'], ['colorPalette', 'Color Palette']] },
+        shapeStickerGrainSize:  { default: 4,  min: 1,    max: 200,  label: 'Grain Size' },
         shapeStickerStaticSeed: { default: 1,                        label: 'Seed' },
         shapeStickerGrabX:      { default: 30, min: -50,  max: 50,  label: 'Grab X' },
         shapeStickerGrabY:      { default: 30, min: -50,  max: 50,  label: 'Grab Y' },

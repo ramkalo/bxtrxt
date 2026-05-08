@@ -1,6 +1,7 @@
 import { colorPaletteEffect } from './colorPalette.js';
 import doubleExposureEffect from './doubleExposure.js';
 import basicEffect          from './basic.js';
+import hueShiftEffect       from './hueShift.js';
 import digitizeEffect       from './digitize.js';
 import grainEffect          from './grain.js';
 import chromaEffect         from './chroma.js';
@@ -86,6 +87,7 @@ export const EFFECTS = [
     colorPaletteEffect,
     doubleExposureEffect,
     basicEffect,
+    hueShiftEffect,
     digitizeEffect,
     grainEffect,
     chromaEffect,
@@ -166,6 +168,7 @@ export const EFFECT_CATALOG = [
     { name: 'digitize',       label: 'Digitize',             description: 'Pixelation, color quantization, dithering, and noise' },
     { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
     { name: 'grain',          label: 'Film Grain',           description: 'Analog noise and grain texture' },
+    { name: 'hueShift',       label: 'Hue Shift',            description: 'Rotate all hues around the color wheel without quantizing' },
     { name: 'glow',           label: 'Glow',                 description: 'Bloom halo around bright areas' },
     { name: 'invert',         label: 'Invert',               description: 'Color inversion with threshold' },
     { name: 'matrixRain',   label: 'Matrix Rain',          description: 'Tile text characters across the image in configurable grid patterns' },
