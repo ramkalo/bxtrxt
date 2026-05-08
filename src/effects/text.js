@@ -17,12 +17,12 @@ const NAMED_TEXT_COLORS = {
 const BG_COLORS = {
     black:   '#000000',
     white:   '#ffffff',
-    red:     '#ff4444',
-    green:   '#44ff44',
-    blue:    '#4488ff',
+    red:     '#ff0000',
+    green:   '#00ff00',
+    blue:    '#0000ff',
     cyan:    '#00ffff',
     yellow:  '#ffff00',
-    magenta: '#ff44ff',
+    magenta: '#ff00ff',
 };
 
 function seededRandom(seed, idx) {
@@ -31,6 +31,84 @@ function seededRandom(seed, idx) {
     h = Math.imul(h, 0x45d9f3b) >>> 0;
     h ^= h >>> 16;
     return h / 0x100000000;
+}
+
+function mkRng(seed) {
+    let s = (seed >>> 0) || 1;
+    return () => {
+        s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+        return s / 0x100000000;
+    };
+}
+
+function hslToRgb(h, s, l) {
+    const a = s * Math.min(l, 1 - l);
+    const f = n => {
+        const k = (n + h * 12) % 12;
+        return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+    };
+    return [f(0), f(8), f(4)];
+}
+
+function parseRgbStr(str) {
+    const m = str.match(/\d+/g);
+    return m ? [+m[0], +m[1], +m[2]] : [0, 0, 0];
+}
+
+const BG_NOISE_KEYS = new Set(['greyNoise', 'colorNoise', 'paletteNoise']);
+
+function fillQuadWithGrain(ctx, tlx, tly, trx, try_, brx, bry, blx, bly, bgKey, seed, palette, grainSize, opacity) {
+    const minX = Math.floor(Math.min(tlx, trx, brx, blx));
+    const minY = Math.floor(Math.min(tly, try_, bry, bly));
+    const maxX = Math.ceil(Math.max(tlx, trx, brx, blx));
+    const maxY = Math.ceil(Math.max(tly, try_, bry, bly));
+    const w = Math.max(1, maxX - minX);
+    const h = Math.max(1, maxY - minY);
+
+    const offscreen = new OffscreenCanvas(w, h);
+    const offCtx    = offscreen.getContext('2d');
+    const imgData   = offCtx.createImageData(w, h);
+    const data      = imgData.data;
+    const rng       = mkRng(seed ^ 0xdeadbeef);
+    const gs        = Math.max(1, Math.round(grainSize));
+    const cols      = Math.ceil(w / gs);
+    const rows      = Math.ceil(h / gs);
+
+    for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+            let r, g, b;
+            if (bgKey === 'greyNoise') {
+                const v = Math.floor(rng() * 256);
+                r = g = b = v;
+            } else if (bgKey === 'colorNoise') {
+                [r, g, b] = hslToRgb(rng(), 1, 0.55);
+            } else if (bgKey === 'paletteNoise' && palette?.length) {
+                [r, g, b] = parseRgbStr(palette[Math.floor(rng() * palette.length)]);
+            } else {
+                r = g = b = 0;
+            }
+            const px = col * gs, py = row * gs;
+            for (let gy = 0; gy < gs && py + gy < h; gy++) {
+                for (let gx = 0; gx < gs && px + gx < w; gx++) {
+                    const idx = ((py + gy) * w + (px + gx)) * 4;
+                    data[idx] = r; data[idx + 1] = g; data[idx + 2] = b; data[idx + 3] = 255;
+                }
+            }
+        }
+    }
+    offCtx.putImageData(imgData, 0, 0);
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.beginPath();
+    ctx.moveTo(tlx, tly);
+    ctx.lineTo(trx, try_);
+    ctx.lineTo(brx, bry);
+    ctx.lineTo(blx, bly);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(offscreen, minX, minY);
+    ctx.restore();
 }
 
 function samplePalette(srcCtx, seed, count = 64) {
@@ -111,8 +189,10 @@ export function applyText(ctx, p, srcCanvas) {
     else if (va === 'bottom') startY = th - totalH;
 
     const colorKey    = p.textColor ?? 'white';
+    const bgKey       = p.textBg ?? 'none';
     const seed        = p.textNoiseSeed ?? 0;
-    const palette     = colorKey === 'paletteNoise' ? samplePalette(srcCanvas ? srcCanvas.getContext('2d') : ctx, seed) : null;
+    const needPalette = colorKey === 'paletteNoise' || bgKey === 'paletteNoise';
+    const palette     = needPalette ? samplePalette(srcCanvas ? srcCanvas.getContext('2d') : ctx, seed) : null;
     let   noiseIdx    = 0;
 
     const outlineW    = p.textOutlineWidth ?? 2;
@@ -120,18 +200,24 @@ export function applyText(ctx, p, srcCanvas) {
     let   outNoiseIdx = 1000000; // separate noise counter for outline color
 
     // Background: fill the actual quad shape
-    if (p.textBg && p.textBg !== 'none' && BG_COLORS[p.textBg]) {
-        ctx.save();
-        ctx.globalAlpha = p.textBgOpacity ?? 0.88;
-        ctx.fillStyle = BG_COLORS[p.textBg];
-        ctx.beginPath();
-        ctx.moveTo(tlx, tly);
-        ctx.lineTo(trx, try_);
-        ctx.lineTo(brx, bry);
-        ctx.lineTo(blx, bly);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+    if (bgKey && bgKey !== 'none') {
+        const bgOpacity = p.textBgOpacity ?? 0.88;
+        if (BG_NOISE_KEYS.has(bgKey)) {
+            fillQuadWithGrain(ctx, tlx, tly, trx, try_, brx, bry, blx, bly,
+                bgKey, seed, palette, p.textBgGrainSize ?? 4, bgOpacity);
+        } else if (BG_COLORS[bgKey]) {
+            ctx.save();
+            ctx.globalAlpha = bgOpacity;
+            ctx.fillStyle = BG_COLORS[bgKey];
+            ctx.beginPath();
+            ctx.moveTo(tlx, tly);
+            ctx.lineTo(trx, try_);
+            ctx.lineTo(brx, bry);
+            ctx.lineTo(blx, bly);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
     }
 
     ctx.globalAlpha = opacity;
@@ -226,7 +312,7 @@ export const textEffect = {
     paramKeys: [
         'text', 'textFont', 'textSize', 'textBold', 'textItalic', 'textStrike', 'textLineHeight',
         'textReverse', 'textKerning',
-        'textColor', 'textBg', 'textBgOpacity',
+        'textColor', 'textBg', 'textBgOpacity', 'textBgGrainSize',
         'textOutlineWidth', 'textOutlineColor',
         'textWrap', 'textAlign', 'textVAlign',
         'textTLx', 'textTLy', 'textTRx', 'textTRy',
@@ -283,8 +369,11 @@ export const textEffect = {
             ['none','None'], ['black','Black'], ['white','White'],
             ['red','Red'], ['green','Green'], ['blue','Blue'],
             ['cyan','Cyan'], ['yellow','Yellow'], ['magenta','Magenta'],
+            ['greyNoise','Grey Noise'], ['colorNoise','Color Noise'],
+            ['paletteNoise','Image Palette'],
         ] },
-        textBgOpacity:  { default: 0.88, min: 0, max: 1, step: 0.01, label: 'BG Opacity' },
+        textBgOpacity:    { default: 0.88, min: 0, max: 1, step: 0.01, label: 'BG Opacity' },
+        textBgGrainSize:  { default: 4, min: 1, max: 50, step: 1, label: 'BG Grain Size' },
         textWrap:       { default: true,     label: 'Word Wrap' },
         textAlign:      { default: 'center', label: 'Justify', options: [['left','Left'], ['center','Center'], ['right','Right'], ['justify','Justify']] },
         textVAlign:     { default: 'middle', label: 'V-Align', options: [['top','Top'], ['middle','Middle'], ['bottom','Bottom']] },
@@ -305,7 +394,7 @@ export const textEffect = {
     enabled: (p) => p.textEnabled && !!p.text,
     uiGroups: [
         { keys: ['text', 'textFont', 'textSize', 'textBold', 'textItalic', 'textStrike', 'textLineHeight', 'textReverse', 'textKerning'] },
-        { label: 'Color', keys: ['textColor', 'textNoiseRandomize', 'textCharAlpha', 'textOutlineWidth', 'textOutlineColor', 'textBg', 'textBgOpacity'] },
+        { label: 'Color', keys: ['textColor', 'textNoiseRandomize', 'textCharAlpha', 'textOutlineWidth', 'textOutlineColor', 'textBg', 'textBgOpacity', 'textBgGrainSize'] },
         { label: 'Layout', keys: ['textWrap', 'textAlign', 'textVAlign', 'textBoxReset'] },
         fade.uiGroup,
         blend.uiGroup,

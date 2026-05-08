@@ -363,8 +363,11 @@ function _runLinear(stack, startTex) {
 
             if (effect.blendPrefix) {
                 // Render effect onto a transparent sticker canvas, then blend onto pipeline via WebGL.
+                // Blit current pipeline state to overlayCanvas so canvas2d effects can read source pixels.
+                overlayCtx.clearRect(0, 0, canvas.width, canvas.height);
+                overlayCtx.drawImage(canvas, 0, 0);
                 const stickerCanvas = new OffscreenCanvas(canvas.width, canvas.height);
-                effect.canvas2d(stickerCanvas.getContext('2d'), instance.params, canvas);
+                effect.canvas2d(stickerCanvas.getContext('2d'), instance.params, overlayCanvas);
 
                 const stickerTex = _uploadStickerTex(stickerCanvas);
                 const blend      = _getBlendControl(effect.blendPrefix);
