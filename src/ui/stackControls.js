@@ -573,7 +573,7 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
         row.className = 'control-row';
         const input = document.createElement('input');
         input.type = 'text';
-        input.placeholder = '#ff0000 #ff8800 … (8 hex codes)';
+        input.placeholder = 'enter up to 8 hex codes (e.g. #ff0000)';
         input.style.flex = '1';
         input.addEventListener('input', () => {
             const matches = (input.value.match(/#[0-9a-fA-F]{3,6}/g) ?? [])

@@ -18,7 +18,7 @@ export default {
     ],
     params: {
         digitizeEnabled: { default: false, label: 'Enable' },
-        pixelSize:       { default: 1,  min: 1,  max: 32,  label: 'Pixel Size' },
+        pixelSize:       { default: 1,  min: 1,  max: 256,  label: 'Pixel Size' },
         pixelColors:     { default: 16, min: 2,  max: 256, label: '# Colors' },
         digitizeSnapToPalette: { default: false, label: 'Snap to Palette Colors' },
         digitizeDither:  { default: 0,  min: 0,  max: 100, label: 'Dithering' },

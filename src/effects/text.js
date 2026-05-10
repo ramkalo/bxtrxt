@@ -381,7 +381,7 @@ export const textEffect = {
         textNoiseSeed:      { default: 0 },
         textNoiseRandomize: { default: null, label: 'Randomize' },
         textCharAlpha:      { default: 1, min: 0, max: 1, step: 0.01, label: 'Text Opacity' },
-        textOutlineWidth:   { default: 2, min: 0, max: 20, step: 0.5, label: 'Outline' },
+        textOutlineWidth:   { default: 2, min: 0, max: 20, step: 0.5, label: 'Outline Thiccness' },
         textOutlineColor:   { default: 'auto', label: 'Outline Color', options: [
             ['auto','Auto'],
             ['white','White'], ['black','Black'],

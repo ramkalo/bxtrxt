@@ -165,7 +165,7 @@ export function buildControlLimits() {
 export const EFFECT_CATALOG = [
     { name: 'basic',          label: 'Basic Adjustments',    description: 'Brightness, contrast, saturation, and color' },
     { name: 'blur',           label: 'Blur',                 description: 'Gaussian blur shaped like a vignette — sharp center, soft edges' },
-    { name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
+    //{ name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
     { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
     { name: 'colorPalette',    label: 'Color Palette',         description: 'Define 8 custom colors that other effects can reference' },
     { name: 'corrupted',     label: 'Corrupted',            description: 'Fractal square corruption spreading from seeded points' },

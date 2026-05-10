@@ -16,9 +16,9 @@ export default {
     ],
     params: {
         hueShiftEnabled: { default: false, label: 'Enable' },
-        hueCenter:       { default: 0,   min: 0,    max: 360, label: 'Original Colors' },
-        hueRotate:       { default: 0,   min: -360, max: 360, label: 'New Colors' },
-        hueWidth:        { default: 30, min: 1,    max: 180,  label: 'Slice Size' },
+        hueCenter:       { default: 180,   min: 0,    max: 360, label: 'Original Colors' },
+        hueRotate:       { default: 180,   min: -360, max: 360, label: 'New Colors' },
+        hueWidth:        { default: 80, min: 1,    max: 180,  label: 'Slice Size' },
         hueFeather:      { default: 20,  min: 0,    max: 100, label: 'Feathering' },
         ...fade.params,
         ...blend.params,

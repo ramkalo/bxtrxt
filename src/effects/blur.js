@@ -16,7 +16,7 @@ export default {
         blurEnabled: { default: false, label: 'Enable' },
         blurEdge:    { default: 100, min: 0,   max: 100, label: 'Edge Intensity' },
         blurCenter:  { default: 0,   min: 0,   max: 100, label: 'Center Intensity' },
-        blurPasses:  { default: 1,   min: 1,   max: 24,   label: 'Blur Power' },
+        blurPasses:  { default: 12,   min: 1,   max: 24,   label: 'Blur Power' },
         blurMode:    { default: 'ellipse', label: 'Mode', options: [['ellipse', 'Ellipse'], ['rectangle', 'Rectangle']] },
         blurMajor:   { default: 35, min: 0,   max: 150, label: 'Major Axis' },
         blurMinor:   { default: 35, min: 0,   max: 150, label: 'Minor Axis' },

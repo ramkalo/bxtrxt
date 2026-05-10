@@ -24,7 +24,7 @@ export default {
         chromaGreenY:   { default: 0, min: -20, max: 20, label: 'Green Y' },
         chromaBlueX:    { default: 0, min: -20, max: 20, label: 'Blue X' },
         chromaBlueY:    { default: 0, min: -20, max: 20, label: 'Blue Y' },
-        chromaScale:    { default: 1,   min: 1,   max: 10, label: 'Scale' },
+        chromaScale:    { default: 4,   min: 1,   max: 10, label: 'Scale' },
         wavesPhase:     { default: 0,   min: 0,   max: 100, label: 'Phase' },
         ...blend.params,
         ...fade.params,
