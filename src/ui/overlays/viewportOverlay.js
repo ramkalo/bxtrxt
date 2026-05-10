@@ -78,15 +78,16 @@ export function drawViewport(p) {
         drawCornerHandle(right, bottom);
         drawCornerHandle(left,  bottom);
 
-    } else if (p.vpShape === 'circle') {
-        const r = (p.vpR / 100) * Math.min(W, H) * 0.5;
+    } else if (p.vpShape === 'ellipse') {
+        const rx = (p.vpW / 200) * W;
+        const ry = (p.vpH / 200) * H;
 
         uiCtx.save();
         uiCtx.fillStyle = 'rgba(0,0,0,0.45)';
         uiCtx.fillRect(0, 0, W, H);
         uiCtx.globalCompositeOperation = 'destination-out';
         uiCtx.beginPath();
-        uiCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        uiCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         uiCtx.fill();
         uiCtx.restore();
 
@@ -94,11 +95,12 @@ export function drawViewport(p) {
         uiCtx.lineWidth   = 1.5;
         uiCtx.setLineDash([]);
         uiCtx.beginPath();
-        uiCtx.arc(cx, cy, r, 0, Math.PI * 2);
+        uiCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         uiCtx.stroke();
 
         drawHandle(cx, cy);
-        drawCornerHandle(cx + r, cy);
+        drawCornerHandle(cx + rx, cy);
+        drawCornerHandle(cx, cy + ry);
 
     } else {
         const verts = vpVertexScreenPositions(p);
@@ -155,9 +157,11 @@ export function hitTestViewport(e) {
         for (const [name, [hx, hy]] of Object.entries(corners)) {
             if (Math.hypot(mx - hx, my - hy) <= HIT_RADIUS) return name;
         }
-    } else if (p.vpShape === 'circle') {
-        const r = (p.vpR / 100) * Math.min(W, H) * 0.5;
-        if (Math.hypot(mx - (cx + r), my - cy) <= HIT_RADIUS) return 'edgeR';
+    } else if (p.vpShape === 'ellipse') {
+        const rx = (p.vpW / 200) * W;
+        const ry = (p.vpH / 200) * H;
+        if (Math.hypot(mx - (cx + rx), my - cy) <= HIT_RADIUS) return 'edgeR';
+        if (Math.hypot(mx - cx, my - (cy + ry)) <= HIT_RADIUS) return 'edgeB';
     } else {
         const verts = vpVertexScreenPositions(p);
         for (let i = 0; i < verts.length; i++) {
@@ -183,9 +187,10 @@ export function onDragViewport(e, inst, rect) {
         setInstanceParam(state.instId, 'vpH', Math.round(Math.max(1, Math.min(100, Math.abs(my - cy) * 2 / H * 100))));
     } else if (state.handle === 'edgeR') {
         const cx = (0.5 + p.vpX / 100) * W;
+        setInstanceParam(state.instId, 'vpW', Math.round(Math.max(1, Math.min(100, Math.abs(mx - cx) * 2 / W * 100))));
+    } else if (state.handle === 'edgeB') {
         const cy = (0.5 - p.vpY / 100) * H;
-        const dist = Math.hypot(mx - cx, my - cy);
-        setInstanceParam(state.instId, 'vpR', Math.round(Math.max(1, Math.min(100, dist / (Math.min(W, H) * 0.5) * 100))));
+        setInstanceParam(state.instId, 'vpH', Math.round(Math.max(1, Math.min(100, Math.abs(my - cy) * 2 / H * 100))));
     } else if (state.handle && state.handle.startsWith('v')) {
         const idx = parseInt(state.handle.slice(1), 10);
         const ox = Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100)) - p.vpX);

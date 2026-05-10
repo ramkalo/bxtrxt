@@ -86,7 +86,8 @@ export function renderStackList() {
         const isExpanded = inst.id === _expandedId;
 
         const item = document.createElement('div');
-        item.className = 'stack-item';
+        const isViewportItem = inst.effectName === 'viewport' || inst.effectName === 'viewportEntry';
+        item.className = 'stack-item' + (isViewportItem ? ' stack-item--viewport' : '');
         item.dataset.id = inst.id;
         item.dataset.index = i;
         // --- Header row ---
@@ -97,7 +98,7 @@ export function renderStackList() {
         dragHandle.className = 'stack-drag-handle';
         dragHandle.title = 'Drag to reorder';
         dragHandle.innerHTML = '&#8801;';
-        dragHandle.addEventListener('pointerdown', () => { item.draggable = true; });
+        dragHandle.addEventListener('pointerdown', (e) => startDrag(e, inst.id, item));
         header.appendChild(dragHandle);
 
         const labelEl = document.createElement('span');
@@ -105,94 +106,113 @@ export function renderStackList() {
         labelEl.textContent = label;
         header.appendChild(labelEl);
 
-        // On/Off checkbox
         const effect = getEffect(inst.effectName);
-        const enabledKey = effect && Object.keys(effect.params).find(k =>
-            k.endsWith('Enabled') && typeof effect.params[k].default === 'boolean'
-        );
-        if (enabledKey !== undefined) {
-            const enableLabel = document.createElement('label');
-            enableLabel.className = 'stack-enable-label';
-            enableLabel.addEventListener('click', e => e.stopPropagation());
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.checked = inst.params[enabledKey];
-            checkbox.addEventListener('change', () => {
-                saveState();
-                setInstanceParam(inst.id, enabledKey, checkbox.checked);
+        const isMarker = effect?.isMarker === true;
+
+        if (isMarker) {
+            // Marker items (e.g. viewportEntry): handle + label + move buttons only
+            const actions = document.createElement('div');
+            actions.className = 'stack-item-actions';
+            actions.innerHTML = `
+                <button class="stack-move-btn" data-dir="up" title="Move up">&#8593;</button>
+                <button class="stack-move-btn" data-dir="down" title="Move down">&#8595;</button>
+            `;
+            header.appendChild(actions);
+            actions.querySelectorAll('.stack-move-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    saveState();
+                    const dir = btn.dataset.dir;
+                    const idx = parseInt(item.dataset.index);
+                    moveEffect(inst.id, dir === 'up' ? idx - 1 : idx + 1);
+                    renderStackList();
+                });
             });
-            enableLabel.appendChild(checkbox);
-            header.appendChild(enableLabel);
-        }
+            item.appendChild(header);
+        } else {
+            // On/Off checkbox
+            const enabledKey = effect && Object.keys(effect.params).find(k =>
+                k.endsWith('Enabled') && typeof effect.params[k].default === 'boolean'
+            );
+            if (enabledKey !== undefined) {
+                const enableLabel = document.createElement('label');
+                enableLabel.className = 'stack-enable-label';
+                enableLabel.addEventListener('click', e => e.stopPropagation());
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = inst.params[enabledKey];
+                checkbox.addEventListener('change', () => {
+                    saveState();
+                    setInstanceParam(inst.id, enabledKey, checkbox.checked);
+                });
+                enableLabel.appendChild(checkbox);
+                header.appendChild(enableLabel);
+            }
 
-        // Expand arrow
-        const expandArrow = document.createElement('span');
-        expandArrow.className = 'stack-item-expand' + (isExpanded ? ' open' : '');
-        expandArrow.innerHTML = '&#9656;';
-        header.appendChild(expandArrow);
+            // Expand arrow
+            const expandArrow = document.createElement('span');
+            expandArrow.className = 'stack-item-expand' + (isExpanded ? ' open' : '');
+            expandArrow.innerHTML = '&#9656;';
+            header.appendChild(expandArrow);
 
-        // Action buttons
-        const actions = document.createElement('div');
-        actions.className = 'stack-item-actions';
-        actions.innerHTML = `
-            <button class="stack-move-btn" data-dir="up" title="Move up">&#8593;</button>
-            <button class="stack-move-btn" data-dir="down" title="Move down">&#8595;</button>
-            <button class="stack-dup-btn" title="Duplicate">&#10697;</button>
-            <button class="stack-delete-btn" title="Remove">&#10005;</button>
-        `;
-        header.appendChild(actions);
+            // Action buttons
+            const actions = document.createElement('div');
+            actions.className = 'stack-item-actions';
+            actions.innerHTML = `
+                <button class="stack-move-btn" data-dir="up" title="Move up">&#8593;</button>
+                <button class="stack-move-btn" data-dir="down" title="Move down">&#8595;</button>
+                <button class="stack-dup-btn" title="Duplicate">&#10697;</button>
+                <button class="stack-delete-btn" title="Remove">&#10005;</button>
+            `;
+            header.appendChild(actions);
 
-        // --- Collapsible body (controls) ---
-        const body = document.createElement('div');
-        body.className = 'stack-item-body';
-        if (!isExpanded) body.hidden = true;
-        if (isExpanded) {
-            body.appendChild(buildEffectBody(inst, renderStackList));
-        }
+            // --- Collapsible body (controls) ---
+            const body = document.createElement('div');
+            body.className = 'stack-item-body';
+            if (!isExpanded) body.hidden = true;
+            if (isExpanded) {
+                body.appendChild(buildEffectBody(inst, renderStackList));
+            }
 
-        // Toggle expand on header click (not on action buttons, checkbox, or drag handle)
-        header.addEventListener('click', (e) => {
-            if (e.target.closest('.stack-item-actions, .stack-enable-label, .stack-drag-handle')) return;
-            _expandedId = (_expandedId === inst.id) ? null : inst.id;
-            renderStackList();
-        });
-
-        // Move buttons
-        actions.querySelectorAll('.stack-move-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                saveState();
-                const dir = btn.dataset.dir;
-                const idx = parseInt(item.dataset.index);
-                moveEffect(inst.id, dir === 'up' ? idx - 1 : idx + 1);
+            // Toggle expand on header click (not on action buttons, checkbox, or drag handle)
+            header.addEventListener('click', (e) => {
+                if (e.target.closest('.stack-item-actions, .stack-enable-label, .stack-drag-handle')) return;
+                _expandedId = (_expandedId === inst.id) ? null : inst.id;
                 renderStackList();
             });
-        });
 
-        // Duplicate button
-        actions.querySelector('.stack-dup-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            saveState();
-            duplicateEffect(inst.id);
-            renderStackList();
-        });
+            // Move buttons
+            actions.querySelectorAll('.stack-move-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    saveState();
+                    const dir = btn.dataset.dir;
+                    const idx = parseInt(item.dataset.index);
+                    moveEffect(inst.id, dir === 'up' ? idx - 1 : idx + 1);
+                    renderStackList();
+                });
+            });
 
-        // Delete button
-        actions.querySelector('.stack-delete-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            saveState();
-            if (_expandedId === inst.id) _expandedId = null;
-            removeEffect(inst.id);
-            renderStackList();
-        });
+            // Duplicate button
+            actions.querySelector('.stack-dup-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                saveState();
+                duplicateEffect(inst.id);
+                renderStackList();
+            });
 
-        item.appendChild(header);
-        item.appendChild(body);
+            // Delete button
+            actions.querySelector('.stack-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                saveState();
+                if (_expandedId === inst.id) _expandedId = null;
+                removeEffect(inst.id);
+                renderStackList();
+            });
 
-        item.addEventListener('dragstart', onDragStart);
-        item.addEventListener('dragover', onDragOver);
-        item.addEventListener('drop', onDrop);
-        item.addEventListener('dragend', onDragEnd);
+            item.appendChild(header);
+            item.appendChild(body);
+        }
 
         container.appendChild(item);
     }
@@ -247,41 +267,75 @@ export function renderStackList() {
     else if (newEffect === 'shapeSticker') showShapeStickerOverlay(expandedInst);
 }
 
-// --- Drag-and-drop ---
+// --- Pointer-based drag-and-drop ---
 
 let _dragId = null;
-let _dropPosition = 'before';
+let _dragEl = null;
 
-function onDragStart(e) {
-    _dragId = e.currentTarget.dataset.id;
-    e.currentTarget.classList.add('dragging');
+function _dragResolveIndex(clientY) {
+    const items = [...document.querySelectorAll('#effectStackList .stack-item:not(.dragging)')];
+    for (const el of items) {
+        const hdr = el.querySelector('.stack-item-header') ?? el;
+        const { top, height } = hdr.getBoundingClientRect();
+        if (clientY < top + height / 2) return parseInt(el.dataset.index);
+    }
+    return getStack().length;
 }
 
-function onDragOver(e) {
-    e.preventDefault();
-    const rect = e.currentTarget.getBoundingClientRect();
-    _dropPosition = e.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
-    document.querySelectorAll('.stack-item').forEach(el => el.classList.remove('drop-above', 'drop-below'));
-    e.currentTarget.classList.add(_dropPosition === 'before' ? 'drop-above' : 'drop-below');
+function _dragUpdateIndicator(clientY) {
+    const all = [...document.querySelectorAll('#effectStackList .stack-item')];
+    all.forEach(el => el.classList.remove('drop-above', 'drop-below'));
+    const rest = all.filter(el => !el.classList.contains('dragging'));
+    let placed = false;
+    for (const el of rest) {
+        const hdr = el.querySelector('.stack-item-header') ?? el;
+        const { top, height } = hdr.getBoundingClientRect();
+        if (clientY < top + height / 2) { el.classList.add('drop-above'); placed = true; break; }
+    }
+    if (!placed && rest.length > 0) rest[rest.length - 1].classList.add('drop-below');
 }
 
-function onDrop(e) {
-    e.preventDefault();
-    const targetId = e.currentTarget.dataset.id;
-    e.currentTarget.classList.remove('drop-above', 'drop-below');
-    if (!_dragId || _dragId === targetId) return;
-
-    const stack = getStack();
-    const targetIndex = stack.findIndex(inst => inst.id === targetId);
-    const insertIndex = _dropPosition === 'after' ? targetIndex + 1 : targetIndex;
-    saveState();
-    moveEffect(_dragId, insertIndex);
-    renderStackList();
-}
-
-function onDragEnd(e) {
-    e.currentTarget.draggable = false;
-    e.currentTarget.classList.remove('dragging');
-    document.querySelectorAll('.stack-item').forEach(el => el.classList.remove('drop-above', 'drop-below'));
+function _dragCleanup() {
+    document.removeEventListener('pointermove', _onDragMove);
+    document.removeEventListener('pointerup', _onDragUp);
+    document.removeEventListener('keydown', _onDragKey);
+    _dragEl?.classList.remove('dragging');
+    document.querySelectorAll('#effectStackList .stack-item').forEach(el =>
+        el.classList.remove('drop-above', 'drop-below')
+    );
     _dragId = null;
+    _dragEl = null;
+}
+
+function _onDragMove(e) {
+    _dragUpdateIndicator(e.clientY);
+}
+
+function _onDragUp(e) {
+    const resolvedIdx = _dragResolveIndex(e.clientY);
+    const stack = getStack();
+    const fromIdx = stack.findIndex(i => i.id === _dragId);
+    // Adjust for the removal of the dragged item shifting indices down
+    const insertIdx = resolvedIdx > fromIdx ? resolvedIdx - 1 : resolvedIdx;
+    const dragId = _dragId;
+    _dragCleanup();
+    if (insertIdx !== fromIdx) {
+        saveState();
+        moveEffect(dragId, insertIdx);
+        renderStackList();
+    }
+}
+
+function _onDragKey(e) {
+    if (e.key === 'Escape') _dragCleanup();
+}
+
+function startDrag(e, instId, item) {
+    e.preventDefault();
+    _dragId = instId;
+    _dragEl = item;
+    item.classList.add('dragging');
+    document.addEventListener('pointermove', _onDragMove);
+    document.addEventListener('pointerup', _onDragUp, { once: true });
+    document.addEventListener('keydown', _onDragKey, { once: true });
 }

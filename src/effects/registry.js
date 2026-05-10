@@ -22,6 +22,15 @@ import transformEffect      from './transform.js';
 import cropEffect           from './crop.js';
 import glowEffect           from './glow.js';
 import viewportEffect       from './viewport.js';
+
+const viewportEntryEffect = {
+    name: 'viewportEntry',
+    label: 'Viewport Entry',
+    pass: 'viewportEntry',
+    params: {},
+    enabled: () => false,
+    isMarker: true,
+};
 import { matrixRainEffect } from './matrixRain.js';
 import { shapeStickerEffect } from './shapeSticker.js';
 
@@ -46,7 +55,7 @@ import { shapeStickerEffect } from './shapeSticker.js';
  * @typedef {TransformEffect|GlslEffect|MultiPassEffect|ContextEffect} EffectDef
  */
 
-const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport']);
+const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport', 'viewportEntry']);
 
 /** @param {EffectDef} effect */
 function validateEffect(effect) {
@@ -61,7 +70,7 @@ function validateEffect(effect) {
     if (effect.pass === 'context') {
         if (typeof effect.canvas2d !== 'function')
             throw new Error(`${id}: pass "context" requires a canvas2d function`);
-    } else {
+    } else if (effect.pass !== 'viewportEntry') {
         if (!effect.glsl && !effect.glslPasses)
             throw new Error(`${id}: pass "${effect.pass}" requires glsl or glslPasses`);
     }
@@ -106,6 +115,7 @@ export const EFFECTS = [
     crtScanlinesEffect,
     crtStaticEffect,
     //moireEffect,
+    viewportEntryEffect,
     viewportEffect,
     shapeStickerEffect,
 ];
@@ -153,24 +163,24 @@ export function buildControlLimits() {
  * Each entry: { name, label, description }
  */
 export const EFFECT_CATALOG = [
-    { name: 'colorPalette',    label: 'Color Palette',         description: 'Define 8 custom colors that other effects can reference' },
     { name: 'basic',          label: 'Basic Adjustments',    description: 'Brightness, contrast, saturation, and color' },
     { name: 'blur',           label: 'Blur',                 description: 'Gaussian blur shaped like a vignette — sharp center, soft edges' },
     { name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
     { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
+    { name: 'colorPalette',    label: 'Color Palette',         description: 'Define 8 custom colors that other effects can reference' },
     { name: 'corrupted',     label: 'Corrupted',            description: 'Fractal square corruption spreading from seeded points' },
     { name: 'crop',           label: 'Crop',                 description: 'Crop the image' },
     { name: 'crtCurvature',   label: 'CRT Curvature',        description: 'Barrel lens distortion' },
     { name: 'crtScanlines',   label: 'CRT Scanlines',        description: 'Horizontal scanline darkening' },
     { name: 'crtStatic',      label: 'CRT Static',           description: 'Random noise over the image' },
     { name: 'digital-smear', label: 'Digital Smear',        description: 'Wet paint brush smear with wave-modulated displacement' },
-    { name: 'lineDrag',      label: 'Line Drag',            description: 'Smear pixel columns or rows from a control line across the image' },
     { name: 'digitize',       label: 'Digitize',             description: 'Pixelation, color quantization, dithering, and noise' },
     { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
     { name: 'grain',          label: 'Film Grain',           description: 'Analog noise and grain texture' },
-    { name: 'hueShift',       label: 'Hue Shift',            description: 'Rotate all hues around the color wheel without quantizing' },
     { name: 'glow',           label: 'Glow',                 description: 'Bloom halo around bright areas' },
+    { name: 'hueShift',       label: 'Hue Shift',            description: 'Rotate all hues around the color wheel without quantizing' },
     { name: 'invert',         label: 'Invert',               description: 'Color inversion with threshold' },
+    { name: 'lineDrag',      label: 'Line Drag',            description: 'Smear pixel columns or rows from a control line across the image' },
     { name: 'matrixRain',   label: 'Matrix Rain',          description: 'Tile text characters across the image in configurable grid patterns' },
     // { name: 'moire',        label: 'Moire',                description: 'Two overlapping line grids that interfere to produce wave and band patterns' },
     { name: 'transform',      label: 'Rotate',               description: 'Flip and rotate' },

@@ -31,14 +31,27 @@ export function addEffect(effectName) {
     
     const instance = { id: _uid(), effectName, params: { ...defaults } };
     if (enabledKey) instance.params[enabledKey] = true;
-    
+
+    if (effectName === 'viewport') {
+        const entryInst = { id: _uid(), effectName: 'viewportEntry', params: {} };
+        _stack.push(entryInst);
+        instance.params.vpEntryId = entryInst.id;
+    }
+
     _stack.push(instance);
     _notify();
     return instance;
 }
 
 export function removeEffect(id) {
-    _stack = _stack.filter(inst => inst.id !== id);
+    const inst = _stack.find(i => i.id === id);
+    if (inst?.effectName === 'viewport') {
+        const entryId = inst.params.vpEntryId;
+        _stack = entryId
+            ? _stack.filter(i => i.id !== entryId)
+            : _stack.filter(i => i.effectName !== 'viewportEntry');
+    }
+    _stack = _stack.filter(i => i.id !== id);
     _notify();
 }
 

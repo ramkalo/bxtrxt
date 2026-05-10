@@ -2,15 +2,15 @@ import { buildBlendControl } from './controls/index.js';
 
 const blend = buildBlendControl('viewport');
 
-const SHAPE_INT = { rectangle: 0, circle: 1, triangle: 2, polygon: 2 };
+const SHAPE_INT = { rectangle: 0, ellipse: 1, triangle: 2, polygon: 2 };
 
 export default {
     name: 'viewport',
     label: 'Viewport',
     pass: 'viewport',
-    paramKeys: ['vpX', 'vpY', 'vpW', 'vpH', 'vpR', ...blend.paramKeys],
+    paramKeys: ['vpX', 'vpY', 'vpW', 'vpH', ...blend.paramKeys],
     handleParams: [
-        'vpX', 'vpY', 'vpW', 'vpH', 'vpR',
+        'vpX', 'vpY', 'vpW', 'vpH',
         'vpV0x',  'vpV0y',  'vpV1x',  'vpV1y',  'vpV2x',  'vpV2y',
         'vpV3x',  'vpV3y',  'vpV4x',  'vpV4y',  'vpV5x',  'vpV5y',
         'vpV6x',  'vpV6y',  'vpV7x',  'vpV7y',  'vpV8x',  'vpV8y',
@@ -18,15 +18,13 @@ export default {
     ],
     params: {
         vpEnabled: { default: false, label: 'Enable' },
-        vpShape:   { default: 'rectangle', label: 'Shape', options: [['rectangle', 'Rectangle'], ['circle', 'Circle'], ['triangle', 'Triangle'], ['polygon', 'Polygon']] },
-        vpPost:    { default: false, label: 'Post Mode' },
+        vpShape:   { default: 'rectangle', label: 'Shape', options: [['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['polygon', 'Polygon']] },
         vpInvert:  { default: false, label: 'Invert' },
-        vpX:       { default: 0,   min: -50, max: 50  },
-        vpY:       { default: 0,   min: -50, max: 50  },
-        vpW:       { default: 30,  min: 1,   max: 100 },
-        vpH:       { default: 20,  min: 1,   max: 100 },
-        vpR:       { default: 25,  min: 1,   max: 100 },
-        vpSides:   { default: 6,   min: 3,   max: 24,  label: 'Sides' },
+        vpX:       { default: 0  },
+        vpY:       { default: 0  },
+        vpW:       { default: 30 },
+        vpH:       { default: 20 },
+        vpSides:   { default: 6,   min: 3,   max: 12,  label: 'Sides' },
         vpV0x:  { default: 0 }, vpV0y:  { default: 0 },
         vpV1x:  { default: 0 }, vpV1y:  { default: 0 },
         vpV2x:  { default: 0 }, vpV2y:  { default: 0 },
@@ -41,8 +39,8 @@ export default {
         vpV11x: { default: 0 }, vpV11y: { default: 0 },
         ...blend.params,
     },
-    uiGroups: [
-        { keys: ['vpShape', 'vpInvert', 'vpPost'] },
+    uiGroups: (p) => [
+        { keys: p.vpShape === 'polygon' ? ['vpShape', 'vpSides', 'vpInvert'] : ['vpShape', 'vpInvert'] },
         blend.uiGroup,
     ],
     enabled: (p) => p.vpEnabled,
@@ -52,7 +50,6 @@ uniform float vpX;
 uniform float vpY;
 uniform float vpW;
 uniform float vpH;
-uniform float vpR;
 uniform float vpInvert;
 uniform int   vpShape;
 uniform int   vpNumVerts;
@@ -63,11 +60,12 @@ bool inRect(vec2 uv) {
     return abs(uv.x - c.x) < vpW / 200.0 && abs(uv.y - c.y) < vpH / 200.0;
 }
 
-bool inCircle(vec2 uv) {
-    vec2 c    = vec2(0.5 + vpX / 100.0, 0.5 + vpY / 100.0);
-    vec2 diff = (uv - c) * uResolution;
-    float r   = vpR / 100.0 * min(uResolution.x, uResolution.y) * 0.5;
-    return length(diff) < r;
+bool inEllipse(vec2 uv) {
+    vec2 c  = vec2(0.5 + vpX / 100.0, 0.5 + vpY / 100.0);
+    float rx = vpW / 200.0;
+    float ry = vpH / 200.0;
+    vec2 d  = uv - c;
+    return (d.x * d.x) / (rx * rx) + (d.y * d.y) / (ry * ry) < 1.0;
 }
 
 bool inPoly(vec2 uv) {
@@ -90,7 +88,7 @@ void main() {
     vec4 c = texture(uTex, vUV);
     bool inside;
     if      (vpShape == 0) inside = inRect(vUV);
-    else if (vpShape == 1) inside = inCircle(vUV);
+    else if (vpShape == 1) inside = inEllipse(vUV);
     else                   inside = inPoly(vUV);
 
     if (vpInvert > 0.5) inside = !inside;

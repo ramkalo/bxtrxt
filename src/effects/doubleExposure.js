@@ -9,8 +9,8 @@ export default {
     label: 'Double Exposure',
     pass: 'pre-crt',
     paramKeys: [
-        'doubleExposureBlendMode',
-        'doubleExposureOrigOpacity', 'doubleExposureOpacity',
+        'doubleExposureMixMode',
+        'doubleExposureOrigOpacity', 'doubleExposureMixOpacity',
         'doubleExposureTexX', 'doubleExposureTexY',
         ...fade.paramKeys,
         ...blend.paramKeys,
@@ -20,15 +20,15 @@ export default {
         ...fade.handleParams,
     ],
     uiGroups: [
-        { keys: ['doubleExposureBlendMode', 'doubleExposureOrigOpacity', 'doubleExposureOpacity'] },
+        { keys: ['doubleExposureMixMode', 'doubleExposureOrigOpacity', 'doubleExposureMixOpacity'] },
         fade.uiGroup,
         blend.uiGroup,
     ],
     params: {
         doubleExposureEnabled:     { default: false, label: 'Enable' },
-        doubleExposureBlendMode:   { default: 'screen', label: 'Blend Mode', options: [['screen', 'Screen'], ['multiply', 'Multiply'], ['add', 'Add'], ['overlay', 'Overlay'], ['difference', 'Difference']] },
+        doubleExposureMixMode:     { default: 'screen', label: 'Blend Mode', options: [['screen', 'Screen'], ['multiply', 'Multiply'], ['add', 'Add'], ['overlay', 'Overlay'], ['difference', 'Difference']] },
         doubleExposureOrigOpacity: { default: 100, min: 0, max: 100, label: 'Image Opacity' },
-        doubleExposureOpacity:     { default: 100, min: 0, max: 100, label: 'Blend Opacity' },
+        doubleExposureMixOpacity:  { default: 100, min: 0, max: 100, label: 'Blend Opacity' },
         doubleExposureTexX:        { default: 0, min: -100, max: 100, label: 'Image X' },
         doubleExposureTexY:        { default: 0, min: -100, max: 100, label: 'Image Y' },
         ...fade.params,
@@ -39,7 +39,7 @@ export default {
         const blendMap = { normal: 0, screen: 1, multiply: 2, add: 3, overlay: 4, difference: 5 };
         const set1i = (name, val) => { const loc = prog._locs[name]; if (loc != null) gl.uniform1i(loc, val); };
 
-        set1i('doubleExposureBlendMode', blendMap[p.doubleExposureBlendMode] ?? 1);
+        set1i('doubleExposureMixMode', blendMap[p.doubleExposureMixMode] ?? 1);
 
         const texLoc = prog._locs['uSecondTex'];
         if (texLoc != null && secondTexture) {
@@ -53,19 +53,19 @@ export default {
     },
     glsl: `
 uniform sampler2D uSecondTex;
-uniform int   doubleExposureBlendMode;
+uniform int   doubleExposureMixMode;
 uniform float doubleExposureOrigOpacity;
-uniform float doubleExposureOpacity;
+uniform float doubleExposureMixOpacity;
 uniform float doubleExposureTexX;
 uniform float doubleExposureTexY;
 ${fade.glsl}
 ${blend.glsl}
 float blendCh(float a, float b) {
-    if      (doubleExposureBlendMode == 1) return 1.0 - (1.0-a)*(1.0-b);
-    else if (doubleExposureBlendMode == 2) return a * b;
-    else if (doubleExposureBlendMode == 3) return min(1.0, a + b);
-    else if (doubleExposureBlendMode == 4) return a < 0.5 ? 2.0*a*b : 1.0 - 2.0*(1.0-a)*(1.0-b);
-    else if (doubleExposureBlendMode == 5) return abs(a - b);
+    if      (doubleExposureMixMode == 1) return 1.0 - (1.0-a)*(1.0-b);
+    else if (doubleExposureMixMode == 2) return a * b;
+    else if (doubleExposureMixMode == 3) return min(1.0, a + b);
+    else if (doubleExposureMixMode == 4) return a < 0.5 ? 2.0*a*b : 1.0 - 2.0*(1.0-a)*(1.0-b);
+    else if (doubleExposureMixMode == 5) return abs(a - b);
     return a;
 }
 
@@ -82,7 +82,7 @@ void main() {
 
     vec3 result = vec3(blendCh(base.r, sec.r), blendCh(base.g, sec.g), blendCh(base.b, sec.b));
 
-    result = mix(base, result, doubleExposureOpacity / 100.0);
+    result = mix(base, result, doubleExposureMixOpacity / 100.0);
 
     float weight = ${fade.fnName}();
 

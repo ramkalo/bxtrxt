@@ -7,11 +7,11 @@ export default {
     name: 'digitize',
     label: 'Digitize',
     pass: 'pre-crt',
-    paramKeys: ['pixelSize', 'pixelColors', 'digitizeSnapToPalette', 'digitizeSnapStrength', 'digitizeSnapFeather', 'digitizeDither', 'digitizeNoise', ...fade.paramKeys, ...blend.paramKeys],
+    paramKeys: ['pixelSize', 'pixelColors', 'digitizeSnapToPalette', 'digitizeDither', 'digitizeNoise', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: [...fade.handleParams],
     uiGroups: [
         { keys: ['pixelSize', 'pixelColors'] },
-        { keys: ['digitizeSnapToPalette', 'digitizeSnapStrength', 'digitizeSnapFeather'], conditionKey: 'digitizeSnapToPalette' },
+        { keys: ['digitizeSnapToPalette'] },
         { keys: ['digitizeDither', 'digitizeNoise'] },
         fade.uiGroup,
         blend.uiGroup,
@@ -19,10 +19,8 @@ export default {
     params: {
         digitizeEnabled: { default: false, label: 'Enable' },
         pixelSize:       { default: 1,  min: 1,  max: 32,  label: 'Pixel Size' },
-        pixelColors:          { default: 16, min: 2,  max: 256,  label: '# Colors' },
-        digitizeSnapToPalette:  { default: false, label: 'Snap to Palette Colors' },
-        digitizeSnapStrength:   { default: 100, min: 0, max: 100, label: 'Snap Strength' },
-        digitizeSnapFeather:    { default: 0,   min: 0, max: 100, label: 'Snap Feather' },
+        pixelColors:     { default: 16, min: 2,  max: 256, label: '# Colors' },
+        digitizeSnapToPalette: { default: false, label: 'Snap to Palette Colors' },
         digitizeDither:  { default: 0,  min: 0,  max: 100, label: 'Dithering' },
         digitizeNoise:   { default: 0,  min: 0,  max: 100, label: 'Noise' },
         ...fade.params,
@@ -50,8 +48,6 @@ export default {
 uniform float pixelSize;
 uniform float pixelColors;
 uniform bool digitizeSnapToPalette;
-uniform float digitizeSnapStrength;
-uniform float digitizeSnapFeather;
 uniform vec3 paletteColors[8];
 uniform float digitizeDither;
 uniform float digitizeNoise;
@@ -106,8 +102,8 @@ void main() {
     col.b = floor(col.b / qstep) * qstep;
 
     if (digitizeSnapToPalette) {
-        vec3 norm    = col / 255.0;
-        vec3 hslCur  = rgb2hsl(norm);
+        vec3 norm   = col / 255.0;
+        vec3 hslCur = rgb2hsl(norm);
         // Only snap pixels that have a meaningful hue
         if (hslCur.y > 0.05) {
             float minDist = 1e9;
@@ -121,11 +117,8 @@ void main() {
                 if (hueDiff < minDist) { minDist = hueDiff; nearIdx = i; }
             }
             if (nearIdx >= 0) {
-                // threshold: feather=0 → 0.5 (full wheel), feather=100 → 0.05 (~18°)
-                float threshold  = mix(0.5, 0.05, digitizeSnapFeather / 100.0);
-                float distFactor = 1.0 - smoothstep(threshold - 0.03, threshold + 0.03, minDist);
                 float delta  = fract(hslPals[nearIdx].x - hslCur.x + 0.5) - 0.5;
-                float newHue = fract(hslCur.x + delta * (digitizeSnapStrength / 100.0) * distFactor);
+                float newHue = fract(hslCur.x + delta);
                 col = hsl2rgb(vec3(newHue, hslCur.y, hslCur.z)) * 255.0;
             }
         }

@@ -1303,6 +1303,10 @@ input[type="checkbox"] {
     transition: border-color 0.15s, opacity 0.15s;
 }
 
+.stack-item--viewport {
+    background: #383838;
+}
+
 .stack-item:hover {
     border-color: var(--accent);
 }

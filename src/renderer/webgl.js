@@ -271,15 +271,15 @@ void main() {
 let _transformFBO = null;
 
 // --- Viewport composite FBOs ---
-let _vpPreFBO  = null;
-let _vpFullFBO = null;
-let _vpPostFBO = null;
+let _vpEntryFBO = null;
+let _vpPreFBO   = null;
+let _vpFullFBO  = null;
 
 function _reallocVpFBOs(w, h) {
-    if (_vpPreFBO?.width === w && _vpPreFBO?.height === h) return;
-    destroyFBO(_vpPreFBO);  _vpPreFBO  = createFBO(w, h);
-    destroyFBO(_vpFullFBO); _vpFullFBO = createFBO(w, h);
-    destroyFBO(_vpPostFBO); _vpPostFBO = createFBO(w, h);
+    if (_vpEntryFBO?.width === w && _vpEntryFBO?.height === h) return;
+    destroyFBO(_vpEntryFBO); _vpEntryFBO = createFBO(w, h);
+    destroyFBO(_vpPreFBO);   _vpPreFBO   = createFBO(w, h);
+    destroyFBO(_vpFullFBO);  _vpFullFBO  = createFBO(w, h);
 }
 
 // Show the unprocessed original image (used by long-press compare in touch.js).
@@ -292,10 +292,10 @@ export function blitOriginalToScreen() {
 
 // Run a slice of the stack, starting from startTex. Returns the resulting srcTex
 // (pointing into fboPool). Does NOT blit to screen. Skips 'viewport' pass effects.
-function _runLinear(stack, startTex) {
+function _runLinear(stack, startTex, inheritedPalette = null) {
     let srcTex = startTex;
     let pingIdx = 0;
-    let activePalette = null;
+    let activePalette = inheritedPalette;
 
     for (let i = 0; i < stack.length; i++) {
         const instance = stack[i];
@@ -471,17 +471,17 @@ function _runLinear(stack, startTex) {
         pingIdx++;
     }
 
-    return srcTex;
+    return { tex: srcTex, palette: activePalette };
 }
 
-function _runViewportComposite(vpInst, fullTex, windowTex) {
+function _runViewportComposite(vpInst, fullTex, windowTex, targetFbo = null) {
     const effect = getEffect('viewport');
     const params = vpInst.params;
     const w = canvas.width, h = canvas.height;
     const prog = getProgram(effect.glsl);
     if (!prog) return;
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo ? targetFbo.fbo : null);
     gl.viewport(0, 0, w, h);
     gl.useProgram(prog);
     bindTex0(prog, fullTex);       // uTex = outside (full result)
@@ -498,50 +498,64 @@ function _runViewportComposite(vpInst, fullTex, windowTex) {
 }
 
 function _runEffects(stack) {
-    const vpIdx = stack.findIndex(inst => {
-        const effect = getEffect(inst.effectName);
-        return effect?.pass === 'viewport' && inst.params.vpEnabled;
-    });
+    // Collect all enabled viewport pairs in stack order
+    const pairs = [];
+    for (let i = 0; i < stack.length; i++) {
+        const inst = stack[i];
+        if (getEffect(inst.effectName)?.pass !== 'viewport') continue;
+        if (!inst.params.vpEnabled) continue;
+        const entryId  = inst.params.vpEntryId;
+        const entryIdx = entryId
+            ? stack.findIndex(s => s.id === entryId)
+            : stack.findIndex(s => s.effectName === 'viewportEntry'); // legacy fallback
+        pairs.push({ vpIdx: i, vpInst: inst, entryIdx });
+    }
 
-    if (vpIdx === -1) {
-        if (_vpPreFBO) {
-            destroyFBO(_vpPreFBO);  _vpPreFBO  = null;
-            destroyFBO(_vpFullFBO); _vpFullFBO = null;
-            destroyFBO(_vpPostFBO); _vpPostFBO = null;
+    if (pairs.length === 0) {
+        if (_vpEntryFBO) {
+            destroyFBO(_vpEntryFBO); _vpEntryFBO = null;
+            destroyFBO(_vpPreFBO);   _vpPreFBO   = null;
+            destroyFBO(_vpFullFBO);  _vpFullFBO  = null;
         }
-        const srcTex = _runLinear(stack, _origTex);
+        const { tex: srcTex } = _runLinear(stack, _origTex);
         runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
         if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         return;
     }
 
-    const preStack  = stack.slice(0, vpIdx);
-    const postStack = stack.slice(vpIdx + 1);
-    const vpInst    = stack[vpIdx];
+    // Process each viewport pair sequentially. The composite result of pair N
+    // becomes the input texture for pair N+1's pre-entry segment.
+    let currentTex     = _origTex;
+    let currentPalette = null;
+    let stackPos       = 0;
 
-    // Phase 1: pre-effects → capture to _vpPreFBO
-    const preTex = _runLinear(preStack, _origTex);
-    _reallocVpFBOs(canvas.width, canvas.height);
-    runPass(PASSTHROUGH_FRAG, preTex, _vpPreFBO, null, null);
+    for (const { vpIdx, vpInst, entryIdx } of pairs) {
+        const hasEntry    = entryIdx !== -1 && entryIdx < vpIdx && entryIdx >= stackPos;
+        const preEntryEnd = hasEntry ? entryIdx : vpIdx;
 
-    // Phase 2: post-effects on pre-state → _vpFullFBO (the full pipeline result)
-    const fullTex = _runLinear(postStack, _vpPreFBO.tex);
-    runPass(PASSTHROUGH_FRAG, fullTex, _vpFullFBO, null, null);
+        const preEntrySlice = stack.slice(stackPos, preEntryEnd);
+        const midSlice      = hasEntry ? stack.slice(entryIdx + 1, vpIdx) : [];
 
-    // Phase 3: select window content
-    let windowTex;
-    if (vpInst.params.vpPost) {
-        // Post mode: window shows original with only post-effects applied
-        const postTex = _runLinear(postStack, _origTex);
-        runPass(PASSTHROUGH_FRAG, postTex, _vpPostFBO, null, null);
-        windowTex = _vpPostFBO.tex;
-    } else {
-        // Pre mode: window shows image just before the viewport in the stack
-        windowTex = _vpPreFBO.tex;
+        // Run pre-entry effects (may resize canvas via crop), then allocate FBOs
+        const { tex: entryTex, palette: entryPalette } = _runLinear(preEntrySlice, currentTex, currentPalette);
+        _reallocVpFBOs(canvas.width, canvas.height);
+        runPass(PASSTHROUGH_FRAG, entryTex, _vpEntryFBO, null, null);
+
+        // Run mid effects → outside texture
+        const { tex: midTex, palette: midPalette } = _runLinear(midSlice, _vpEntryFBO.tex, entryPalette);
+        runPass(PASSTHROUGH_FRAG, midTex, _vpFullFBO, null, null);
+
+        // Composite: outside=fullFBO, window=entryFBO → preFBO
+        _runViewportComposite(vpInst, _vpFullFBO.tex, _vpEntryFBO.tex, _vpPreFBO);
+
+        currentTex     = _vpPreFBO.tex;
+        currentPalette = midPalette;
+        stackPos       = vpIdx + 1;
     }
 
-    // Phase 4: composite viewport shape → screen
-    _runViewportComposite(vpInst, _vpFullFBO.tex, windowTex);
+    // Run any remaining effects after the last viewport, then output to screen
+    const { tex: finalTex } = _runLinear(stack.slice(stackPos), currentTex, currentPalette);
+    runPass(PASSTHROUGH_FRAG, finalTex, null, null, null);
     if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 }
 
@@ -585,7 +599,7 @@ export function getPixelsBeforeInstance(stack, instId) {
     if (idx === -1) return null;
     const preStack = stack.slice(0, idx);
 
-    const srcTex = _runLinear(preStack, _origTex);
+    const { tex: srcTex } = _runLinear(preStack, _origTex);
 
     const w = fboPool[0].width;
     const h = fboPool[0].height;
@@ -634,9 +648,9 @@ export function cleanupWebGL() {
     fboPool.forEach(f => destroyFBO(f));
     setFboPool([null, null]);
     destroyFBO(_transformFBO); _transformFBO = null;
-    destroyFBO(_vpPreFBO);     _vpPreFBO  = null;
-    destroyFBO(_vpFullFBO);    _vpFullFBO = null;
-    destroyFBO(_vpPostFBO);    _vpPostFBO = null;
+    destroyFBO(_vpEntryFBO);   _vpEntryFBO = null;
+    destroyFBO(_vpPreFBO);     _vpPreFBO   = null;
+    destroyFBO(_vpFullFBO);    _vpFullFBO  = null;
     if (_origTex)    { gl.deleteTexture(_origTex);    _origTex    = null; }
     if (_overlayTex) { gl.deleteTexture(_overlayTex); _overlayTex = null; }
     if (_stickerTex) { gl.deleteTexture(_stickerTex); _stickerTex = null; }

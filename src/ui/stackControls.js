@@ -101,6 +101,74 @@ export function buildEffectBody(inst, onRebuild) {
 
 
 
+    if (inst.effectName === 'hueShift') {
+        const SIZE = 160;
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;justify-content:center;padding:8px 0 4px;';
+        const canvas = document.createElement('canvas');
+        canvas.width = SIZE;
+        canvas.height = SIZE;
+        wrapper.appendChild(canvas);
+
+        function drawHueWheel() {
+            const hueRotate = inst.params.hueRotate ?? 0;
+            const hueCenter = inst.params.hueCenter ?? 0;
+            const hueWidth  = inst.params.hueWidth  ?? 360;
+
+            const ctx = canvas.getContext('2d');
+            const cx = SIZE / 2;
+            const cy = SIZE / 2;
+            const outerR = SIZE * 0.46;
+            const innerR = SIZE * 0.20;
+
+            ctx.clearRect(0, 0, SIZE, SIZE);
+
+            // Hue ring (donut)
+            for (let h = 0; h < 360; h++) {
+                const a1 = ((h - 90) * Math.PI) / 180;
+                const a2 = ((h - 89) * Math.PI) / 180;
+                ctx.beginPath();
+                ctx.moveTo(cx + innerR * Math.cos(a1), cy + innerR * Math.sin(a1));
+                ctx.arc(cx, cy, outerR, a1, a2);
+                ctx.arc(cx, cy, innerR, a2, a1, true);
+                ctx.closePath();
+                ctx.fillStyle = `hsl(${h},100%,50%)`;
+                ctx.fill();
+            }
+
+            // cap at 179 so arc math never degenerates to a full circle
+            const halfW = Math.min(hueWidth / 2, 179);
+            const toRad = (deg) => ((deg - 90) * Math.PI) / 180;
+
+            // Source slice — yellow tint: "these hues are selected"
+            const srcA1 = toRad(hueCenter - halfW);
+            const srcA2 = toRad(hueCenter + halfW);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, outerR, srcA1, srcA2);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255,220,0,0.38)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255,235,80,0.9)';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Destination radial line — points outward at the shifted hue
+            const dstCenter = ((hueCenter + hueRotate) % 360 + 360) % 360;
+            const dstAngle = toRad(dstCenter);
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + outerR * Math.cos(dstAngle), cy + outerR * Math.sin(dstAngle));
+            ctx.strokeStyle = 'rgba(130,210,255,0.95)';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
+        content.addEventListener('input', drawHueWheel);
+        drawHueWheel();
+        content.insertBefore(wrapper, content.firstChild);
+    }
+
     if (inst.effectName === 'doubleExposure') {
         const row = document.createElement('div');
         row.className = 'control-group';
@@ -116,23 +184,8 @@ export function buildEffectBody(inst, onRebuild) {
     }
 
     if (inst.effectName === 'invert') {
-        const swapRow = document.createElement('div');
-        swapRow.className = 'control-group';
-        swapRow.innerHTML = `<div class="control-row"><button class="btn">⇄ Swap A / B</button></div>`;
-        const swapBtn = swapRow.querySelector('button');
-        swapBtn.addEventListener('click', () => {
-            saveState();
-            const a = inst.params.invertColorA;
-            const b = inst.params.invertColorB;
-            setInstanceParam(inst.id, 'invertColorA', b);
-            setInstanceParam(inst.id, 'invertColorB', a);
-            if (onRebuild) onRebuild();
-        });
         const colorASelect = content.querySelector('[data-inst-param="invertColorA"]');
         const colorAGroup = colorASelect?.closest('.control-group');
-        if (colorAGroup) colorAGroup.after(swapRow);
-        else content.appendChild(swapRow);
-
         const colorBSelect = content.querySelector('[data-inst-param="invertColorB"]');
         const colorBGroup  = colorBSelect?.closest('.control-group');
         const colorCSelect = content.querySelector('[data-inst-param="invertColorC"]');
@@ -141,51 +194,6 @@ export function buildEffectBody(inst, onRebuild) {
         const colorDGroup  = colorDSelect?.closest('.control-group');
         const colorESelect = content.querySelector('[data-inst-param="invertColorE"]');
         const colorEGroup  = colorESelect?.closest('.control-group');
-
-        const swapBCRow = document.createElement('div');
-        swapBCRow.className = 'control-group';
-        swapBCRow.innerHTML = `<div class="control-row"><button class="btn">⇄ Swap B / C</button></div>`;
-        const swapBCBtn = swapBCRow.querySelector('button');
-        swapBCBtn.addEventListener('click', () => {
-            saveState();
-            const b = inst.params.invertColorB;
-            const c = inst.params.invertColorC;
-            setInstanceParam(inst.id, 'invertColorB', c === 'none' ? b : c);
-            setInstanceParam(inst.id, 'invertColorC', b);
-            if (onRebuild) onRebuild();
-        });
-        if (colorBGroup) colorBGroup.after(swapBCRow);
-        else content.appendChild(swapBCRow);
-
-        const swapCDRow = document.createElement('div');
-        swapCDRow.className = 'control-group';
-        swapCDRow.innerHTML = `<div class="control-row"><button class="btn">⇄ Swap C / D</button></div>`;
-        const swapCDBtn = swapCDRow.querySelector('button');
-        swapCDBtn.addEventListener('click', () => {
-            saveState();
-            const c = inst.params.invertColorC;
-            const d = inst.params.invertColorD;
-            setInstanceParam(inst.id, 'invertColorC', d === 'none' ? c : d);
-            setInstanceParam(inst.id, 'invertColorD', c);
-            if (onRebuild) onRebuild();
-        });
-        if (colorCGroup) colorCGroup.after(swapCDRow);
-        else content.appendChild(swapCDRow);
-
-        const swapDERow = document.createElement('div');
-        swapDERow.className = 'control-group';
-        swapDERow.innerHTML = `<div class="control-row"><button class="btn">⇄ Swap D / E</button></div>`;
-        const swapDEBtn = swapDERow.querySelector('button');
-        swapDEBtn.addEventListener('click', () => {
-            saveState();
-            const d = inst.params.invertColorD;
-            const e = inst.params.invertColorE;
-            setInstanceParam(inst.id, 'invertColorD', e === 'none' ? d : e);
-            setInstanceParam(inst.id, 'invertColorE', d);
-            if (onRebuild) onRebuild();
-        });
-        if (colorDGroup) colorDGroup.after(swapDERow);
-        else content.appendChild(swapDERow);
 
         // --- colour helpers (used by swatches and stops slider) ---
         const namedHex = {
@@ -212,6 +220,59 @@ export function buildEffectBody(inst, onRebuild) {
                 }
             }
             return null;
+        };
+
+        // --- checkboxes for C, D, E (activate / deactivate optional stops) ---
+        const stopCheckboxes = {};
+        const lastColors = {
+            invertColorC: inst.params.invertColorC !== 'none' ? inst.params.invertColorC : 'w',
+            invertColorD: inst.params.invertColorD !== 'none' ? inst.params.invertColorD : 'w',
+            invertColorE: inst.params.invertColorE !== 'none' ? inst.params.invertColorE : 'w',
+        };
+        for (const [colorKey, selectEl, group] of [
+            ['invertColorC', colorCSelect, colorCGroup],
+            ['invertColorD', colorDSelect, colorDGroup],
+            ['invertColorE', colorESelect, colorEGroup],
+        ]) {
+            if (!group) continue;
+            const row = group.querySelector('.control-row');
+            if (!row) continue;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.checked = inst.params[colorKey] !== 'none';
+            cb.style.cssText = 'flex-shrink:0;margin-right:4px;cursor:pointer;';
+            row.insertBefore(cb, row.firstChild);
+            stopCheckboxes[colorKey] = cb;
+            if (selectEl) selectEl.disabled = inst.params[colorKey] === 'none';
+            cb.addEventListener('change', () => {
+                saveState();
+                if (cb.checked) {
+                    setInstanceParam(inst.id, colorKey, lastColors[colorKey]);
+                    if (selectEl) selectEl.disabled = false;
+                } else {
+                    if (selectEl && selectEl.value !== 'none') lastColors[colorKey] = selectEl.value;
+                    setInstanceParam(inst.id, colorKey, 'none');
+                    if (selectEl) selectEl.disabled = true;
+                }
+                updateSlider();
+            });
+        }
+
+        const syncCheckboxes = () => {
+            for (const [colorKey, cb] of Object.entries(stopCheckboxes)) {
+                cb.checked = inst.params[colorKey] !== 'none';
+                const selEl = content.querySelector(`[data-inst-param="${colorKey}"]`);
+                if (selEl) selEl.disabled = !cb.checked;
+            }
+        };
+
+        const syncSelectValues = () => {
+            for (const sel of [colorASelect, colorBSelect, colorCSelect, colorDSelect, colorESelect]) {
+                if (!sel) continue;
+                const key = sel.dataset.instParam;
+                if (key && inst.params[key] !== undefined) sel.value = inst.params[key];
+                styleColorSelect(sel);
+            }
         };
 
         // --- stop-positions slider ---
@@ -274,35 +335,71 @@ export function buildEffectBody(inst, onRebuild) {
             }
         };
 
+        // drag-past swap: shared drag state so color identity follows the cursor across handles
+        const dragState = { active: false, idx: -1 };
+
         for (let i = 0; i < 5; i++) {
-            let dragging = false;
             handles[i].addEventListener('pointerdown', (e) => {
+                if (!isStopActive(i)) return;
                 e.preventDefault();
                 handles[i].setPointerCapture(e.pointerId);
                 saveState();
-                dragging = true;
+                dragState.active = true;
+                dragState.idx = i;
             });
             handles[i].addEventListener('pointermove', (e) => {
-                if (!dragging) return;
+                if (!dragState.active) return;
                 const rect = trackWrap.getBoundingClientRect();
-                let newPos = (e.clientX - rect.left) / rect.width;
-                let lo = 0, hi = 1;
-                for (let j = i - 1; j >= 0; j--) {
-                    if (isStopActive(j)) { lo = getStopPos(j) + 0.02; break; }
+                const newPos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+
+                // swap colors when crossing an adjacent active stop; loop handles fast drags
+                let swapped = true;
+                while (swapped) {
+                    swapped = false;
+                    const di = dragState.idx;
+                    for (let j = di + 1; j < 5; j++) {
+                        if (!isStopActive(j)) continue;
+                        if (newPos >= getStopPos(j)) {
+                            const ca = inst.params[STOP_DEFS[di].colorKey];
+                            const cb = inst.params[STOP_DEFS[j].colorKey];
+                            setInstanceParam(inst.id, STOP_DEFS[di].colorKey, cb);
+                            setInstanceParam(inst.id, STOP_DEFS[j].colorKey, ca);
+                            dragState.idx = j;
+                            swapped = true;
+                        }
+                        break;
+                    }
+                    const di2 = dragState.idx;
+                    for (let j = di2 - 1; j >= 0; j--) {
+                        if (!isStopActive(j)) continue;
+                        if (newPos <= getStopPos(j)) {
+                            const ca = inst.params[STOP_DEFS[di2].colorKey];
+                            const cb = inst.params[STOP_DEFS[j].colorKey];
+                            setInstanceParam(inst.id, STOP_DEFS[di2].colorKey, cb);
+                            setInstanceParam(inst.id, STOP_DEFS[j].colorKey, ca);
+                            dragState.idx = j;
+                            swapped = true;
+                        }
+                        break;
+                    }
                 }
-                for (let j = i + 1; j < 5; j++) {
-                    if (isStopActive(j)) { hi = getStopPos(j) - 0.02; break; }
-                }
-                newPos = Math.max(lo, Math.min(hi, newPos));
-                setInstanceParam(inst.id, STOP_DEFS[i].posKey, Math.round(newPos * 1000) / 1000);
+
+                setInstanceParam(inst.id, STOP_DEFS[dragState.idx].posKey, Math.round(newPos * 1000) / 1000);
                 updateSlider();
+                syncCheckboxes();
+                syncSelectValues();
             });
-            handles[i].addEventListener('pointerup',          () => { dragging = false; });
-            handles[i].addEventListener('lostpointercapture', () => { dragging = false; });
+            handles[i].addEventListener('pointerup',          () => { dragState.active = false; dragState.idx = -1; });
+            handles[i].addEventListener('lostpointercapture', () => { dragState.active = false; dragState.idx = -1; });
         }
 
         sliderRow.appendChild(sliderLabel);
         sliderRow.appendChild(trackWrap);
+
+        const gradBar = document.createElement('div');
+        gradBar.style.cssText = 'height:6px;border-radius:3px;border:1px solid var(--border);margin:2px 6px 4px;background:linear-gradient(to right,#000,#fff);pointer-events:none;';
+        sliderRow.appendChild(gradBar);
+
         sliderGroup.appendChild(sliderRow);
 
         if (colorEGroup) colorEGroup.after(sliderGroup);
@@ -367,18 +464,15 @@ export function buildEffectBody(inst, onRebuild) {
             const isAll = colorASelect?.value === 'all';
             if (colorBSelect) colorBSelect.disabled = isAll;
             if (colorBGroup)  colorBGroup.style.opacity = isAll ? '0.4' : '';
-            if (colorCSelect) colorCSelect.disabled = isAll;
+            if (colorCSelect) colorCSelect.disabled = isAll || inst.params.invertColorC === 'none';
             if (colorCGroup)  colorCGroup.style.opacity = isAll ? '0.4' : '';
-            if (colorDSelect) colorDSelect.disabled = isAll;
+            if (colorDSelect) colorDSelect.disabled = isAll || inst.params.invertColorD === 'none';
             if (colorDGroup)  colorDGroup.style.opacity = isAll ? '0.4' : '';
-            if (colorESelect) colorESelect.disabled = isAll;
+            if (colorESelect) colorESelect.disabled = isAll || inst.params.invertColorE === 'none';
             if (colorEGroup)  colorEGroup.style.opacity = isAll ? '0.4' : '';
+            for (const cb of Object.values(stopCheckboxes)) cb.disabled = isAll;
             sliderGroup.style.opacity = isAll ? '0.4' : '';
             sliderGroup.style.pointerEvents = isAll ? 'none' : '';
-            swapBtn.disabled = isAll;
-            swapBCBtn.disabled = isAll;
-            swapCDBtn.disabled = isAll;
-            swapDEBtn.disabled = isAll;
             randomizeBtn.disabled = isAll;
         }
 
@@ -905,6 +999,7 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
         range.max = schema.max;
         range.step = step;
         range.value = currentVal;
+        if (schema.gradient) range.style.background = schema.gradient;
         range.dataset.instParam = key;
 
         const defaultVal = schema.default ?? schema.min;
