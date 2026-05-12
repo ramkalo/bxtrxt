@@ -2,7 +2,7 @@ import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
-import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay } from './canvasPicker.js';
+import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -246,7 +246,8 @@ export function renderStackList() {
     if (newEffect !== 'crtCurvature') hideCRTCurvatureOverlay();
     if (newEffect !== 'corrupted')    hideCorruptedOverlay();
     if (newEffect !== 'doubleExposure') hideDoubleExposureOverlay();
-    if (newEffect !== 'shapeSticker') hideShapeStickerOverlay();
+    if (newEffect !== 'shapeSticker')   hideShapeStickerOverlay();
+    if (newEffect !== 'kaleidoscope')   hideKaleidoscopeOverlay();
 
     if (!expandedInst) return;
 
@@ -268,7 +269,8 @@ export function renderStackList() {
     else if (newEffect === 'vignette')     showVignetteOverlay(expandedInst);
     else if (newEffect === 'crtCurvature') showCRTCurvatureOverlay(expandedInst);
     else if (newEffect === 'corrupted')    showCorruptedOverlay(expandedInst);
-    else if (newEffect === 'shapeSticker') showShapeStickerOverlay(expandedInst);
+    else if (newEffect === 'shapeSticker')  showShapeStickerOverlay(expandedInst);
+    else if (newEffect === 'kaleidoscope')  showKaleidoscopeOverlay(expandedInst);
 }
 
 // --- Pointer-based drag-and-drop ---

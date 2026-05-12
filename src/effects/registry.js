@@ -17,7 +17,6 @@ import corruptedEffect      from './corrupted.js';
 import crtCurvatureEffect   from './crtCurvature.js';
 import crtScanlinesEffect   from './crtScanlines.js';
 //import moireEffect          from './moire.js';
-import crtStaticEffect      from './crtStatic.js';
 import transformEffect      from './transform.js';
 import cropEffect           from './crop.js';
 import glowEffect           from './glow.js';
@@ -33,6 +32,7 @@ const viewportEntryEffect = {
 };
 import { matrixRainEffect } from './matrixRain.js';
 import { shapeStickerEffect } from './shapeSticker.js';
+import kaleidoscopeEffect from './kaleidoscope.js';
 
 /**
  * @typedef {Object} EffectBase
@@ -113,8 +113,8 @@ export const EFFECTS = [
     corruptedEffect,
     crtCurvatureEffect,
     crtScanlinesEffect,
-    crtStaticEffect,
     //moireEffect,
+    kaleidoscopeEffect,
     viewportEntryEffect,
     viewportEffect,
     shapeStickerEffect,
@@ -172,11 +172,10 @@ export const EFFECT_CATALOG = [
     { name: 'crop',           label: 'Crop',                 description: 'Crop the image' },
     { name: 'crtCurvature',   label: 'CRT Curvature',        description: 'Barrel lens distortion' },
     { name: 'crtScanlines',   label: 'CRT Scanlines',        description: 'Horizontal scanline darkening' },
-    { name: 'crtStatic',      label: 'CRT Static',           description: 'Random noise over the image' },
     { name: 'digital-smear', label: 'Digital Smear',        description: 'Wet paint brush smear with wave-modulated displacement' },
     { name: 'digitize',       label: 'Digitize',             description: 'Pixelation, color quantization, dithering, and noise' },
     { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
-    { name: 'grain',          label: 'Film Grain',           description: 'Analog noise and grain texture' },
+    { name: 'grain',          label: 'Grain & Noise',        description: 'Analog film grain and digital noise types' },
     { name: 'glow',           label: 'Glow',                 description: 'Bloom halo around bright areas' },
     { name: 'hueShift',       label: 'Hue Shift',            description: 'Rotate all hues around the color wheel without quantizing' },
     { name: 'colorRemap',     label: 'Color Remap',          description: 'Map pixel luminance or hue through a multi-stop color gradient' },
@@ -187,6 +186,7 @@ export const EFFECT_CATALOG = [
     { name: 'shapeSticker',   label: 'Shape Sticker',         description: 'Apply a shape filled with solid color, static, or image grab' },
     { name: 'text',            label: 'Text',                 description: 'Text overlay with paragraph box, formatting, and canvas handles' },
     { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
+    { name: 'kaleidoscope',  label: 'Kaleidoscope',         description: 'Mirror, radial symmetry, and kaleidoscope modes with drag handles' },
     { name: 'viewport',      label: 'Viewport',             description: 'Reveal a shaped window that cuts through selected effects' },
     //{ name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
 ];

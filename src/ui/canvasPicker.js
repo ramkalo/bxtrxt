@@ -20,6 +20,7 @@ import { drawCorrupted,      hitTestCorrupted                            } from 
 import { drawTextOverlay,    hitTestText,            onDragText,          textCorners } from './overlays/textOverlay.js';
 import { drawMatrixRain,       hitTestMatrixRain,       onDragMatrixRain   } from './overlays/matrixRainOverlay.js';
 import { drawViewport,       hitTestViewport,        onDragViewport,      resetPolygonVertices } from './overlays/viewportOverlay.js';
+import { drawKaleidoscope, hitTestKaleidoscope, onDragKaleidoscope, resetKaleidoscopeVertices } from './overlays/kaleidoscopeOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
@@ -52,6 +53,21 @@ onStackChange((key) => {
             if (shouldReset) { resetShapeStickerVertices(inst.id, shape, p); return; }
         }
         drawShapeSticker(p);
+    }
+    if (state.mode === 'kaleidoscope') {
+        const p = inst.params;
+        const mode = p.kaleidoscopeMode ?? 'mirror';
+        if (mode === 'kaleidoscope' && !state.kKalResetting) {
+            const shape = p.kKalShape ?? 'polygon';
+            const n = shape === 'triangle' ? 3 : shape === 'rectangle' ? 4 : Math.max(3, Math.min(12, Math.round(p.kKalSides)));
+            const shouldResetVerts = key === 'kKalShape' || key === 'kKalSides' ||
+                Array.from({ length: n }, (_, i) => (p[`kKalV${i}x`] ?? 0) === 0 && (p[`kKalV${i}y`] ?? 0) === 0).every(Boolean);
+            if (shouldResetVerts) {
+                resetKaleidoscopeVertices(inst.id, shape, n);
+                return;
+            }
+        }
+        drawKaleidoscope(p);
     }
     if (state.mode === 'viewport') {
         const p = inst.params;
@@ -227,6 +243,28 @@ export function hideViewportOverlay() {
     if (state.mode === 'viewport') _hideActive();
 }
 
+export function showKaleidoscopeOverlay(inst) {
+    _activate('kaleidoscope', inst, 'kKalCenterX', 'kKalCenterY');
+    const p = inst.params;
+    const mode = p.kaleidoscopeMode ?? 'mirror';
+    if (mode === 'kaleidoscope') {
+        const shape = p.kKalShape ?? 'polygon';
+        const n = shape === 'triangle' ? 3 : shape === 'rectangle' ? 4 : Math.max(3, Math.min(12, Math.round(p.kKalSides)));
+        const allVertsZero = Array.from({ length: n }, (_, i) =>
+            (p[`kKalV${i}x`] ?? 0) === 0 && (p[`kKalV${i}y`] ?? 0) === 0
+        ).every(Boolean);
+        if (allVertsZero) {
+            resetKaleidoscopeVertices(inst.id, shape, n);
+            return;
+        }
+    }
+    drawKaleidoscope(p);
+}
+
+export function hideKaleidoscopeOverlay() {
+    if (state.mode === 'kaleidoscope') _hideActive();
+}
+
 // ── Activation / deactivation ─────────────────────────────────────────────────
 
 function _activate(mode, inst, xKey, yKey) {
@@ -293,6 +331,12 @@ function getCursorForMode(mode, h) {
             return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'doubleExposure':
             return (h === 'imgPos' || h === 'center') ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
+        case 'kaleidoscope':
+            return h === 'center' ? 'grab'
+                : (h === 'lineRot' || h === 'symTip' || h === 'rotation') ? 'crosshair'
+                : (h && h.startsWith('v')) ? 'move'
+                : (h && h.startsWith('e')) ? 'grab'
+                : 'default';
         case 'corrupted':
             return h ? 'grab' : 'default';
         case 'text':
@@ -315,6 +359,7 @@ function getCursorForMode(mode, h) {
 }
 
 const HIT_FNS = {
+    kaleidoscope:   hitTestKaleidoscope,
     crop:           hitTestCrop,
     viewport:       hitTestViewport,
     fade:           hitTestFade,
@@ -330,6 +375,7 @@ const HIT_FNS = {
 };
 
 const DRAG_FNS = {
+    kaleidoscope:   onDragKaleidoscope,
     crop:           onDragCrop,
     viewport:       onDragViewport,
     fade:           onDragFade,
@@ -344,6 +390,7 @@ const DRAG_FNS = {
 };
 
 const DRAW_FNS = {
+    kaleidoscope:   drawKaleidoscope,
     fade:           drawFade,
     blur:           drawBlur,
     crop:           drawCrop,

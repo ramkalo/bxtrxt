@@ -85,7 +85,25 @@ export function snapshotStack() {
     return JSON.parse(JSON.stringify(_stack));
 }
 
+function _migrateInstance(inst) {
+    if (inst.effectName !== 'crtStatic') return inst;
+    const p = inst.params ?? {};
+    const migrated = { ...inst, effectName: 'grain', params: { ...p } };
+    const mp = migrated.params;
+    if ('crtStaticEnabled'  in mp) { mp.grainEnabled   = mp.crtStaticEnabled;  delete mp.crtStaticEnabled; }
+    if ('crtStatic'         in mp) { mp.grainIntensity  = mp.crtStatic;         delete mp.crtStatic; }
+    if ('crtStaticType'     in mp) { mp.grainType       = mp.crtStaticType;     delete mp.crtStaticType; }
+    if ('crtStaticGrain'    in mp) { mp.grainSize       = mp.crtStaticGrain;    delete mp.crtStaticGrain; }
+    for (const key of Object.keys(mp)) {
+        if (key.startsWith('crtStatic')) {
+            mp['grain' + key.slice('crtStatic'.length)] = mp[key];
+            delete mp[key];
+        }
+    }
+    return migrated;
+}
+
 export function restoreStack(snapshot) {
-    _stack = JSON.parse(JSON.stringify(snapshot));
+    _stack = JSON.parse(JSON.stringify(snapshot)).map(_migrateInstance);
     _notify();
 }
