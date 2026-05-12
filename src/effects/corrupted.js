@@ -222,7 +222,7 @@ function applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clust
     }
 }
 
-function applySnake(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, baseSeed) {
+function applySnake(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, cluster, chunkSize, baseSeed) {
     const rng       = mulberry32(baseSeed ^ Math.imul(0x5f3759df, 0xdeadbeef));
     const horizontal = rng() < 0.5;
     const lineLen   = horizontal ? chunkW : chunkH;  // parallel axis
@@ -251,8 +251,8 @@ function applySnake(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clus
             markChunk(chunkMap, 0, cx, cy, chunkW, chunkH);
         }
 
-        // Random gap to the next line (0.5×–1.8× base spacing)
-        const gap = Math.max(2, Math.round(baseGap * (0.5 + rng() * 1.3)));
+        // cluster (0-100) scales connector (turn) length: 0 = 1-chunk turns, 100 = full natural spacing
+        const gap = Math.max(1, Math.round(baseGap * (cluster / 100) * (0.5 + rng() * 1.3)));
         const nextLinePos = linePos + gap;
 
         if (i < numLines - 1 && nextLinePos < lineCount) {
@@ -459,7 +459,7 @@ function buildChunkMapGPU(p, imgW, imgH) {
     else if (pat === 'overgrowth') { applyChains(chunkMap, seeds, infectRadius, chunkW, chunkH, baseSeed); applyBranching(chunkMap, seeds, infectRadius, chunkW, chunkH, baseSeed); }
     else if (pat === 'worm')       applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 1, baseSeed);
     else if (pat === '3-worms')    applyPath(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, 3, baseSeed);
-    else if (pat === 'snake')      applySnake(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, clusterR, chunkSize, baseSeed);
+    else if (pat === 'snake')      applySnake(chunkMap, pathLength, chunkW, chunkH, centerX, centerY, p.corruptedCluster, chunkSize, baseSeed);
 
     else                           applySplatter(chunkMap, seeds, infectRadius, chunkW, chunkH, baseSeed);
     return { chunkMap, seeds, chunkW, chunkH };
