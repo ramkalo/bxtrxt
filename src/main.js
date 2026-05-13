@@ -260,6 +260,7 @@ initBottomSheet();
 initTouchGestures();
 initLogo();
 window.addEventListener('beforeunload', cleanupWebGL);
+window.addEventListener('resize', processImage);
 
 // Mobile warning
 const mobileWarningModal = document.getElementById('mobileWarningModal');
