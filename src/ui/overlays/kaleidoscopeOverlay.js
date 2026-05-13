@@ -178,10 +178,10 @@ function _drawKaleidoscope(p, W, H) {
     uiCtx.setLineDash([]);
     uiCtx.stroke();
 
-    // Rotation handle (40px from center, perpendicular to rotation axis)
-    const rotHandleAngle = rotRad + Math.PI / 2;
-    const rotHX = cx + Math.cos(rotHandleAngle) * 40;
-    const rotHY = cy + Math.sin(rotHandleAngle) * 40;
+    // Rotation handle (40px from center, 90° CW from vertex-0 direction in screen space).
+    // Screen Y is flipped vs GLSL, so vertex-0 screen angle = -rotRad; handle = -rotRad + 90°.
+    const rotHX = cx + Math.sin(rotRad) * 40;
+    const rotHY = cy + Math.cos(rotRad) * 40;
 
     uiCtx.beginPath();
     uiCtx.moveTo(cx, cy);
@@ -245,9 +245,8 @@ export function hitTestKaleidoscope(e) {
     if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
     const rotRad = kalRotRad(p);
-    const rotHandleAngle = rotRad + Math.PI / 2;
-    const rotHX = cx + Math.cos(rotHandleAngle) * 40;
-    const rotHY = cy + Math.sin(rotHandleAngle) * 40;
+    const rotHX = cx + Math.sin(rotRad) * 40;
+    const rotHY = cy + Math.cos(rotRad) * 40;
     if (Math.hypot(mx - rotHX, my - rotHY) <= HIT_RADIUS) return 'rotation';
 
     const verts = kalVertexScreenPositions(p);
@@ -304,7 +303,7 @@ export function onDragKaleidoscope(e, inst, rect) {
         setInstanceParam(state.instId, 'kKalCenterX', Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100))));
         setInstanceParam(state.instId, 'kKalCenterY', Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100))));
     } else if (h === 'rotation') {
-        let deg = Math.atan2(my - cy, mx - cx) * 180 / Math.PI - 90;
+        let deg = 90 - Math.atan2(my - cy, mx - cx) * 180 / Math.PI;
         if (deg > 180)  deg -= 360;
         if (deg < -180) deg += 360;
         setInstanceParam(state.instId, 'kKalRotation', Math.round(deg));

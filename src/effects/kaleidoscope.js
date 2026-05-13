@@ -192,46 +192,30 @@ vec2 symmetryUV(vec2 uv) {
 
 // ─── Kaleidoscope ─────────────────────────────────────────────────────────────
 
-bool inKalPoly(vec2 uv) {
-    bool inside = false;
-    int j = kKalNumVerts - 1;
-    for (int i = 0; i < 12; i++) {
-        if (i >= kKalNumVerts) break;
-        vec2 vi = kKalVerts[i];
-        vec2 vj = kKalVerts[j];
-        if ((vi.y > uv.y) != (vj.y > uv.y) &&
-            uv.x < (vj.x - vi.x) * (uv.y - vi.y) / (vj.y - vi.y) + vi.x) {
-            inside = !inside;
-        }
-        j = i;
-    }
-    return inside;
-}
-
 vec2 kaleidoscopeUV(vec2 uv) {
     vec2 p = uv;
     for (int iter = 0; iter < 8; iter++) {
-        if (inKalPoly(p)) return p;
-
-        // Find the nearest polygon edge by perpendicular distance to segment
-        float minDist = 1e9;
-        int bestI = 0;
+        // Find the edge with the most negative signed perpendicular distance.
+        // For a CCW polygon, inward normal = vec2(-edgeDir.y, edgeDir.x).
+        // dist < 0 means the point is outside that edge; most-negative = most outside.
+        float minDist = 0.0;
+        int bestI = -1;
         for (int i = 0; i < 12; i++) {
             if (i >= kKalNumVerts) break;
             int j = (i + 1 < kKalNumVerts) ? i + 1 : 0;
-            vec2 ev = kKalVerts[j] - kKalVerts[i];
-            vec2 tp = p - kKalVerts[i];
-            float t = clamp(dot(tp, ev) / dot(ev, ev), 0.0, 1.0);
-            float d = length(tp - t * ev);
+            vec2 edgeDir = normalize(kKalVerts[j] - kKalVerts[i]);
+            vec2 n = vec2(-edgeDir.y, edgeDir.x);
+            float d = dot(p - kKalVerts[i], n);
             if (d < minDist) { minDist = d; bestI = i; }
         }
+        if (bestI < 0) return p;  // all distances >= 0 → inside polygon
 
-        // Reflect p across that edge
+        // Reflect p across that edge's infinite line
         int bj = (bestI + 1 < kKalNumVerts) ? bestI + 1 : 0;
         vec2 edgeDir = normalize(kKalVerts[bj] - kKalVerts[bestI]);
-        vec2 norm = vec2(-edgeDir.y, edgeDir.x);
-        float dist = dot(p - kKalVerts[bestI], norm);
-        p = p - 2.0 * dist * norm;
+        vec2 n = vec2(-edgeDir.y, edgeDir.x);
+        float dist = dot(p - kKalVerts[bestI], n);
+        p = p - 2.0 * dist * n;
     }
     return p;
 }

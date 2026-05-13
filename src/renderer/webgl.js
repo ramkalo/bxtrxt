@@ -564,28 +564,20 @@ function _runEffects(stack) {
 export function processWebGLStack(stack) {
     if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-    const imgW = originalImage.width;
-    const imgH = originalImage.height;
+    const w = originalImage.width;
+    const h = originalImage.height;
 
-    // Render at the canvas element's visible CSS size so pixel-space effects
-    // (grain, scanlines, pixelate, etc.) have the same visual density in the
-    // preview as they do in the export when viewed at the same scale.
-    // Temporarily restore canvas to image dims so CSS max-width/max-height
-    // can compute the correct constrained display size.
-    canvas.width  = imgW;
-    canvas.height = imgH;
-    const rect = canvas.getBoundingClientRect();
-    const dw = Math.round(rect.width)  || imgW;
-    const dh = Math.round(rect.height) || imgH;
-    canvas.width  = dw;
-    canvas.height = dh;
-    gl.viewport(0, 0, dw, dh);
+    if (canvas.width !== w || canvas.height !== h) {
+        canvas.width  = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+    }
 
-    if (!fboPool[0] || fboPool[0].width !== dw || fboPool[0].height !== dh) reallocFBOs(dw, dh);
+    if (!fboPool[0] || fboPool[0].width !== w || fboPool[0].height !== h) reallocFBOs(w, h);
 
-    if (overlayCanvas && (overlayCanvas.width !== dw || overlayCanvas.height !== dh)) {
-        overlayCanvas.width  = dw;
-        overlayCanvas.height = dh;
+    if (overlayCanvas && (overlayCanvas.width !== w || overlayCanvas.height !== h)) {
+        overlayCanvas.width  = w;
+        overlayCanvas.height = h;
     }
 
     if (originalImage !== _lastOriginalImage) {
