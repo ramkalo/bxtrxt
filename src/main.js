@@ -76,14 +76,31 @@ document.getElementById('canvasModal').addEventListener('click', function(e) {
     }
 });
 
-document.getElementById('exportBtn').addEventListener('click', function() {
+function defaultExportName() {
+    const now = new Date();
+    return 'bxtrxt-export-' +
+        now.getFullYear() +
+        String(now.getMonth() + 1).padStart(2, '0') +
+        String(now.getDate()).padStart(2, '0') +
+        String(now.getHours()).padStart(2, '0') +
+        String(now.getMinutes()).padStart(2, '0') +
+        String(now.getSeconds()).padStart(2, '0');
+}
+
+function openExportModal() {
+    document.getElementById('exportFilename').value = defaultExportName();
     document.getElementById('exportModal').classList.remove('hidden');
-});
+}
+
+document.getElementById('exportBtn').addEventListener('click', openExportModal);
 
 document.getElementById('confirmExportBtn').addEventListener('click', function() {
     const format = document.querySelector('input[name="exportFormat"]:checked').value;
+    const ext = format === 'jpg' ? 'jpg' : 'png';
+    let name = document.getElementById('exportFilename').value.trim();
+    name = name.replace(/\.(jpg|jpeg|png)$/i, '') || defaultExportName();
     document.getElementById('exportModal').classList.add('hidden');
-    exportImage(format);
+    exportImage(format, `${name}.${ext}`);
 });
 
 document.getElementById('cancelExportBtn').addEventListener('click', function() {
@@ -106,9 +123,7 @@ document.getElementById('loadBtnMobile').addEventListener('click', function() {
     document.getElementById('fileInput').click();
 });
 
-document.getElementById('exportBtnMobile').addEventListener('click', function() {
-    document.getElementById('exportModal').classList.remove('hidden');
-});
+document.getElementById('exportBtnMobile').addEventListener('click', openExportModal);
 
 document.getElementById('undoBtnMobile').addEventListener('click', function() {
     undo(noop, rebuildStackUI);
@@ -222,7 +237,7 @@ document.addEventListener('keydown', function(e) {
             document.getElementById('fileInput').click();
         } else if (e.key === 'e') {
             e.preventDefault();
-            document.getElementById('exportModal').classList.remove('hidden');
+            openExportModal();
         } else if (e.key === 's' && !e.shiftKey) {
             e.preventDefault();
             document.getElementById('presetModal').classList.remove('hidden');

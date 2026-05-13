@@ -684,6 +684,24 @@ input[type="checkbox"] {
     overflow-y: auto;
 }
 
+.modal-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+}
+
+.modal-field label {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.export-filename-input {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 360px;
+}
+
 .export-preview-container {
     margin: 15px 0;
     text-align: center;
