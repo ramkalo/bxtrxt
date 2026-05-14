@@ -634,7 +634,7 @@ function corruptedBindUniforms(gl, prog, p, dstW, dstH, srcTex) {
     const statLoc  = prog._locs['corruptedIsStatic'];
     const glitLoc  = prog._locs['corruptedIsGlitched'];
     if (chunkLoc != null) { gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.chunkTex); gl.uniform1i(chunkLoc, 1); }
-    if (colorLoc != null) { gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.colorTex); gl.uniform1i(colorLoc, 2); }
+    if (colorLoc != null) { gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, _gpuCache.colorTex); gl.uniform1i(colorLoc, 3); }
     if (statLoc  != null) { gl.uniform1i(statLoc, p.corruptedColor === 'static' ? 1 : p.corruptedColor === 'color-static' ? 2 : 0); }
     if (glitLoc  != null) { gl.uniform1i(glitLoc, (p.corruptedColorMode ?? 'per-chunk') === 'glitched' ? 1 : 0); }
     const chunkSize   = Math.max(1, p.corruptedChunkSize);
