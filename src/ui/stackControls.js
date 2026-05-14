@@ -3,6 +3,8 @@ import { setInstanceParam, getStack } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { getCustomFonts } from '../state/customFonts.js';
 import { getPixelsBeforeInstance } from '../renderer/webgl.js';
+import { blendMapImage } from '../renderer/glstate.js';
+import { toggleBlendMapOverlay, hideBlendMapOverlay } from './canvasPicker.js';
 
 let activeSliderGroup = null;
 let _paletteDragSrc = null; // { instId, index } while a palette swatch is being dragged
@@ -307,6 +309,47 @@ export function buildEffectBody(inst, onRebuild) {
     }
 
 
+
+    // Generic blend map UI: wires show/hide and image picker for any effect using buildBlendControl
+    const blendModeSelects = content.querySelectorAll('[data-inst-param$="BlendMode"]');
+    for (const sel of blendModeSelects) {
+        const prefix = sel.dataset.instParam.replace('BlendMode', '');
+        const mapParams   = ['BlendMapAmount', 'BlendMapScale', 'BlendMapRadius', 'BlendMapInvert'];
+        const noMapParams = ['Opacity', 'Threshold', 'ThresholdTarget', 'ThresholdReverse', 'ThresholdOnDest'];
+
+        const pickerRow = document.createElement('div');
+        pickerRow.className = 'control-group blend-map-picker';
+        pickerRow.innerHTML = `<div class="control-row" style="gap:8px;">
+            <button class="btn blend-map-load-btn">Load Blend Map</button>
+            <button class="btn blend-map-pos-btn">Position</button>
+            <span class="blend-map-image-name" style="font-size:0.75rem;color:var(--text-dim);">${blendMapImage ? blendMapImage.src.split('/').pop().split('?')[0] : 'No image'}</span>
+        </div>`;
+        pickerRow.querySelector('.blend-map-load-btn').addEventListener('click', () => {
+            document.getElementById('blendMapFileInput').click();
+        });
+        pickerRow.querySelector('.blend-map-pos-btn').addEventListener('click', toggleBlendMapOverlay);
+
+        const firstMapEl = content.querySelector(`[data-inst-param="${prefix}BlendMapAmount"]`)?.closest('.control-group');
+        if (firstMapEl) firstMapEl.parentNode.insertBefore(pickerRow, firstMapEl);
+        else content.appendChild(pickerRow);
+
+        function updateBlendMapUI() {
+            const isMap = sel.value === 'blend_map';
+            if (!isMap) hideBlendMapOverlay();
+            pickerRow.style.display = isMap ? '' : 'none';
+            for (const k of mapParams) {
+                const el = content.querySelector(`[data-inst-param="${prefix}${k}"]`)?.closest('.control-group, .checkbox-label');
+                if (el) el.style.display = isMap ? '' : 'none';
+            }
+            for (const k of noMapParams) {
+                const el = content.querySelector(`[data-inst-param="${prefix}${k}"]`)?.closest('.control-group, .checkbox-label');
+                if (el) el.style.display = isMap ? 'none' : '';
+            }
+        }
+
+        sel.addEventListener('change', updateBlendMapUI);
+        updateBlendMapUI();
+    }
 
     if (inst.effectName === 'hueShift') {
         const SIZE = 160;

@@ -3,7 +3,7 @@ import { showNotification } from './utils/notifications.js';
 import { canvas } from './renderer/glstate.js';
 import { processImage } from './renderer/pipeline.js';
 import { cleanupWebGL } from './renderer/webgl.js';
-import { loadImage, loadSecondImage, loadBlankCanvas } from './utils/image.js';
+import { loadImage, loadSecondImage, loadBlendMapImage, loadBlankCanvas } from './utils/image.js';
 import { exportImage } from './ui/export.js';
 import { savePreset, loadPreset, renderPresetList, importPreset } from './ui/presets.js';
 import { initMobileUI } from './ui/mobile.js';
@@ -36,6 +36,14 @@ document.getElementById('secondFileInput').addEventListener('change', function(e
         loadSecondImage(e.target.files[0]);
         const nameEl = document.getElementById('secondImageName');
         if (nameEl) nameEl.textContent = e.target.files[0].name;
+    }
+});
+
+document.getElementById('blendMapFileInput').addEventListener('change', function(e) {
+    if (e.target.files[0]) {
+        loadBlendMapImage(e.target.files[0]);
+        document.querySelectorAll('.blend-map-image-name')
+            .forEach(el => el.textContent = e.target.files[0].name);
     }
 });
 

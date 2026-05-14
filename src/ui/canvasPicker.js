@@ -22,11 +22,21 @@ import { drawMatrixRain,       hitTestMatrixRain,       onDragMatrixRain   } fro
 import { drawViewport,       hitTestViewport,        onDragViewport,      resetPolygonVertices } from './overlays/viewportOverlay.js';
 import { drawKaleidoscope, hitTestKaleidoscope, onDragKaleidoscope, resetKaleidoscopeVertices } from './overlays/kaleidoscopeOverlay.js';
 import { drawDigitalSmear, hitTestDigitalSmear, onDragDigitalSmear, deleteSmearNode } from './overlays/digitalSmearOverlay.js';
+import { drawBlendMap, hitTestBlendMap, onDragBlendMap } from './overlays/blendMapOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
 onStackChange((key) => {
     if (!state.instId) return;
+    if (state.mode === 'blendMap') {
+        const alive = getStack().some(inst =>
+            Object.entries(inst.params).some(([k, v]) => k.endsWith('BlendMode')   && v === 'blend_map') &&
+            Object.entries(inst.params).some(([k, v]) => k.endsWith('BlendEnabled') && v === true)
+        );
+        if (!alive) { _hideActive(); _syncBlendMapBtns(false); return; }
+        drawBlendMap();
+        return;
+    }
     const inst = getStack().find(i => i.id === state.instId);
     if (!inst) { _hideActive(); return; }
     if (state.mode === 'fade')          drawFade(inst.params);
@@ -276,6 +286,33 @@ export function hideDigitalSmearOverlay() {
     if (state.mode === 'digitalSmear') _hideActive();
 }
 
+export function showBlendMapOverlay() {
+    uiOverlay.removeEventListener('pointerdown', onDown);
+    uiOverlay.removeEventListener('pointermove', onHover);
+    state.mode     = 'blendMap';
+    state.instId   = '__blendMap__';
+    state.dragging = false;
+    uiOverlay.style.pointerEvents = 'auto';
+    uiOverlay.addEventListener('pointerdown', onDown);
+    uiOverlay.addEventListener('pointermove', onHover);
+    drawBlendMap();
+    _syncBlendMapBtns(true);
+}
+
+export function hideBlendMapOverlay() {
+    if (state.mode === 'blendMap') { _hideActive(); _syncBlendMapBtns(false); }
+}
+
+export function toggleBlendMapOverlay() {
+    if (state.mode === 'blendMap') hideBlendMapOverlay();
+    else showBlendMapOverlay();
+}
+
+function _syncBlendMapBtns(on) {
+    document.querySelectorAll('.blend-map-pos-btn')
+        .forEach(b => b.classList.toggle('btn-primary', on));
+}
+
 // ── Activation / deactivation ─────────────────────────────────────────────────
 
 function _activate(mode, inst, xKey, yKey) {
@@ -342,6 +379,8 @@ function getCursorForMode(mode, h) {
             return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'doubleExposure':
             return (h === 'imgPos' || h === 'center') ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
+        case 'blendMap':
+            return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'scale' ? 'nwse-resize' : 'default';
         case 'kaleidoscope':
             return h === 'center' ? 'grab'
                 : (h === 'lineRot' || h === 'symTip' || h === 'rotation') ? 'crosshair'
@@ -378,6 +417,7 @@ function getCursorForMode(mode, h) {
 }
 
 const HIT_FNS = {
+    blendMap:       hitTestBlendMap,
     kaleidoscope:   hitTestKaleidoscope,
     crop:           hitTestCrop,
     viewport:       hitTestViewport,
@@ -395,6 +435,7 @@ const HIT_FNS = {
 };
 
 const DRAG_FNS = {
+    blendMap:       onDragBlendMap,
     kaleidoscope:   onDragKaleidoscope,
     crop:           onDragCrop,
     viewport:       onDragViewport,
@@ -411,6 +452,7 @@ const DRAG_FNS = {
 };
 
 const DRAW_FNS = {
+    blendMap:       drawBlendMap,
     kaleidoscope:   drawKaleidoscope,
     fade:           drawFade,
     blur:           drawBlur,
@@ -506,9 +548,15 @@ function onDown(e) {
 
 function onDrag(e) {
     state.hasDragged = true;
+    const rect = canvas.getBoundingClientRect();
+
+    if (state.mode === 'blendMap') {
+        DRAG_FNS.blendMap?.(e, null, rect);
+        return;
+    }
+
     const inst = getStack().find(i => i.id === state.instId);
     if (!inst) return;
-    const rect = canvas.getBoundingClientRect();
 
     const dragFn = DRAG_FNS[state.mode];
     if (dragFn) {
@@ -537,6 +585,11 @@ function onUp() {
     uiOverlay.removeEventListener('pointermove', onDrag);
     uiOverlay.removeEventListener('pointerup',   onUp);
     saveState();
+
+    if (mode === 'blendMap') {
+        drawBlendMap();
+        return;
+    }
 
     const inst = getStack().find(i => i.id === instId);
     if (!inst) return;

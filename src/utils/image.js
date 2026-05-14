@@ -2,6 +2,8 @@ import {
     setOriginalImage, originalImage,
     setSecondImage, secondImage,
     setSecondTexture,
+    setBlendMapImage, blendMapImage,
+    setBlendMapTexture,
 } from '../renderer/glstate.js';
 import { uploadToTexture } from '../renderer/webgl.js';
 import { processImage } from '../renderer/pipeline.js';
@@ -22,6 +24,7 @@ export function loadImage(file) {
             document.getElementById('savePresetBtnMobile').disabled = false;
 
             rescaleSecondImage();
+            rescaleBlendMapImage();
             processImage();
             showNotification('Image loaded');
         };
@@ -68,6 +71,25 @@ export function loadBlankCanvas(width, height, color) {
 
     processImage();
     showNotification(`Blank ${color === '#ffffff' ? 'white' : 'black'} canvas loaded`);
+}
+
+export function loadBlendMapImage(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            setBlendMapImage(img);
+            rescaleBlendMapImage();
+            processImage();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+export function rescaleBlendMapImage() {
+    if (!blendMapImage) return;
+    setBlendMapTexture(uploadToTexture(blendMapImage));
 }
 
 export function rescaleSecondImage() {

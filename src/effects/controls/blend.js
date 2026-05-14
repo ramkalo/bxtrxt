@@ -1,3 +1,19 @@
+import { blendMapTexture, blendMapPosX, blendMapPosY, blendMapRot, blendMapZoom } from '../../renderer/glstate.js';
+
+let _fallbackTex = null;
+function _getFallbackTex(gl) {
+    if (_fallbackTex) return _fallbackTex;
+    _fallbackTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, _fallbackTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return _fallbackTex;
+}
+
 const THRESHOLD_GLSL = `
 uniform float __P__Threshold;
 uniform int   __P__ThresholdTarget;
@@ -21,14 +37,24 @@ const BLEND_MODES = [
     ['overlay',    'Overlay'],
     ['difference', 'Difference'],
     ['normal',     'Normal'],
+    ['blend_map',  'Blend Map'],
 ];
 
-const BLEND_MAP = { normal: 0, screen: 1, multiply: 2, add: 3, overlay: 4, difference: 5 };
+const BLEND_MAP = { normal: 0, screen: 1, multiply: 2, add: 3, overlay: 4, difference: 5, blend_map: 6 };
 
 const BLEND_GLSL = `
 uniform int   __P__BlendEnabled;
 uniform int   __P__BlendMode;
 uniform float __P__Opacity;
+uniform sampler2D uBlendMapTex;
+uniform float blendMapPosX;
+uniform float blendMapPosY;
+uniform float blendMapRot;
+uniform float blendMapZoom;
+uniform int   __P__BlendMapInvert;
+uniform float __P__BlendMapAmount;
+uniform float __P__BlendMapScale;
+uniform float __P__BlendMapRadius;
 
 float __P__BlendCh(float a, float b) {
     if      (__P__BlendMode == 1) return 1.0 - (1.0-a)*(1.0-b);
@@ -41,6 +67,22 @@ float __P__BlendCh(float a, float b) {
 
 vec3 __P__Blend(vec3 base, vec3 src) {
     if (__P__BlendEnabled != 1) return src;
+    if (__P__BlendMode == 6) {
+        vec2 bmUV = vUV - 0.5;
+        bmUV -= vec2(blendMapPosX / 100.0, blendMapPosY / 100.0);
+        float bmRad = blendMapRot * 3.14159265 / 180.0;
+        float bmCos = cos(bmRad), bmSin = sin(bmRad);
+        bmUV = mat2(bmCos, bmSin, -bmSin, bmCos) * bmUV;
+        bmUV /= max(blendMapZoom / 100.0, 0.01);
+        bmUV += 0.5;
+        float L = dot(texture(uBlendMapTex, bmUV).rgb, vec3(0.299, 0.587, 0.114));
+        if (__P__BlendMapInvert == 1) L = 1.0 - L;
+        L = L + __P__BlendMapRadius / 100.0;
+        L = clamp((L - 0.5) * float(__P__BlendMapScale) + 0.5, 0.0, 1.0);
+        float blendScale = clamp(__P__BlendMapAmount / 100.0, 0.001, 1.0);
+        float weight = clamp((L - (1.0 - blendScale)) / blendScale, 0.0, 1.0);
+        return mix(base, src, weight);
+    }
     vec3 blended = vec3(
         __P__BlendCh(base.r, src.r),
         __P__BlendCh(base.g, src.g),
@@ -58,6 +100,7 @@ uniform int   __P__ThresholdOnDest;
 
 bool __FN__(vec4 destColor, vec4 srcColor) {
     if (__P__BlendEnabled != 1) return true;
+    if (__P__BlendMode == 6) return true;
     vec4 color = (__P__ThresholdOnDest == 1) ? destColor : srcColor;
     float val;
     if      (__P__ThresholdTarget == 1) val = color.r;
@@ -115,15 +158,24 @@ export function buildBlendControl(prefix, defaults = {}) {
             [`${p}ThresholdTarget`]:   { default: 'lum', options: [['lum', 'Luminance'], ['r', 'Red'], ['g', 'Green'], ['b', 'Blue']], label: 'Threshold Target' },
             [`${p}ThresholdReverse`]:  { default: false, label: 'Reverse Threshold' },
             [`${p}ThresholdOnDest`]:   { default: true, label: 'On Destination' },
+            [`${p}BlendMapAmount`]:    { default: 100, min: 0, max: 100, label: 'Blend Amount' },
+            [`${p}BlendMapScale`]:     { default: 1, min: 1, max: 10, label: 'Map Scale' },
+            [`${p}BlendMapRadius`]:    { default: 0, min: -50, max: 50, label: 'Map Radius' },
+            [`${p}BlendMapInvert`]:    { default: false, label: 'Invert Map' },
         },
         paramKeys: [
             `${p}BlendEnabled`, `${p}BlendMode`, `${p}Opacity`,
             `${p}Threshold`, `${p}ThresholdTarget`, `${p}ThresholdReverse`, `${p}ThresholdOnDest`,
+            `${p}BlendMapAmount`, `${p}BlendMapScale`, `${p}BlendMapRadius`, `${p}BlendMapInvert`,
         ],
         uiGroup: {
             label: 'Blend',
             conditionKey: `${p}BlendEnabled`,
-            keys: [`${p}BlendEnabled`, `${p}BlendMode`, `${p}Opacity`, `${p}Threshold`, `${p}ThresholdTarget`, `${p}ThresholdReverse`, `${p}ThresholdOnDest`],
+            keys: [
+                `${p}BlendEnabled`, `${p}BlendMode`, `${p}Opacity`,
+                `${p}Threshold`, `${p}ThresholdTarget`, `${p}ThresholdReverse`, `${p}ThresholdOnDest`,
+                `${p}BlendMapAmount`, `${p}BlendMapScale`, `${p}BlendMapRadius`, `${p}BlendMapInvert`,
+            ],
         },
         bindUniforms(gl, prog, params) {
             const locs = prog._locs;
@@ -133,6 +185,19 @@ export function buildBlendControl(prefix, defaults = {}) {
             si(`${p}ThresholdTarget`,  { lum: 0, r: 1, g: 2, b: 3 }[params[`${p}ThresholdTarget`]] ?? 0);
             si(`${p}ThresholdReverse`, params[`${p}ThresholdReverse`] ? 1 : 0);
             si(`${p}ThresholdOnDest`,  params[`${p}ThresholdOnDest`] ? 1 : 0);
+            si(`${p}BlendMapInvert`,   params[`${p}BlendMapInvert`] ? 1 : 0);
+
+            const mapLoc = locs['uBlendMapTex'];
+            if (mapLoc != null) {
+                gl.activeTexture(gl.TEXTURE2);
+                gl.bindTexture(gl.TEXTURE_2D, blendMapTexture ?? _getFallbackTex(gl));
+                gl.uniform1i(mapLoc, 2);
+            }
+            const sf = (name, v) => { const loc = locs[name]; if (loc != null) gl.uniform1f(loc, v); };
+            sf('blendMapPosX', blendMapPosX);
+            sf('blendMapPosY', blendMapPosY);
+            sf('blendMapRot',  blendMapRot);
+            sf('blendMapZoom', blendMapZoom);
         },
     };
 }
