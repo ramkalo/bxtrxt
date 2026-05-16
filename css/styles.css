@@ -108,7 +108,7 @@ body {
     font-size: 0.85rem;
     cursor: pointer;
     transition: all 0.2s;
-    border-radius: 4px;
+    border-radius: 0;
     touch-action: manipulation;
 }
 
@@ -139,7 +139,7 @@ body {
     font-size: 1.25rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    border-radius: 3px;
+    border-radius: 0;
 }
 
 .stack-dup-btn:hover {
@@ -405,23 +405,25 @@ input[type="range"] {
 
 input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     background: var(--accent);
-    border-radius: 50%;
+    border-radius: 0;
+    transform: rotate(45deg);
     cursor: pointer;
     transition: transform 0.2s;
 }
 
 input[type="range"]::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: rotate(45deg) scale(1.2);
 }
 
 input[type="range"]::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     background: var(--accent);
-    border-radius: 50%;
+    border-radius: 0;
+    transform: rotate(45deg);
     cursor: pointer;
     border: none;
 }
@@ -452,7 +454,7 @@ input[type="range"]::-moz-range-thumb {
     background: var(--bg-input);
     color: var(--text-dim);
     border: 1px solid var(--border);
-    border-radius: 3px;
+    border-radius: 0;
     width: 22px;
     height: 22px;
     padding: 0;
@@ -520,16 +522,52 @@ input[type="number"], input[type="text"] {
     width: 80px;
 }
 
+select {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    border-radius: 0;
+    cursor: pointer;
+}
+
 input[type="number"]:focus, input[type="text"]:focus {
     outline: none;
     border-color: var(--accent);
 }
 
 input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
     width: 18px;
     height: 18px;
-    accent-color: var(--accent);
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: 0;
     cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
+input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 1px;
+    width: 5px;
+    height: 9px;
+    border: 2px solid #111;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
 }
 
 .checkbox-label {
@@ -838,7 +876,7 @@ input[type="checkbox"] {
     padding: 8px 12px;
     font-size: 1.2rem;
     cursor: pointer;
-    border-radius: 4px;
+    border-radius: 0;
     touch-action: manipulation;
     -webkit-tap-highlight-color: rgba(136, 136, 136, 0.5);
 }
@@ -1069,7 +1107,7 @@ input[type="checkbox"] {
         background: var(--bg-input);
         color: var(--text);
         border: 1px solid var(--border);
-        border-radius: 4px;
+        border-radius: 0;
     }
     
     .modal {
@@ -1417,7 +1455,7 @@ input[type="checkbox"] {
     font-size: 1.25rem;
     cursor: pointer;
     padding: 2px 5px;
-    border-radius: 3px;
+    border-radius: 0;
     line-height: 1;
     transition: color 0.15s, background 0.15s;
     font-family: inherit;
@@ -1435,7 +1473,7 @@ input[type="checkbox"] {
     font-size: 1.25rem;
     cursor: pointer;
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: 0;
     line-height: 1;
     margin-left: 2px;
     transition: color 0.15s, background 0.15s;
@@ -1540,7 +1578,7 @@ input[type="checkbox"] {
     line-height: 1;
     width: 50px;
     height: 40px;
-    border-radius: 4px;
+    border-radius: 0;
     cursor: pointer;
     font-family: inherit;
     flex-shrink: 0;

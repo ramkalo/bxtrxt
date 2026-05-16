@@ -1,7 +1,7 @@
 import { canvas } from '../../renderer/glstate.js';
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawRotHandle, drawCornerHandle, strokeAntLine, HIT_RADIUS } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawRotHandle, drawCornerHandle, strokeAntLine, HIT_RADIUS, isInsideFadeShape } from '../overlayUtils.js';
 
 function drawFadeShape(p, cx, cy, w, h) {
     if (!p[state.enabledKey]) return;
@@ -47,7 +47,6 @@ function drawFadeShape(p, cx, cy, w, h) {
     drawCornerHandle(edgeW[0], edgeW[1]);
     drawCornerHandle(edgeH[0], edgeH[1]);
     drawRotHandle(rotHandle[0], rotHandle[1]);
-    drawHandle(cx, cy);
 
     return { edgeW, edgeH, rotHandle };
 }
@@ -88,12 +87,17 @@ export function hitTestFade(e) {
     const cy = (0.5 - p[state.yKey] / 100) * H;
 
     if (!p[state.enabledKey]) return null;
-    if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
     const { edgeW, edgeH, rotHandle } = getFadeHandlePositions(p, cx, cy, W, H);
     if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';
     if (Math.hypot(mx - edgeW[0],     my - edgeW[1])     <= HIT_RADIUS) return 'edgeW';
     if (Math.hypot(mx - edgeH[0],     my - edgeH[1])     <= HIT_RADIUS) return 'edgeH';
+
+    const shape  = p[state.shapeKey] ?? 'ellipse';
+    const angle  = (p[state.angleKey] ?? 0) * Math.PI / 180;
+    const a      = (p[state.wKey] / 100) * W / 2;
+    const b      = (p[state.hKey] / 100) * H / 2;
+    if (isInsideFadeShape(mx, my, cx, cy, a, b, angle, shape !== 'ellipse')) return 'center';
     return null;
 }
 

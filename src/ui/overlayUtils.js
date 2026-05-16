@@ -139,9 +139,17 @@ export function drawEllipseOrRect(cx, cy, a, b, angle, isRect) {
     return { edgeW, edgeH, rotHandle };
 }
 
-// Shared hit-test geometry for blur/vignette/CRT modes (all use the same
-// ellipse-or-rect layout). Returns handle name or null.
-export function hitTestEllipseHandles(e, cx, cy, a, b, angle) {
+export function isInsideFadeShape(mx, my, cx, cy, a, b, angle, isRect = false) {
+    const cosA = Math.cos(angle), sinA = Math.sin(angle);
+    const lx = (mx - cx) * cosA + (my - cy) * sinA;
+    const ly = -(mx - cx) * sinA + (my - cy) * cosA;
+    return isRect ? (Math.abs(lx) <= a && Math.abs(ly) <= b)
+                  : ((lx / a) ** 2 + (ly / b) ** 2 <= 1);
+}
+
+// Shared hit-test geometry for blur/vignette/CRT modes. Edge/rot handles take
+// priority; clicking anywhere inside the shape moves the center.
+export function hitTestEllipseHandles(e, cx, cy, a, b, angle, isRect = false) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -151,9 +159,9 @@ export function hitTestEllipseHandles(e, cx, cy, a, b, angle) {
     const edgeH     = rotPt(0, -b);
     const rotHandle = rotPt(0, -(b + 22));
 
-    if (Math.hypot(mx - cx,           my - cy)           <= HIT_RADIUS) return 'center';
     if (Math.hypot(mx - rotHandle[0], my - rotHandle[1]) <= HIT_RADIUS) return 'rot';
     if (Math.hypot(mx - edgeW[0],     my - edgeW[1])     <= HIT_RADIUS) return 'edgeW';
     if (Math.hypot(mx - edgeH[0],     my - edgeH[1])     <= HIT_RADIUS) return 'edgeH';
+    if (isInsideFadeShape(mx, my, cx, cy, a, b, angle, isRect))          return 'center';
     return null;
 }

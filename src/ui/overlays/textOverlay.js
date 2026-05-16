@@ -1,7 +1,7 @@
 import { canvas } from '../../renderer/glstate.js';
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawRotHandle, drawCornerHandle, strokeAntLine, HIT_RADIUS } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawHandle, drawRotHandle, drawCornerHandle, strokeAntLine, HIT_RADIUS, isInsideFadeShape } from '../overlayUtils.js';
 
 export function textCorners(p, W, H) {
     const tlx  = (p.textTLx ?? 10) / 100 * W,  tly  = (p.textTLy ?? 65) / 100 * H;
@@ -105,7 +105,6 @@ export function drawTextOverlay(p) {
         drawCornerHandle(fadeEdgeW[0], fadeEdgeW[1]);
         drawCornerHandle(fadeEdgeH[0], fadeEdgeH[1]);
         drawRotHandle(fadeRotHandle[0], fadeRotHandle[1]);
-        drawHandle(fcx, fcy);
     }
 }
 
@@ -138,24 +137,22 @@ export function hitTestText(e) {
         const fcy     = (0.5 - p.textFadeY / 100) * H;
         const rotPt   = (lx, ly) => [fcx + lx * cosA - ly * sinA, fcy + lx * sinA + ly * cosA];
         const shape   = p[state.shapeKey] ?? 'ellipse';
+        const fa = (p[state.wKey] / 100) * W / 2;
+        const fb = (p[state.hKey] / 100) * H / 2;
         let fadeEdgeW, fadeEdgeH, fadeRotHandle;
         if (shape === 'ellipse') {
-            const a   = (p[state.wKey] / 100) * W / 2;
-            const b   = (p[state.hKey] / 100) * H / 2;
-            fadeEdgeW     = rotPt(a, 0);
-            fadeEdgeH     = rotPt(0, -b);
-            fadeRotHandle = rotPt(0, -(b + 22));
+            fadeEdgeW     = rotPt(fa, 0);
+            fadeEdgeH     = rotPt(0, -fb);
+            fadeRotHandle = rotPt(0, -(fb + 22));
         } else {
-            const hw  = (p[state.wKey] / 100) * W / 2;
-            const hh  = (p[state.hKey] / 100) * H / 2;
-            fadeEdgeW     = rotPt(hw, 0);
-            fadeEdgeH     = rotPt(0, -hh);
-            fadeRotHandle = rotPt(0, -(hh + 22));
+            fadeEdgeW     = rotPt(fa, 0);
+            fadeEdgeH     = rotPt(0, -fb);
+            fadeRotHandle = rotPt(0, -(fb + 22));
         }
         if (d(fadeRotHandle[0], fadeRotHandle[1]) <= HIT_RADIUS) return 'fadeRot';
         if (d(fadeEdgeW[0],     fadeEdgeW[1])     <= HIT_RADIUS) return 'fadeEdgeW';
         if (d(fadeEdgeH[0],     fadeEdgeH[1])     <= HIT_RADIUS) return 'fadeEdgeH';
-        if (d(fcx,              fcy)              <= HIT_RADIUS) return 'fadeCenter';
+        if (isInsideFadeShape(mx, my, fcx, fcy, fa, fb, fAngle, shape !== 'ellipse')) return 'fadeCenter';
     }
     return null;
 }

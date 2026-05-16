@@ -1,6 +1,6 @@
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
 
 export function drawCRTCurvature(p) {
     syncSize();
@@ -12,7 +12,6 @@ export function drawCRTCurvature(p) {
     const b     = Math.max(1, (p.crtCurvatureMinor / 100) * 0.7071 * h);
     const angle = p.crtCurvatureAngle * Math.PI / 180;
     drawEllipseOrRect(cx, cy, a, b, angle, false); // CRT is always ellipse
-    drawHandle(cx, cy);
 }
 
 export function hitTestCRTCurvature(e) {

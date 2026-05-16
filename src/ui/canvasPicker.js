@@ -316,6 +316,11 @@ export function hideMeshOverlay() {
 }
 
 export function showTunnelOverlay(inst) {
+    state.shapeKey   = 'tunnelFadeShape';
+    state.wKey       = 'tunnelFadeW';
+    state.hKey       = 'tunnelFadeH';
+    state.angleKey   = 'tunnelFadeAngle';
+    state.enabledKey = 'tunnelFadeEnabled';
     _activate('tunnel', inst, 'tunnelX1', 'tunnelY1');
     drawTunnelOverlay(inst.params);
 }
@@ -458,7 +463,11 @@ function getCursorForMode(mode, h) {
                 : h === 'edgeH' ? 'ns-resize'
                 : h ? 'move' : 'default';
         case 'tunnel':
-            return h === 'move' ? 'grab' : h ? 'move' : 'default';
+            return (h === 'move' || h === 'fadeCenter') ? 'grab'
+                : h === 'rot' ? 'crosshair'
+                : h === 'edgeW' ? 'ew-resize'
+                : h === 'edgeH' ? 'ns-resize'
+                : h ? 'move' : 'default';
         default:
             return h ? 'grab' : 'default';
     }

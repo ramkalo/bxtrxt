@@ -1,7 +1,7 @@
 import { canvas } from '../../renderer/glstate.js';
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawRotHandle, drawCornerHandle, HIT_RADIUS } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawHandle, drawRotHandle, drawCornerHandle, HIT_RADIUS, isInsideFadeShape } from '../overlayUtils.js';
 
 function ssVertexScreenPositions(p) {
     const W = uiOverlay.width, H = uiOverlay.height;
@@ -270,7 +270,6 @@ export function drawShapeSticker(p) {
         drawCornerHandle(fadeEdgeW[0], fadeEdgeW[1]);
         drawCornerHandle(fadeEdgeH[0], fadeEdgeH[1]);
         drawRotHandle(fadeRotHandle[0], fadeRotHandle[1]);
-        drawHandle(fcx, fcy);
     }
 }
 
@@ -358,24 +357,22 @@ export function hitTestShapeSticker(e) {
         const fcy     = (0.5 - p.shapeStickerFadeY / 100) * H;
         const rotPt   = (lx, ly) => [fcx + lx * cosA - ly * sinA, fcy + lx * sinA + ly * cosA];
         const fshape  = p[state.shapeKey] ?? 'ellipse';
+        const fa = (p[state.wKey] / 100) * W / 2;
+        const fb = (p[state.hKey] / 100) * H / 2;
         let fadeEdgeW, fadeEdgeH, fadeRotHandle;
         if (fshape === 'ellipse') {
-            const a   = (p[state.wKey] / 100) * W / 2;
-            const b   = (p[state.hKey] / 100) * H / 2;
-            fadeEdgeW     = rotPt(a, 0);
-            fadeEdgeH     = rotPt(0, -b);
-            fadeRotHandle = rotPt(0, -(b + 22));
+            fadeEdgeW     = rotPt(fa, 0);
+            fadeEdgeH     = rotPt(0, -fb);
+            fadeRotHandle = rotPt(0, -(fb + 22));
         } else {
-            const hw  = (p[state.wKey] / 100) * W / 2;
-            const hh  = (p[state.hKey] / 100) * H / 2;
-            fadeEdgeW     = rotPt(hw, 0);
-            fadeEdgeH     = rotPt(0, -hh);
-            fadeRotHandle = rotPt(0, -(hh + 22));
+            fadeEdgeW     = rotPt(fa, 0);
+            fadeEdgeH     = rotPt(0, -fb);
+            fadeRotHandle = rotPt(0, -(fb + 22));
         }
         if (Math.hypot(mx - fadeRotHandle[0], my - fadeRotHandle[1]) <= HIT_RADIUS) return 'fadeRot';
         if (Math.hypot(mx - fadeEdgeW[0],     my - fadeEdgeW[1])     <= HIT_RADIUS) return 'fadeEdgeW';
         if (Math.hypot(mx - fadeEdgeH[0],     my - fadeEdgeH[1])     <= HIT_RADIUS) return 'fadeEdgeH';
-        if (Math.hypot(mx - fcx,              my - fcy)              <= HIT_RADIUS) return 'fadeCenter';
+        if (isInsideFadeShape(mx, my, fcx, fcy, fa, fb, fAngle, fshape !== 'ellipse')) return 'fadeCenter';
     }
     return null;
 }

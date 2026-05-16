@@ -1,6 +1,6 @@
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
 
 export function drawVignette(p) {
     syncSize();
@@ -12,7 +12,6 @@ export function drawVignette(p) {
     const b     = Math.max(1, (p.vignetteMinor / 100) * 0.7071 * h);
     const angle = p.vignetteAngle * Math.PI / 180;
     drawEllipseOrRect(cx, cy, a, b, angle, p.vignetteMode === 'rectangle');
-    drawHandle(cx, cy);
 }
 
 export function hitTestVignette(e) {
@@ -23,7 +22,7 @@ export function hitTestVignette(e) {
     const cy = (0.5 - p.vignetteCenterY / 100) * uiOverlay.height;
     const a  = Math.max(1, (p.vignetteMajor / 100) * 0.7071 * uiOverlay.width);
     const b  = Math.max(1, (p.vignetteMinor / 100) * 0.7071 * uiOverlay.height);
-    return hitTestEllipseHandles(e, cx, cy, a, b, p.vignetteAngle * Math.PI / 180);
+    return hitTestEllipseHandles(e, cx, cy, a, b, p.vignetteAngle * Math.PI / 180, p.vignetteMode === 'rectangle');
 }
 
 export function onDragVignette(e, inst, rect) {

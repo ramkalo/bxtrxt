@@ -1,6 +1,6 @@
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawEllipseOrRect, hitTestEllipseHandles } from '../overlayUtils.js';
 
 export function drawBlur(p) {
     syncSize();
@@ -12,7 +12,6 @@ export function drawBlur(p) {
     const b     = Math.max(1, (p.blurMinor / 100) * 0.7071 * h);
     const angle = p.blurAngle * Math.PI / 180;
     drawEllipseOrRect(cx, cy, a, b, angle, p.blurMode === 'rectangle');
-    drawHandle(cx, cy);
 }
 
 export function hitTestBlur(e) {
@@ -23,7 +22,7 @@ export function hitTestBlur(e) {
     const cy = (0.5 - p.blurCenterY / 100) * uiOverlay.height;
     const a  = Math.max(1, (p.blurMajor / 100) * 0.7071 * uiOverlay.width);
     const b  = Math.max(1, (p.blurMinor / 100) * 0.7071 * uiOverlay.height);
-    return hitTestEllipseHandles(e, cx, cy, a, b, p.blurAngle * Math.PI / 180);
+    return hitTestEllipseHandles(e, cx, cy, a, b, p.blurAngle * Math.PI / 180, p.blurMode === 'rectangle');
 }
 
 export function onDragBlur(e, inst, rect) {
