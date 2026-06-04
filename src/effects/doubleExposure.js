@@ -20,21 +20,26 @@ export default {
         ...fade.handleParams,
     ],
     uiGroups: [
-        { keys: ['doubleExposureOrigOpacity', 'doubleExposureMixOpacity'] },
         fade.uiGroup,
         blend.uiGroup,
     ],
     params: {
         doubleExposureEnabled:     { default: false, label: 'Enable' },
+        doubleExposureMode:        { default: 'external', hidden: true },
+        doubleExposureEntryId:     { default: null, hidden: true },
         doubleExposureMixMode:     { default: 'screen', label: 'Blend Mode', options: [['screen', 'Screen'], ['multiply', 'Multiply'], ['add', 'Add'], ['overlay', 'Overlay'], ['difference', 'Difference']] },
         doubleExposureOrigOpacity: { default: 100, min: 0, max: 100, label: 'Image Opacity' },
-        doubleExposureMixOpacity:  { default: 100, min: 0, max: 100, label: 'Blend Opacity' },
+        doubleExposureMixOpacity:  { default: 100, min: 0, max: 100, label: 'Blend Opacity', hidden: true },
         doubleExposureTexX:        { default: 0, min: -100, max: 100, label: 'Image X' },
         doubleExposureTexY:        { default: 0, min: -100, max: 100, label: 'Image Y' },
         ...fade.params,
         ...blend.params,
     },
-    enabled: (p) => p.doubleExposureEnabled && !!secondTexture,
+    enabled: (p) => {
+        if (!p.doubleExposureEnabled) return false;
+        if (p.doubleExposureMode === 'internal') return !!p._internalSecondTex;
+        return !!secondTexture;
+    },
     bindUniforms: (gl, prog, p) => {
         const blendMap = { normal: 0, screen: 1, multiply: 2, add: 3, overlay: 4, difference: 5 };
         const set1i = (name, val) => { const loc = prog._locs[name]; if (loc != null) gl.uniform1i(loc, val); };
@@ -42,9 +47,10 @@ export default {
         set1i('doubleExposureMixMode', blendMap[p.doubleExposureMixMode] ?? 1);
 
         const texLoc = prog._locs['uSecondTex'];
-        if (texLoc != null && secondTexture) {
+        const texToUse = p._internalSecondTex || secondTexture;
+        if (texLoc != null && texToUse) {
             gl.activeTexture(gl.TEXTURE1);
-            gl.bindTexture(gl.TEXTURE_2D, secondTexture);
+            gl.bindTexture(gl.TEXTURE_2D, texToUse);
             gl.uniform1i(texLoc, 1);
         }
 

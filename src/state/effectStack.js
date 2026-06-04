@@ -70,14 +70,33 @@ export function removeEffect(id) {
             ? _stack.filter(i => i.id !== entryId)
             : _stack.filter(i => i.effectName !== 'viewportEntry');
     }
+    if (inst?.effectName === 'doubleExposure') {
+        const entryId = inst.params.doubleExposureEntryId;
+        if (entryId) _stack = _stack.filter(i => i.id !== entryId);
+    }
     _stack = _stack.filter(i => i.id !== id);
     _notify();
+}
+
+export function insertEffect(effectName, beforeId) {
+    const defaults = getEffectDefaults(effectName);
+    if (!defaults) return null;
+    const instance = { id: _uid(), effectName, params: { ...defaults } };
+    const idx = beforeId ? _stack.findIndex(i => i.id === beforeId) : -1;
+    _stack.splice(idx === -1 ? _stack.length : idx, 0, instance);
+    _notify();
+    return instance;
 }
 
 export function duplicateEffect(id) {
     const inst = _stack.find(i => i.id === id);
     if (!inst) return null;
     const copy = { id: _uid(), effectName: inst.effectName, params: { ...inst.params } };
+    // Reset internal-mode link for the duplicate — it needs its own entry if the user wants it
+    if (copy.effectName === 'doubleExposure' && copy.params.doubleExposureMode === 'internal') {
+        copy.params.doubleExposureMode = 'external';
+        copy.params.doubleExposureEntryId = null;
+    }
     const idx = _stack.findIndex(i => i.id === id);
     _stack.splice(idx + 1, 0, copy);
     _notify();

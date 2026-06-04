@@ -359,6 +359,8 @@ export const textEffect = {
             ["'Times New Roman', serif",     'Times New Roman'],
             ['neogreekrunic',                'neogreekrunic'],
             ['splitbitsv2',                  'splitbitsv2'],
+            ['quadramatic',                  'quadramatic'],
+            ['Regulon18-Regular',            'Regulon18'],
         ] },
         textSize:       { default: 128,  min: 8,   max: 1024, label: 'Size' },
         textBold:       { default: false, label: 'Bold' },

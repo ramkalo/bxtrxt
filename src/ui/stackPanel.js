@@ -81,8 +81,9 @@ export function renderStackList() {
         const inst = stack[i];
         seen[inst.effectName] = (seen[inst.effectName] || 0) + 1;
 
+        const effect = getEffect(inst.effectName);
         const entry = EFFECT_CATALOG.find(e => e.name === inst.effectName);
-        const baseLabel = entry ? entry.label : inst.effectName;
+        const baseLabel = entry ? entry.label : (effect?.label ?? inst.effectName);
         const label = counts[inst.effectName] > 1
             ? `${baseLabel} (${seen[inst.effectName]})`
             : baseLabel;
@@ -90,7 +91,8 @@ export function renderStackList() {
         const isExpanded = inst.id === _expandedId;
 
         const item = document.createElement('div');
-        const isViewportItem = inst.effectName === 'viewport' || inst.effectName === 'viewportEntry';
+        const isViewportItem = inst.effectName === 'viewport' || inst.effectName === 'viewportEntry'
+            || inst.effectName === 'doubleExposureEntry';
         item.className = 'stack-item' + (isViewportItem ? ' stack-item--viewport' : '');
         item.dataset.id = inst.id;
         item.dataset.index = i;
@@ -110,7 +112,6 @@ export function renderStackList() {
         labelEl.textContent = label;
         header.appendChild(labelEl);
 
-        const effect = getEffect(inst.effectName);
         const isMarker = effect?.isMarker === true;
 
         if (isMarker) {

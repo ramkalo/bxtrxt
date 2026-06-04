@@ -1,5 +1,5 @@
 import { getEffect } from '../effects/registry.js';
-import { setInstanceParam, getStack } from '../state/effectStack.js';
+import { setInstanceParam, getStack, insertEffect, removeEffect } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { getCustomFonts } from '../state/customFonts.js';
 import { getPixelsBeforeInstance } from '../renderer/webgl.js';
@@ -420,17 +420,83 @@ export function buildEffectBody(inst, onRebuild) {
     }
 
     if (inst.effectName === 'doubleExposure') {
-        const row = document.createElement('div');
-        row.className = 'control-group';
-        row.innerHTML = `
-            <div class="control-row">
-                <button class="btn" id="loadSecondImageBtnStack_${inst.id}">Load 2nd Image</button>
-                <span id="secondImageName" style="font-size:0.75rem;color:var(--text-dim);margin-left:8px;">No image</span>
-            </div>`;
-        row.querySelector('button').addEventListener('click', () => {
-            document.getElementById('secondFileInput').click();
+        const currentMode = inst.params.doubleExposureMode ?? 'external';
+
+        // Mode selector
+        const modeGroup = document.createElement('div');
+        modeGroup.className = 'control-group';
+        const modeRow = document.createElement('div');
+        modeRow.className = 'control-row';
+        const modeLabelEl = document.createElement('span');
+        modeLabelEl.className = 'control-label';
+        modeLabelEl.textContent = 'Image Source';
+        const modeSelect = document.createElement('select');
+        modeSelect.className = 'select-input';
+        modeSelect.style.flex = '1';
+        [['external', 'External Image'], ['internal', 'Internal Image']].forEach(([val, text]) => {
+            const opt = document.createElement('option');
+            opt.value = val;
+            opt.textContent = text;
+            if (val === currentMode) opt.selected = true;
+            modeSelect.appendChild(opt);
         });
-        content.insertBefore(row, content.firstChild ? content.firstChild.nextSibling : null);
+        modeRow.appendChild(modeLabelEl);
+        modeRow.appendChild(modeSelect);
+        modeGroup.appendChild(modeRow);
+        content.insertBefore(modeGroup, content.firstChild);
+
+        // External image section (visible only in external mode)
+        const extSection = document.createElement('div');
+        extSection.style.display = currentMode === 'internal' ? 'none' : '';
+
+        const loadRow = document.createElement('div');
+        loadRow.className = 'control-group';
+        const loadInner = document.createElement('div');
+        loadInner.className = 'control-row';
+        const loadBtn = document.createElement('button');
+        loadBtn.className = 'btn';
+        loadBtn.id = `loadSecondImageBtnStack_${inst.id}`;
+        loadBtn.textContent = 'Load 2nd Image';
+        loadBtn.addEventListener('click', () => document.getElementById('secondFileInput').click());
+        const nameSpan = document.createElement('span');
+        nameSpan.id = 'secondImageName';
+        nameSpan.style.cssText = 'font-size:0.75rem;color:var(--text-dim);margin-left:8px;';
+        nameSpan.textContent = 'No image';
+        loadInner.appendChild(loadBtn);
+        loadInner.appendChild(nameSpan);
+        loadRow.appendChild(loadInner);
+        extSection.appendChild(loadRow);
+
+        // Image Opacity slider under the load button
+        const origOpacitySchema = getEffect('doubleExposure')?.params?.doubleExposureOrigOpacity;
+        if (origOpacitySchema) {
+            const opacityEl = buildControl(inst, 'doubleExposureOrigOpacity', origOpacitySchema, onRebuild);
+            if (opacityEl) extSection.appendChild(opacityEl);
+        }
+
+        content.insertBefore(extSection, modeGroup.nextSibling);
+
+        modeSelect.addEventListener('change', () => {
+            const newMode = modeSelect.value;
+            saveState();
+            setInstanceParam(inst.id, 'doubleExposureMode', newMode);
+            extSection.style.display = newMode === 'internal' ? 'none' : '';
+
+            if (newMode === 'internal') {
+                if (!inst.params.doubleExposureEntryId) {
+                    const entryInst = insertEffect('doubleExposureEntry', inst.id);
+                    setInstanceParam(inst.id, 'doubleExposureEntryId', entryInst.id);
+                }
+            } else {
+                const entryId = inst.params.doubleExposureEntryId;
+                if (entryId) {
+                    removeEffect(entryId);
+                    setInstanceParam(inst.id, 'doubleExposureEntryId', null);
+                }
+            }
+
+            if (onRebuild) onRebuild();
+        });
     }
 
     if (inst.effectName === 'colorRemap') {

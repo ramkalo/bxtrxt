@@ -18,8 +18,8 @@ export const vhsEffect = {
     params: {
         vhsEnabled:            { default: false, label: 'Enable' },
         vhsTracking:           { default: 0,  min: 0,    max: 256, label: 'Line Glitch' },
-        vhsTrackingThickness:  { default: 3,  min: 1,    max: 128,  label: 'Thickness' },
-        vhsTrackingAmount:     { default: 2,  min: 2,    max: 48,  label: 'Amount' },
+        vhsTrackingThickness:  { default: 3,  min: 1,    max: 256,  label: 'Thickness' },
+        vhsTrackingAmount:     { default: 2,  min: 2,    max: 512,  label: 'Amount' },
         vhsTrackingSeed:       { default: 1,                        label: 'Spacing & Thickness' },
         vhsTrackingColor:      { default: 'shift', label: 'Line Color', options: [['shift', 'Shift (default)'], ['white', 'White'], ['black', 'Black'], ['noise', 'Noise'], ['color', 'Color Noise']] },
         vhsTrackingAngle:      { default: 0,  min: -180, max: 180, label: 'Line Angle' },

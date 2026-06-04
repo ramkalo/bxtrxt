@@ -274,6 +274,8 @@ function noop() {}
 
 document.fonts.load('1px splitbitsv2');
 document.fonts.load('1px neogreekrunic');
+document.fonts.load('1px quadramatic');
+document.fonts.load('1px Regulon18-Regular');
 restoreCustomFonts();
 
 renderPresetList();

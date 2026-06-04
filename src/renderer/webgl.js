@@ -268,6 +268,9 @@ let _vpEntryFBO = null;
 let _vpPreFBO   = null;
 let _vpFullFBO  = null;
 
+// --- Internal double-exposure capture FBOs ---
+let _internalCaptureFBOs = new Map(); // instId → FBO
+
 function _reallocVpFBOs(w, h) {
     if (_vpEntryFBO?.width === w && _vpEntryFBO?.height === h) return;
     destroyFBO(_vpEntryFBO); _vpEntryFBO = createFBO(w, h);
@@ -285,7 +288,7 @@ export function blitOriginalToScreen() {
 
 // Run a slice of the stack, starting from startTex. Returns the resulting srcTex
 // (pointing into fboPool). Does NOT blit to screen. Skips 'viewport' pass effects.
-function _runLinear(stack, startTex, inheritedPalette = null) {
+function _runLinear(stack, startTex, inheritedPalette = null, internalTextures = null) {
     let srcTex = startTex;
     let pingIdx = 0;
     let activePalette = inheritedPalette;
@@ -299,10 +302,14 @@ function _runLinear(stack, startTex, inheritedPalette = null) {
             activePalette = Array.from({ length: 8 }, (_, j) => instance.params[`palette${j}`]);
         }
 
-        // Merge active palette into render params without mutating instance.params
-        const renderParams = activePalette
-            ? { ...instance.params, _activePalette: activePalette }
-            : instance.params;
+        // Merge palette and internal DE texture into render params without mutating instance.params
+        const internalTex = internalTextures?.get(instance.id)?.tex ?? null;
+        let renderParams = instance.params;
+        if (activePalette || internalTex) {
+            renderParams = { ...instance.params };
+            if (activePalette) renderParams._activePalette = activePalette;
+            if (internalTex) renderParams._internalSecondTex = internalTex;
+        }
 
         if (!effect || !effect.enabled(renderParams)) continue;
         if (effect.pass === 'viewport') continue;
@@ -490,7 +497,39 @@ function _runViewportComposite(vpInst, fullTex, windowTex, targetFbo = null) {
     drawQuad();
 }
 
+function _precomputeInternalTextures(stack) {
+    for (const fbo of _internalCaptureFBOs.values()) destroyFBO(fbo);
+    _internalCaptureFBOs.clear();
+    if (!fboPool[0]) return;
+
+    for (const inst of stack) {
+        if (inst.effectName !== 'doubleExposure') continue;
+        if (inst.params.doubleExposureMode !== 'internal') continue;
+        if (!inst.params.doubleExposureEnabled) continue;
+        const entryId = inst.params.doubleExposureEntryId;
+        if (!entryId) continue;
+        const entryIdx = stack.findIndex(s => s.id === entryId);
+        if (entryIdx === -1) continue;
+
+        const { tex } = _runLinear(stack.slice(0, entryIdx), _origTex);
+        const capFBO = createFBO(fboPool[0].width, fboPool[0].height);
+        runPass(PASSTHROUGH_FRAG, tex, capFBO, null, null);
+        _internalCaptureFBOs.set(inst.id, capFBO);
+    }
+
+    // Reset canvas + FBOs to original image size so the main pass starts clean
+    const w = originalImage.width, h = originalImage.height;
+    if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+    }
+    if (fboPool[0].width !== w || fboPool[0].height !== h) reallocFBOs(w, h);
+}
+
 function _runEffects(stack) {
+    _precomputeInternalTextures(stack);
+
     // Collect all enabled viewport pairs in stack order
     const pairs = [];
     for (let i = 0; i < stack.length; i++) {
@@ -510,7 +549,7 @@ function _runEffects(stack) {
             destroyFBO(_vpPreFBO);   _vpPreFBO   = null;
             destroyFBO(_vpFullFBO);  _vpFullFBO  = null;
         }
-        const { tex: srcTex } = _runLinear(stack, _origTex);
+        const { tex: srcTex } = _runLinear(stack, _origTex, null, _internalCaptureFBOs);
         runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
         if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         return;
@@ -530,12 +569,12 @@ function _runEffects(stack) {
         const midSlice      = hasEntry ? stack.slice(entryIdx + 1, vpIdx) : [];
 
         // Run pre-entry effects (may resize canvas via crop), then allocate FBOs
-        const { tex: entryTex, palette: entryPalette } = _runLinear(preEntrySlice, currentTex, currentPalette);
+        const { tex: entryTex, palette: entryPalette } = _runLinear(preEntrySlice, currentTex, currentPalette, _internalCaptureFBOs);
         _reallocVpFBOs(canvas.width, canvas.height);
         runPass(PASSTHROUGH_FRAG, entryTex, _vpEntryFBO, null, null);
 
         // Run mid effects → outside texture
-        const { tex: midTex, palette: midPalette } = _runLinear(midSlice, _vpEntryFBO.tex, entryPalette);
+        const { tex: midTex, palette: midPalette } = _runLinear(midSlice, _vpEntryFBO.tex, entryPalette, _internalCaptureFBOs);
         runPass(PASSTHROUGH_FRAG, midTex, _vpFullFBO, null, null);
 
         // Composite: outside=fullFBO, window=entryFBO → preFBO
@@ -547,7 +586,7 @@ function _runEffects(stack) {
     }
 
     // Run any remaining effects after the last viewport, then output to screen
-    const { tex: finalTex } = _runLinear(stack.slice(stackPos), currentTex, currentPalette);
+    const { tex: finalTex } = _runLinear(stack.slice(stackPos), currentTex, currentPalette, _internalCaptureFBOs);
     runPass(PASSTHROUGH_FRAG, finalTex, null, null, null);
     if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 }
@@ -644,6 +683,8 @@ export function cleanupWebGL() {
     destroyFBO(_vpEntryFBO);   _vpEntryFBO = null;
     destroyFBO(_vpPreFBO);     _vpPreFBO   = null;
     destroyFBO(_vpFullFBO);    _vpFullFBO  = null;
+    for (const fbo of _internalCaptureFBOs.values()) destroyFBO(fbo);
+    _internalCaptureFBOs.clear();
     if (_origTex)    { gl.deleteTexture(_origTex);    _origTex    = null; }
     if (_overlayTex) { gl.deleteTexture(_overlayTex); _overlayTex = null; }
     if (_stickerTex) { gl.deleteTexture(_stickerTex); _stickerTex = null; }

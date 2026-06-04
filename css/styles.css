@@ -10,6 +10,16 @@
     src: url('/fonts/neogreekrunic.ttf') format('truetype');
     font-display: swap;
 }
+@font-face {
+    font-family: 'quadramatic';
+    src: url('/fonts/quadramatic.ttf') format('truetype');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Regulon18-Regular';
+    src: url('/fonts/Regulon18-Regular.otf') format('opentype');
+    font-display: swap;
+}
 
 * {
     margin: 0;

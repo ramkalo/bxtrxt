@@ -30,6 +30,15 @@ const viewportEntryEffect = {
     enabled: () => false,
     isMarker: true,
 };
+
+const doubleExposureEntryEffect = {
+    name: 'doubleExposureEntry',
+    label: 'Double Exposure Grab Point',
+    pass: 'doubleExposureEntry',
+    params: {},
+    enabled: () => false,
+    isMarker: true,
+};
 import { matrixRainEffect } from './matrixRain.js';
 import { shapeStickerEffect } from './shapeSticker.js';
 import kaleidoscopeEffect from './kaleidoscope.js';
@@ -58,7 +67,7 @@ import { tunnelEffect } from './tunnel.js';
  * @typedef {TransformEffect|GlslEffect|MultiPassEffect|ContextEffect} EffectDef
  */
 
-const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport', 'viewportEntry']);
+const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport', 'viewportEntry', 'doubleExposureEntry']);
 
 /** @param {EffectDef} effect */
 function validateEffect(effect) {
@@ -73,7 +82,7 @@ function validateEffect(effect) {
     if (effect.pass === 'context') {
         if (typeof effect.canvas2d !== 'function')
             throw new Error(`${id}: pass "context" requires a canvas2d function`);
-    } else if (effect.pass !== 'viewportEntry') {
+    } else if (!effect.isMarker) {
         if (!effect.glsl && !effect.glslPasses)
             throw new Error(`${id}: pass "${effect.pass}" requires glsl or glslPasses`);
     }
@@ -97,6 +106,7 @@ export const EFFECTS = [
     transformEffect,
     cropEffect,
     colorPaletteEffect,
+    doubleExposureEntryEffect,
     doubleExposureEffect,
     basicEffect,
     hueShiftEffect,

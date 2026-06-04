@@ -306,6 +306,8 @@ export const matrixRainEffect = {
             ["'Times New Roman', serif",    'Times New Roman'],
             ['neogreekrunic',               'neogreekrunic'],
             ['splitbitsv2',                 'splitbitsv2'],
+            ['quadramatic',                 'quadramatic'],
+            ['Regulon18-Regular',           'Regulon18'],
         ] },
 
         matrixRainX:             { default: 0, min: -50, max: 50, label: 'X' },
