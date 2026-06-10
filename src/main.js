@@ -1,5 +1,6 @@
+import { registerSW } from 'virtual:pwa-register';
 import { undo, redo } from './state/undo.js';
-import { showNotification } from './utils/notifications.js';
+import { showNotification, showUpdatePrompt } from './utils/notifications.js';
 import { canvas } from './renderer/glstate.js';
 import { processImage } from './renderer/pipeline.js';
 import { cleanupWebGL } from './renderer/webgl.js';
@@ -295,3 +296,12 @@ if (!isMobile) {
 const dismissMobileWarning = () => { mobileWarningModal.style.display = 'none'; };
 document.getElementById('mobileWarningOk').addEventListener('click', dismissMobileWarning);
 mobileWarningModal.addEventListener('click', dismissMobileWarning);
+
+// ---------------------------------------------------------------------------
+// Service worker — offline support + "reload to update" prompt
+// ---------------------------------------------------------------------------
+const updateSW = registerSW({
+    onNeedRefresh() {
+        showUpdatePrompt(() => updateSW(true));
+    },
+});

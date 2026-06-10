@@ -18,7 +18,12 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+
+      // We register the SW manually from src/main.js (via virtual:pwa-register)
+      // so we can show a "reload to update" prompt — disable auto-injection to
+      // avoid a duplicate registration.
+      injectRegister: false,
 
       // Files from public/ to include in the service worker precache
       includeAssets: ['favicon.ico', 'bxtrxt-icon.svg', 'apple-touch-icon-180x180.png', '*.png'],
@@ -60,36 +65,10 @@ export default defineConfig({
       },
 
       workbox: {
-        // Precache all compiled JS/CSS/HTML + fonts
+        // Precache all compiled JS/CSS/HTML + fonts. All fonts (including
+        // JetBrains Mono) are self-hosted, so there are no runtime network
+        // dependencies — the app is fully offline-first.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
-
-        // Cache Google Fonts at runtime (JetBrains Mono etc.)
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
-              },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
       },
     }),
   ],

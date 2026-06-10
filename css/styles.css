@@ -1,5 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
-
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('/fonts/JetBrainsMono-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-display: swap;
+}
 @font-face {
     font-family: 'splitbitsv2';
     src: url('/fonts/splitbitsv2.ttf') format('truetype');
@@ -816,6 +826,28 @@ input[type="checkbox"]:checked::after {
 .notification.show {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+.update-prompt {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: none;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    z-index: 1000;
+}
+
+.update-prompt.show {
+    display: flex;
+}
+
+.update-prompt-text {
+    font-weight: 600;
 }
 
 .channel-grid {
