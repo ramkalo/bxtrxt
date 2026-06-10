@@ -36,8 +36,8 @@ export default defineConfig({
         background_color: '#0a0a1a',
         display: 'standalone',
         orientation: 'portrait-primary',
-        scope: '/',
-        start_url: '/',
+        scope: base,
+        start_url: base,
         categories: ['photo', 'utilities'],
         icons: [
           {
