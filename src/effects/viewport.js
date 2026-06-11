@@ -7,7 +7,9 @@ const SHAPE_INT = { rectangle: 0, ellipse: 1, triangle: 2, polygon: 2 };
 export default {
     name: 'viewport',
     label: 'Viewport',
-    pass: 'viewport',
+    pass: 'reveal',
+    reveal: { enabledKey: 'vpEnabled', entryIdKey: 'vpEntryId', entryEffectName: 'viewportEntry' },
+    autoEntry: { entryEffectName: 'viewportEntry', entryIdKey: 'vpEntryId' },
     paramKeys: ['vpX', 'vpY', 'vpW', 'vpH', ...blend.paramKeys],
     handleParams: [
         'vpX', 'vpY', 'vpW', 'vpH',

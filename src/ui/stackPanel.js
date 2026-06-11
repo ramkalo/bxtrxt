@@ -2,7 +2,7 @@ import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
-import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay } from './canvasPicker.js';
+import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay, showFilmSoupOverlay, hideFilmSoupOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -77,6 +77,20 @@ export function renderStackList() {
         counts[inst.effectName] = (counts[inst.effectName] || 0) + 1;
     }
 
+    // Pair each reveal effect (viewport, filmSoup) with its marker so both show the same
+    // number regardless of stack position — e.g. "Film Soup (2)" ↔ "Film Soup Melt Point (2)".
+    const ownerNumberByInstId  = {};  // reveal-owner instId  → its number
+    const ownerNumberByMarkerId = {}; // paired marker instId → owner's number
+    const ownerRunningCount = {};
+    for (const inst of stack) {
+        const rc = getEffect(inst.effectName)?.reveal;
+        if (!rc) continue;
+        const n = (ownerRunningCount[inst.effectName] = (ownerRunningCount[inst.effectName] || 0) + 1);
+        ownerNumberByInstId[inst.id] = n;
+        const entryId = inst.params[rc.entryIdKey];
+        if (entryId) ownerNumberByMarkerId[entryId] = n;
+    }
+
     for (let i = 0; i < stack.length; i++) {
         const inst = stack[i];
         seen[inst.effectName] = (seen[inst.effectName] || 0) + 1;
@@ -84,15 +98,21 @@ export function renderStackList() {
         const effect = getEffect(inst.effectName);
         const entry = EFFECT_CATALOG.find(e => e.name === inst.effectName);
         const baseLabel = entry ? entry.label : (effect?.label ?? inst.effectName);
-        const label = counts[inst.effectName] > 1
-            ? `${baseLabel} (${seen[inst.effectName]})`
-            : baseLabel;
+        // Reveal owners + their markers number by owner pairing; everything else by position.
+        const pairedNum = ownerNumberByMarkerId[inst.id] ?? ownerNumberByInstId[inst.id];
+        let label = baseLabel;
+        if (pairedNum != null) {
+            if (counts[inst.effectName] > 1) label = `${baseLabel} (${pairedNum})`;
+        } else if (counts[inst.effectName] > 1) {
+            label = `${baseLabel} (${seen[inst.effectName]})`;
+        }
 
         const isExpanded = inst.id === _expandedId;
 
         const item = document.createElement('div');
         const isViewportItem = inst.effectName === 'viewport' || inst.effectName === 'viewportEntry'
-            || inst.effectName === 'doubleExposureEntry';
+            || inst.effectName === 'doubleExposureEntry'
+            || inst.effectName === 'filmSoup' || inst.effectName === 'filmSoupMelt';
         item.className = 'stack-item' + (isViewportItem ? ' stack-item--viewport' : '');
         item.dataset.id = inst.id;
         item.dataset.index = i;
@@ -253,6 +273,7 @@ export function renderStackList() {
     if (newEffect !== 'drawTool')       hideDrawToolOverlay();
     if (newEffect !== 'mesh')           hideMeshOverlay();
     if (newEffect !== 'tunnel')         hideTunnelOverlay();
+    if (newEffect !== 'filmSoup')       hideFilmSoupOverlay();
 
     if (!expandedInst) return;
 
@@ -280,6 +301,7 @@ export function renderStackList() {
     else if (newEffect === 'drawTool')      showDrawToolOverlay(expandedInst);
     else if (newEffect === 'mesh')          showMeshOverlay(expandedInst);
     else if (newEffect === 'tunnel')        showTunnelOverlay(expandedInst);
+    else if (newEffect === 'filmSoup')      showFilmSoupOverlay(expandedInst);
 }
 
 // --- Pointer-based drag-and-drop ---

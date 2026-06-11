@@ -26,6 +26,7 @@ import { drawBlendMap, hitTestBlendMap, onDragBlendMap } from './overlays/blendM
 import { drawDrawTool, hitTestDrawTool, onDragDrawTool, finalizeDrawToolStroke, onDrawToolDown } from './overlays/drawToolOverlay.js';
 import { drawMeshOverlay, hitTestMesh, onDragMesh } from './overlays/meshOverlay.js';
 import { drawTunnelOverlay, hitTestTunnel, onDragTunnel } from './overlays/tunnelOverlay.js';
+import { drawFilmSoup, hitTestFilmSoup, onDragFilmSoup, addFilmSoupBubble, deleteFilmSoupBubble, canAddFilmSoupBubble } from './overlays/filmSoupOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
@@ -97,6 +98,7 @@ onStackChange((key) => {
         drawViewport(p);
     }
     if (state.mode === 'digitalSmear') drawDigitalSmear(inst.params);
+    if (state.mode === 'filmSoup')     drawFilmSoup(inst.params);
     if (state.mode === 'drawTool')     drawDrawTool(inst.params);
     if (state.mode === 'mesh')         drawMeshOverlay(inst.params);
     if (state.mode === 'tunnel')       drawTunnelOverlay(inst.params);
@@ -292,6 +294,15 @@ export function hideDigitalSmearOverlay() {
     if (state.mode === 'digitalSmear') _hideActive();
 }
 
+export function showFilmSoupOverlay(inst) {
+    _activate('filmSoup', inst, null, null);
+    drawFilmSoup(inst.params);
+}
+
+export function hideFilmSoupOverlay() {
+    if (state.mode === 'filmSoup') _hideActive();
+}
+
 export function showDrawToolOverlay(inst) {
     _activate('drawTool', inst, 'drawToolStrokes', 'drawToolStrokes');
     drawDrawTool(inst.params);
@@ -454,6 +465,13 @@ function getCursorForMode(mode, h) {
                 && (dsp.smearNodeCount ?? 0) < 24) return 'crosshair';
             return 'default';
         }
+        case 'filmSoup': {
+            if (h === 'center') return 'grab';
+            if (h && h.startsWith('bubble:')) return 'grab';
+            const fsInst = getStack().find(i => i.id === state.instId);
+            if (fsInst && canAddFilmSoupBubble(fsInst.params)) return 'crosshair';
+            return 'default';
+        }
         case 'drawTool':
             return 'crosshair';
         case 'mesh':
@@ -492,6 +510,7 @@ const HIT_FNS = {
     shapeSticker:   hitTestShapeSticker,
     matrixRain:     hitTestMatrixRain,
     digitalSmear:   hitTestDigitalSmear,
+    filmSoup:       hitTestFilmSoup,
 };
 
 const DRAG_FNS = {
@@ -512,6 +531,7 @@ const DRAG_FNS = {
     shapeSticker:   onDragShapeSticker,
     matrixRain:     onDragMatrixRain,
     digitalSmear:   onDragDigitalSmear,
+    filmSoup:       onDragFilmSoup,
 };
 
 const DRAW_FNS = {
@@ -534,6 +554,7 @@ const DRAW_FNS = {
     corrupted:      drawCorrupted,
     crtCurvature:   drawCRTCurvature,
     digitalSmear:   drawDigitalSmear,
+    filmSoup:       drawFilmSoup,
 };
 
 function onHover(e) {
@@ -563,6 +584,14 @@ function onDown(e) {
                 setInstanceParam(state.instId, `smearNy${idx}`, ny);
                 setInstanceParam(state.instId, 'smearNodeCount', idx + 1);
             }
+        }
+    }
+
+    if (!h && state.mode === 'filmSoup') {
+        const inst = getStack().find(i => i.id === state.instId);
+        if (inst && canAddFilmSoupBubble(inst.params)) {
+            saveState();
+            addFilmSoupBubble(state.instId, inst.params, e);
         }
     }
 
@@ -693,6 +722,11 @@ function onUp() {
     if (wasClick && mode === 'digitalSmear' && handle?.startsWith('node:')) {
         const idx = parseInt(handle.split(':')[1]);
         deleteSmearNode(instId, idx, inst.params);
+    }
+
+    if (wasClick && mode === 'filmSoup' && handle?.startsWith('bubble:')) {
+        const idx = parseInt(handle.split(':')[1]);
+        deleteFilmSoupBubble(instId, inst.params, idx);
     }
 
     if (mode === 'drawTool') {

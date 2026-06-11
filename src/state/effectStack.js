@@ -1,4 +1,4 @@
-import { EFFECTS, getEffectDefaults } from '../effects/registry.js';
+import { EFFECTS, getEffectDefaults, getEffect } from '../effects/registry.js';
 
 let _stack = [];
 const _listeners = new Set();
@@ -51,10 +51,18 @@ export function addEffect(effectName) {
         instance.params.smearNodeCount = placed;
     }
 
-    if (effectName === 'viewport') {
-        const entryInst = { id: _uid(), effectName: 'viewportEntry', params: {} };
+    // Give each Film Soup a distinct random bubble layout so stacked instances differ.
+    if (effectName === 'filmSoup') {
+        instance.params.filmSoupSeed = 1 + Math.floor(Math.random() * 99999);
+    }
+
+    // Effects that need a paired marker (viewport → viewportEntry, filmSoup → filmSoupMelt)
+    // declare it via `autoEntry`. Push the marker first, then store its id on the instance.
+    const autoEntry = effect?.autoEntry;
+    if (autoEntry) {
+        const entryInst = { id: _uid(), effectName: autoEntry.entryEffectName, params: {} };
         _stack.push(entryInst);
-        instance.params.vpEntryId = entryInst.id;
+        instance.params[autoEntry.entryIdKey] = entryInst.id;
     }
 
     _stack.push(instance);
@@ -64,11 +72,12 @@ export function addEffect(effectName) {
 
 export function removeEffect(id) {
     const inst = _stack.find(i => i.id === id);
-    if (inst?.effectName === 'viewport') {
-        const entryId = inst.params.vpEntryId;
+    const autoEntry = inst && getEffect(inst.effectName)?.autoEntry;
+    if (autoEntry) {
+        const entryId = inst.params[autoEntry.entryIdKey];
         _stack = entryId
             ? _stack.filter(i => i.id !== entryId)
-            : _stack.filter(i => i.effectName !== 'viewportEntry');
+            : _stack.filter(i => i.effectName !== autoEntry.entryEffectName);
     }
     if (inst?.effectName === 'doubleExposure') {
         const entryId = inst.params.doubleExposureEntryId;
@@ -98,7 +107,17 @@ export function duplicateEffect(id) {
         copy.params.doubleExposureEntryId = null;
     }
     const idx = _stack.findIndex(i => i.id === id);
-    _stack.splice(idx + 1, 0, copy);
+
+    // Effects with a paired marker (viewport → viewportEntry, filmSoup → filmSoupMelt) need
+    // their OWN marker for the duplicate — otherwise the copy shares the original's melt point.
+    const autoEntry = getEffect(copy.effectName)?.autoEntry;
+    if (autoEntry) {
+        const entryInst = { id: _uid(), effectName: autoEntry.entryEffectName, params: {} };
+        copy.params[autoEntry.entryIdKey] = entryInst.id;
+        _stack.splice(idx + 1, 0, entryInst, copy); // marker just before the copy
+    } else {
+        _stack.splice(idx + 1, 0, copy);
+    }
     _notify();
     return copy;
 }

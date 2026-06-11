@@ -987,6 +987,62 @@ export function buildEffectBody(inst, onRebuild) {
         inject(panel);
     }
 
+    if (inst.effectName === 'filmSoup') {
+        const soups  = getStack().filter(s => s.effectName === 'filmSoup');
+        const others = soups.filter(s => s.id !== inst.id);
+
+        const panel = document.createElement('div');
+        panel.className = 'control-group';
+
+        const header = document.createElement('div');
+        header.className = 'control-section-header';
+        header.textContent = 'Match Bubbles To';
+        panel.appendChild(header);
+
+        const row = document.createElement('div');
+        row.className = 'control-row';
+        row.style.gap = '6px';
+
+        const sel = document.createElement('select');
+        sel.className = 'select-input';
+        for (const o of others) {
+            const opt = document.createElement('option');
+            opt.value = o.id;
+            opt.textContent = `Film Soup ${soups.indexOf(o) + 1}`;
+            sel.appendChild(opt);
+        }
+
+        const btn = document.createElement('button');
+        btn.className = 'action-btn';
+        btn.textContent = 'Match';
+
+        if (others.length === 0) {
+            const opt = document.createElement('option');
+            opt.textContent = '(no other Film Soup)';
+            sel.appendChild(opt);
+            sel.disabled = true;
+            btn.disabled = true;
+        }
+
+        // Copy layout-only params (position + size); leave edge/vignette/melt/blend independent.
+        const LAYOUT_KEYS = [
+            'filmSoupSeed', 'filmSoupPlace', 'filmSoupBubbles', 'filmSoupSize', 'filmSoupSizeDev',
+            'filmSoupNum', 'filmSoupDistribution', 'filmSoupCenterX', 'filmSoupCenterY', 'filmSoupElongate',
+        ];
+        btn.addEventListener('click', () => {
+            const target = getStack().find(s => s.id === sel.value);
+            if (!target) return;
+            saveState();
+            for (const key of LAYOUT_KEYS) setInstanceParam(inst.id, key, target.params[key]);
+            onRebuild?.();
+        });
+
+        row.appendChild(sel);
+        row.appendChild(btn);
+        panel.appendChild(row);
+        content.appendChild(panel);
+    }
+
     return content;
 }
 

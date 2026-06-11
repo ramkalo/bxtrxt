@@ -14,6 +14,7 @@ import { textEffect } from './text.js';
 import digitalSmearEffect   from './digitalSmear.js';
 import lineDragEffect       from './lineDrag.js';
 import corruptedEffect      from './corrupted.js';
+import filmSoupEffect       from './filmSoup.js';
 import crtCurvatureEffect   from './crtCurvature.js';
 import crtScanlinesEffect   from './crtScanlines.js';
 //import moireEffect          from './moire.js';
@@ -21,6 +22,7 @@ import transformEffect      from './transform.js';
 import cropEffect           from './crop.js';
 import glowEffect           from './glow.js';
 import viewportEffect       from './viewport.js';
+import colorGelEffect       from './colorGel.js';
 
 const viewportEntryEffect = {
     name: 'viewportEntry',
@@ -35,6 +37,15 @@ const doubleExposureEntryEffect = {
     name: 'doubleExposureEntry',
     label: 'Double Exposure Grab Point',
     pass: 'doubleExposureEntry',
+    params: {},
+    enabled: () => false,
+    isMarker: true,
+};
+
+const filmSoupMeltEffect = {
+    name: 'filmSoupMelt',
+    label: 'Film Soup Melt Point',
+    pass: 'filmSoupMelt',
     params: {},
     enabled: () => false,
     isMarker: true,
@@ -67,7 +78,7 @@ import { tunnelEffect } from './tunnel.js';
  * @typedef {TransformEffect|GlslEffect|MultiPassEffect|ContextEffect} EffectDef
  */
 
-const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'viewport', 'viewportEntry', 'doubleExposureEntry']);
+const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'reveal', 'viewport', 'viewportEntry', 'doubleExposureEntry', 'filmSoupMelt']);
 
 /** @param {EffectDef} effect */
 function validateEffect(effect) {
@@ -124,6 +135,9 @@ export const EFFECTS = [
     digitalSmearEffect,
     lineDragEffect,
     corruptedEffect,
+    colorGelEffect,
+    filmSoupMeltEffect,
+    filmSoupEffect,
     crtCurvatureEffect,
     crtScanlinesEffect,
     //moireEffect,
@@ -185,6 +199,8 @@ export const EFFECT_CATALOG = [
     { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
     { name: 'colorPalette',    label: 'Color Palette',         description: 'Define 8 custom colors that other effects can reference' },
     { name: 'corrupted',     label: 'Corrupted',            description: 'Fractal square corruption spreading from seeded points' },
+    { name: 'colorGel',      label: 'Color Gel',            description: 'Tint the image with a solid or gradient color gel' },
+    { name: 'filmSoup',      label: 'Film Soup',            description: 'Bubble/foam holes that melt through the effects above the melt point' },
     { name: 'crop',           label: 'Crop',                 description: 'Crop the image' },
     { name: 'crtCurvature',   label: 'CRT Curvature',        description: 'Barrel lens distortion' },
     { name: 'crtScanlines',   label: 'CRT Scanlines',        description: 'Horizontal scanline darkening' },

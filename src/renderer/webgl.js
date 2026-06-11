@@ -263,20 +263,8 @@ void main() {
 // --- Transform FBO cache ---
 let _transformFBO = null;
 
-// --- Viewport composite FBOs ---
-let _vpEntryFBO = null;
-let _vpPreFBO   = null;
-let _vpFullFBO  = null;
-
 // --- Internal double-exposure capture FBOs ---
 let _internalCaptureFBOs = new Map(); // instId → FBO
-
-function _reallocVpFBOs(w, h) {
-    if (_vpEntryFBO?.width === w && _vpEntryFBO?.height === h) return;
-    destroyFBO(_vpEntryFBO); _vpEntryFBO = createFBO(w, h);
-    destroyFBO(_vpPreFBO);   _vpPreFBO   = createFBO(w, h);
-    destroyFBO(_vpFullFBO);  _vpFullFBO  = createFBO(w, h);
-}
 
 // Show the unprocessed original image (used by long-press compare in touch.js).
 export function blitOriginalToScreen() {
@@ -287,8 +275,8 @@ export function blitOriginalToScreen() {
 // --- Shared effect loop ---
 
 // Run a slice of the stack, starting from startTex. Returns the resulting srcTex
-// (pointing into fboPool). Does NOT blit to screen. Skips 'viewport' pass effects.
-function _runLinear(stack, startTex, inheritedPalette = null, internalTextures = null) {
+// (pointing into fboPool). Does NOT blit to screen. Skips 'reveal' pass effects.
+function _runLinear(stack, startTex, inheritedPalette = null, internalTextures = null, revealCtx = null) {
     let srcTex = startTex;
     let pingIdx = 0;
     let activePalette = inheritedPalette;
@@ -296,6 +284,16 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
     for (let i = 0; i < stack.length; i++) {
         const instance = stack[i];
         const effect = getEffect(instance.effectName);
+
+        // Snapshot the current pipeline state at any melt-point/entry marker that an enabled
+        // reveal effect downstream uses as its "window" source. Markers are otherwise disabled
+        // (enabled() === false) so this must run before the enabled check below.
+        if (revealCtx && effect?.isMarker && revealCtx.neededMarkerIds.has(instance.id)) {
+            const snap = createFBO(fboPool[0].width, fboPool[0].height);
+            runPass(PASSTHROUGH_FRAG, srcTex, snap, null, null);
+            revealCtx.snapshots.set(instance.id, snap);
+            continue;
+        }
 
         // Track the most recent enabled color palette effect for downstream effects
         if (instance.effectName === 'colorPalette' && instance.params.paletteEnabled) {
@@ -312,7 +310,21 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
         }
 
         if (!effect || !effect.enabled(renderParams)) continue;
-        if (effect.pass === 'viewport') continue;
+
+        // Reveal effects (viewport, filmSoup) composite inline: outside = current state,
+        // window = the snapshot captured at this effect's entry marker. Using per-effect
+        // snapshots lets multiple reveals overlap/nest and compose onto each other.
+        if (effect.pass === 'reveal') {
+            if (!revealCtx) continue;
+            const rc = effect.reveal;
+            const entryId   = rc ? renderParams[rc.entryIdKey] : null;
+            const windowTex = (entryId && revealCtx.snapshots.get(entryId)?.tex) || srcTex;
+            const dstFbo = fboPool[pingIdx % 2];
+            _runRevealComposite(instance, effect, srcTex, windowTex, dstFbo);
+            srcTex = dstFbo.tex;
+            pingIdx++;
+            continue;
+        }
 
         if (effect.pass === 'transform') {
             // In crop-preview mode keep the canvas at full image size
@@ -474,8 +486,7 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
     return { tex: srcTex, palette: activePalette };
 }
 
-function _runViewportComposite(vpInst, fullTex, windowTex, targetFbo = null) {
-    const effect = getEffect('viewport');
+function _runRevealComposite(vpInst, effect, fullTex, windowTex, targetFbo = null) {
     const params = vpInst.params;
     const w = canvas.width, h = canvas.height;
     const prog = getProgram(effect.glsl);
@@ -530,64 +541,25 @@ function _precomputeInternalTextures(stack) {
 function _runEffects(stack) {
     _precomputeInternalTextures(stack);
 
-    // Collect all enabled viewport pairs in stack order
-    const pairs = [];
-    for (let i = 0; i < stack.length; i++) {
-        const inst = stack[i];
-        if (getEffect(inst.effectName)?.pass !== 'viewport') continue;
-        if (!inst.params.vpEnabled) continue;
-        const entryId  = inst.params.vpEntryId;
-        const entryIdx = entryId
-            ? stack.findIndex(s => s.id === entryId)
-            : stack.findIndex(s => s.effectName === 'viewportEntry'); // legacy fallback
-        pairs.push({ vpIdx: i, vpInst: inst, entryIdx });
-    }
-
-    if (pairs.length === 0) {
-        if (_vpEntryFBO) {
-            destroyFBO(_vpEntryFBO); _vpEntryFBO = null;
-            destroyFBO(_vpPreFBO);   _vpPreFBO   = null;
-            destroyFBO(_vpFullFBO);  _vpFullFBO  = null;
+    // Which markers must be snapshotted = the entry markers of enabled reveal effects
+    // (viewport, filmSoup). Each reveal declares { enabledKey, entryIdKey } via effect.reveal.
+    const neededMarkerIds = new Set();
+    for (const inst of stack) {
+        const rc = getEffect(inst.effectName)?.reveal;
+        if (rc && inst.params[rc.enabledKey]) {
+            const id = inst.params[rc.entryIdKey];
+            if (id) neededMarkerIds.add(id);
         }
-        const { tex: srcTex } = _runLinear(stack, _origTex, null, _internalCaptureFBOs);
-        runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
-        if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        return;
     }
+    const snapshots = new Map();
+    const revealCtx = neededMarkerIds.size ? { neededMarkerIds, snapshots } : null;
 
-    // Process each viewport pair sequentially. The composite result of pair N
-    // becomes the input texture for pair N+1's pre-entry segment.
-    let currentTex     = _origTex;
-    let currentPalette = null;
-    let stackPos       = 0;
+    // Single linear pass: reveal effects composite inline against their entry snapshot,
+    // so multiple film soups / viewports can overlap and compose onto one another.
+    const { tex: srcTex } = _runLinear(stack, _origTex, null, _internalCaptureFBOs, revealCtx);
+    runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
 
-    for (const { vpIdx, vpInst, entryIdx } of pairs) {
-        const hasEntry    = entryIdx !== -1 && entryIdx < vpIdx && entryIdx >= stackPos;
-        const preEntryEnd = hasEntry ? entryIdx : vpIdx;
-
-        const preEntrySlice = stack.slice(stackPos, preEntryEnd);
-        const midSlice      = hasEntry ? stack.slice(entryIdx + 1, vpIdx) : [];
-
-        // Run pre-entry effects (may resize canvas via crop), then allocate FBOs
-        const { tex: entryTex, palette: entryPalette } = _runLinear(preEntrySlice, currentTex, currentPalette, _internalCaptureFBOs);
-        _reallocVpFBOs(canvas.width, canvas.height);
-        runPass(PASSTHROUGH_FRAG, entryTex, _vpEntryFBO, null, null);
-
-        // Run mid effects → outside texture
-        const { tex: midTex, palette: midPalette } = _runLinear(midSlice, _vpEntryFBO.tex, entryPalette, _internalCaptureFBOs);
-        runPass(PASSTHROUGH_FRAG, midTex, _vpFullFBO, null, null);
-
-        // Composite: outside=fullFBO, window=entryFBO → preFBO
-        _runViewportComposite(vpInst, _vpFullFBO.tex, _vpEntryFBO.tex, _vpPreFBO);
-
-        currentTex     = _vpPreFBO.tex;
-        currentPalette = midPalette;
-        stackPos       = vpIdx + 1;
-    }
-
-    // Run any remaining effects after the last viewport, then output to screen
-    const { tex: finalTex } = _runLinear(stack.slice(stackPos), currentTex, currentPalette, _internalCaptureFBOs);
-    runPass(PASSTHROUGH_FRAG, finalTex, null, null, null);
+    for (const fbo of snapshots.values()) destroyFBO(fbo);
     if (overlayCanvas && overlayCtx) overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 }
 
@@ -680,9 +652,6 @@ export function cleanupWebGL() {
     fboPool.forEach(f => destroyFBO(f));
     setFboPool([null, null]);
     destroyFBO(_transformFBO); _transformFBO = null;
-    destroyFBO(_vpEntryFBO);   _vpEntryFBO = null;
-    destroyFBO(_vpPreFBO);     _vpPreFBO   = null;
-    destroyFBO(_vpFullFBO);    _vpFullFBO  = null;
     for (const fbo of _internalCaptureFBOs.values()) destroyFBO(fbo);
     _internalCaptureFBOs.clear();
     if (_origTex)    { gl.deleteTexture(_origTex);    _origTex    = null; }

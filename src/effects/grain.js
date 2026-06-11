@@ -43,7 +43,12 @@ float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453
 void main() {
     vec4 c = texture(uTex, vUV);
     float intensity = grainIntensity / 100.0;
-    float gs = max(1.0, grainSize);
+    // Scale grain size relative to the image resolution (referenced to a 1080px
+    // short edge) so a given grainSize covers the same fraction of the image at
+    // any resolution. Without this, grain is sized in absolute render-pixels and
+    // looks soft in the fit-to-screen preview but harsh in the full-res export.
+    float resScale = max(min(uResolution.x, uResolution.y) / 1080.0, 1.0);
+    float gs = max(1.0, grainSize * resScale);
     vec2 cellUV = floor(vUV * uResolution / gs) * gs / uResolution;
     vec3 col = c.rgb * 255.0;
 
