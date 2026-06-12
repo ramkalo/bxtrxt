@@ -30,6 +30,11 @@
     src: url('/fonts/Regulon18-Regular.otf') format('opentype');
     font-display: swap;
 }
+@font-face {
+    font-family: 'amazingdigital100acrewoods';
+    src: url('/fonts/amazingdigital100acrewoods.ttf') format('truetype');
+    font-display: swap;
+}
 
 * {
     margin: 0;

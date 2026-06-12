@@ -308,6 +308,7 @@ export const matrixRainEffect = {
             ['splitbitsv2',                 'splitbitsv2'],
             ['quadramatic',                 'quadramatic'],
             ['Regulon18-Regular',           'Regulon18'],
+            ['amazingdigital100acrewoods',   'AmazingDigital100AcreWoods'],
         ] },
 
         matrixRainX:             { default: 0, min: -50, max: 50, label: 'X' },

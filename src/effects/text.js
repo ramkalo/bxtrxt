@@ -361,6 +361,7 @@ export const textEffect = {
             ['splitbitsv2',                  'splitbitsv2'],
             ['quadramatic',                  'quadramatic'],
             ['Regulon18-Regular',            'Regulon18'],
+            ['amazingdigital100acrewoods',   'AmazingDigital100AcreWoods'],
         ] },
         textSize:       { default: 128,  min: 8,   max: 1024, label: 'Size' },
         textBold:       { default: false, label: 'Bold' },
