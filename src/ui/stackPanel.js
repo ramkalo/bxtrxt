@@ -1,69 +1,142 @@
-import { EFFECT_CATALOG, getEffect } from '../effects/registry.js';
+import { EFFECT_CATALOG, EFFECT_CATEGORIES, getEffect } from '../effects/registry.js';
 import { getStack, addEffect, removeEffect, moveEffect, duplicateEffect, setInstanceParam } from '../state/effectStack.js';
 import { saveState } from '../state/undo.js';
 import { buildEffectBody } from './stackControls.js';
-import { showFadeOverlay, hideFadeOverlay, showBlurOverlay, hideBlurOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay, showFilmSoupOverlay, hideFilmSoupOverlay } from './canvasPicker.js';
+import { blitOriginalToScreen } from '../renderer/webgl.js';
+import { processImageImmediate } from '../renderer/pipeline.js';
+import { originalImage } from '../renderer/glstate.js';
+import { showFadeOverlay, hideFadeOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay, showFilmSoupOverlay, hideFilmSoupOverlay, showColorGelOverlay, hideColorGelOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
 export function initStackPanel() {
     renderCatalog();
+    initPickerToggle();
+    initCompareButton();
 }
 
+function initCompareButton() {
+    const btn = document.getElementById('compareBtn');
+    if (!btn) return;
+    let comparing = false;
+
+    const show = (e) => {
+        if (!originalImage) return;
+        comparing = true;
+        btn.classList.add('active');
+        if (e && e.pointerId != null) { try { btn.setPointerCapture(e.pointerId); } catch {} }
+        blitOriginalToScreen();
+    };
+    const restore = () => {
+        if (!comparing) return;
+        comparing = false;
+        btn.classList.remove('active');
+        processImageImmediate();
+    };
+
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); show(e); });
+    btn.addEventListener('pointerup', restore);
+    btn.addEventListener('pointercancel', restore);
+    // Keyboard: hold Space/Enter while focused
+    btn.addEventListener('keydown', (e) => {
+        if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) { e.preventDefault(); show(); }
+    });
+    btn.addEventListener('keyup', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); restore(); }
+    });
+    btn.addEventListener('blur', restore);
+}
+
+function initPickerToggle() {
+    const picker = document.getElementById('effectPicker');
+    const header = document.getElementById('effectPickerHeader');
+    if (!picker || !header) return;
+    const toggle = () => {
+        const collapsed = picker.classList.toggle('collapsed');
+        header.title = collapsed ? 'Show effect library' : 'Hide effect library';
+        header.setAttribute('aria-expanded', String(!collapsed));
+    };
+    header.addEventListener('click', toggle);
+    header.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+        }
+    });
+}
+
+function makeCatalogItem(entry) {
+    const item = document.createElement('div');
+    item.className = 'catalog-item';
+    item.innerHTML = `
+        <div class="catalog-item-info">
+            <span class="catalog-item-label">${entry.label}</span>
+            <span class="catalog-item-desc">${entry.description}</span>
+        </div>
+        <button class="catalog-item-add" title="Add ${entry.label}">+</button>
+    `;
+    item.querySelector('.catalog-item-add').addEventListener('click', () => {
+        const PALETTE_DEPENDENT = new Set(['colorRemap', 'matrixRain', 'shapeSticker', 'text', 'corrupted', 'drawTool', 'mesh', 'tunnel', 'colorGel']);
+        saveState();
+        if (PALETTE_DEPENDENT.has(entry.name) && !getStack().some(i => i.effectName === 'colorPalette')) {
+            addEffect('colorPalette');
+        }
+        const inst = addEffect(entry.name);
+        if (inst) _expandedId = inst.id;
+        renderStackList();
+    });
+    return item;
+}
+
+let _activeCategory = EFFECT_CATEGORIES[0];
+
 function renderCatalog() {
+    const tabs = document.getElementById('effectCatalogTabs');
     const list = document.getElementById('effectCatalogList');
+    tabs.innerHTML = '';
     list.innerHTML = '';
+
+    // Group entries by category, preserving catalog order within each group.
+    const byCategory = new Map(EFFECT_CATEGORIES.map(c => [c, []]));
     for (const entry of EFFECT_CATALOG) {
-        const item = document.createElement('div');
-        item.className = 'catalog-item';
-        item.innerHTML = `
-            <div class="catalog-item-info">
-                <span class="catalog-item-label">${entry.label}</span>
-                <span class="catalog-item-desc">${entry.description}</span>
-            </div>
-            <button class="catalog-item-add" title="Add ${entry.label}">+</button>
-        `;
-        item.querySelector('.catalog-item-add').addEventListener('click', () => {
-            const PALETTE_DEPENDENT = new Set(['colorRemap', 'matrixRain', 'shapeSticker', 'text', 'corrupted', 'drawTool', 'mesh', 'tunnel']);
-            saveState();
-            if (PALETTE_DEPENDENT.has(entry.name) && !getStack().some(i => i.effectName === 'colorPalette')) {
-                addEffect('colorPalette');
-            }
-            const inst = addEffect(entry.name);
-            if (inst) _expandedId = inst.id;
-            renderStackList();
-        });
-        list.appendChild(item);
+        if (!entry.category) continue;
+        if (!byCategory.has(entry.category)) byCategory.set(entry.category, []);
+        byCategory.get(entry.category).push(entry);
     }
+
+    const categories = [...byCategory.keys()].filter(c => byCategory.get(c).length);
+    if (!categories.includes(_activeCategory)) _activeCategory = categories[0];
+
+    const showCategory = (category) => {
+        _activeCategory = category;
+        tabs.querySelectorAll('.catalog-tab').forEach(t => {
+            const on = t.dataset.category === category;
+            t.classList.toggle('active', on);
+            t.setAttribute('aria-selected', String(on));
+        });
+        list.innerHTML = '';
+        for (const entry of byCategory.get(category)) list.appendChild(makeCatalogItem(entry));
+        list.scrollTop = 0;
+    };
+
+    for (const category of categories) {
+        const tab = document.createElement('button');
+        tab.type = 'button';
+        tab.className = 'catalog-tab';
+        tab.dataset.category = category;
+        tab.setAttribute('role', 'tab');
+        tab.textContent = category;
+        tab.addEventListener('click', () => showCategory(category));
+        tabs.appendChild(tab);
+    }
+
+    showCategory(_activeCategory);
 }
 
 export function renderStackList() {
     const container = document.getElementById('effectStackList');
     container.innerHTML = '';
     const stack = getStack();
-
-    // All On toolbar
-    const toolbar = document.getElementById('stackToolbar');
-    toolbar.innerHTML = '';
-    if (stack.length > 0) {
-        const enabledEntries = stack
-            .map(inst => ({ inst, key: Object.keys(getEffect(inst.effectName)?.params ?? {}).find(k => k.endsWith('Enabled')) }))
-            .filter(e => e.key !== undefined);
-        const allOn = enabledEntries.length > 0 && enabledEntries.every(e => e.inst.params[e.key]);
-
-        const allOnLabel = document.createElement('label');
-        allOnLabel.className = 'checkbox-label';
-        const allOnCheck = document.createElement('input');
-        allOnCheck.type = 'checkbox';
-        allOnCheck.checked = allOn;
-        allOnCheck.addEventListener('change', () => {
-            saveState();
-            enabledEntries.forEach(({ inst, key }) => setInstanceParam(inst.id, key, allOnCheck.checked));
-        });
-        allOnLabel.appendChild(allOnCheck);
-        allOnLabel.appendChild(document.createTextNode(' All On'));
-        toolbar.appendChild(allOnLabel);
-    }
 
     if (stack.length === 0) {
         container.innerHTML = '<div class="stack-empty">No effects added yet.<br>Use the list below to add one.</div>';
@@ -257,7 +330,6 @@ export function renderStackList() {
     // Always hide before showing — order matters (see comment above)
     hideTextOverlay();
     hideFadeOverlay();
-    hideBlurOverlay();
     if (newEffect !== 'crop')         hideCropOverlay();
     if (newEffect !== 'viewport')     hideViewportOverlay();
     if (newEffect !== 'matrixRain')   hideMatrixRainOverlay();
@@ -274,6 +346,7 @@ export function renderStackList() {
     if (newEffect !== 'mesh')           hideMeshOverlay();
     if (newEffect !== 'tunnel')         hideTunnelOverlay();
     if (newEffect !== 'filmSoup')       hideFilmSoupOverlay();
+    if (newEffect !== 'colorGel')       hideColorGelOverlay();
 
     if (!expandedInst) return;
 
@@ -286,7 +359,6 @@ export function renderStackList() {
 
     // Effect-specific overlays that have unique logic or modes
     if      (newEffect === 'text')         showTextOverlay(expandedInst);
-    else if (newEffect === 'blur')         showBlurOverlay(expandedInst);
     else if (newEffect === 'crop')         showCropOverlay(expandedInst);
     else if (newEffect === 'viewport')     showViewportOverlay(expandedInst);
     else if (newEffect === 'matrixRain')   showMatrixRainOverlay(expandedInst);
@@ -302,6 +374,7 @@ export function renderStackList() {
     else if (newEffect === 'mesh')          showMeshOverlay(expandedInst);
     else if (newEffect === 'tunnel')        showTunnelOverlay(expandedInst);
     else if (newEffect === 'filmSoup')      showFilmSoupOverlay(expandedInst);
+    else if (newEffect === 'colorGel')      showColorGelOverlay(expandedInst);
 }
 
 // --- Pointer-based drag-and-drop ---

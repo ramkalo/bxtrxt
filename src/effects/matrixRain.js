@@ -314,18 +314,15 @@ export const matrixRainEffect = {
         matrixRainX:             { default: 0, min: -50, max: 50, label: 'X' },
         matrixRainY:             { default: 0, min: -50, max: 50, label: 'Y' },
 
-        matrixRainColor:         { default: 'green', label: 'Color', options: [
-            ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'],
-            ['cyan', 'Cyan'], ['yellow', 'Yellow'], ['magenta', 'Magenta'],
-            ['black', 'Black'], ['white', 'White'],
+        matrixRainColor:         { default: 'palette0', label: 'Color', type: 'paletteSelect', options: [
+            ['palette0','Color Palette 1'], ['palette1','Color Palette 2'], ['palette2','Color Palette 3'],
+            ['palette3','Color Palette 4'], ['palette4','Color Palette 5'], ['palette5','Color Palette 6'],
+            ['palette6','Color Palette 7'], ['palette7','Color Palette 8'],
+            ['paletteRandom','Palette Random'],
             ['greyNoise',           'Greyscale Noise'],
             ['colorNoise',          'Color Noise'],
             ['imagePaletteNoise',   'Image Palette Inside'],
             ['imagePaletteRandom',  'Image Palette Noise'],
-            ['palette0','Palette 1'], ['palette1','Palette 2'], ['palette2','Palette 3'],
-            ['palette3','Palette 4'], ['palette4','Palette 5'], ['palette5','Palette 6'],
-            ['palette6','Palette 7'], ['palette7','Palette 8'],
-            ['paletteRandom','Palette Random'],
         ] },
         matrixRainCharOpacity:       { default: 100, min: 0, max: 100, label: 'Opacity' },
         ...fade.params,

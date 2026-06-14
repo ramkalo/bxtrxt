@@ -10,7 +10,6 @@ import { uiOverlay, hitTestCentre } from './overlayUtils.js';
 import { drawFade,           hitTestFade,           onDragFade           } from './overlays/fadeOverlay.js';
 import { drawDoubleExposure, hitTestDoubleExposure, onDragDoubleExposure } from './overlays/doubleExposureOverlay.js';
 import { drawShapeSticker,   hitTestShapeSticker,   onDragShapeSticker,  resetShapeStickerVertices } from './overlays/shapeStickerOverlay.js';
-import { drawBlur,           hitTestBlur,           onDragBlur           } from './overlays/blurOverlay.js';
 import { drawCrop,           hitTestCrop,           onDragCrop,          computeCropRect } from './overlays/cropOverlay.js';
 import { drawLineDrag,       hitTestLineDrag,       onDragLineDrag       } from './overlays/lineDragOverlay.js';
 import { drawChroma                                                       } from './overlays/chromaOverlay.js';
@@ -27,6 +26,7 @@ import { drawDrawTool, hitTestDrawTool, onDragDrawTool, finalizeDrawToolStroke, 
 import { drawMeshOverlay, hitTestMesh, onDragMesh } from './overlays/meshOverlay.js';
 import { drawTunnelOverlay, hitTestTunnel, onDragTunnel } from './overlays/tunnelOverlay.js';
 import { drawFilmSoup, hitTestFilmSoup, onDragFilmSoup, addFilmSoupBubble, deleteFilmSoupBubble, canAddFilmSoupBubble } from './overlays/filmSoupOverlay.js';
+import { drawColorGel, hitTestColorGel, onDragColorGel } from './overlays/colorGelOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
@@ -44,7 +44,6 @@ onStackChange((key) => {
     const inst = getStack().find(i => i.id === state.instId);
     if (!inst) { _hideActive(); return; }
     if (state.mode === 'fade')          drawFade(inst.params);
-    if (state.mode === 'blur')          drawBlur(inst.params);
     if (state.mode === 'crop')          drawCrop(inst.params);
     if (state.mode === 'matrixRain')    drawMatrixRain(inst.params);
     if (state.mode === 'lineDrag')      drawLineDrag(inst.params);
@@ -102,6 +101,7 @@ onStackChange((key) => {
     if (state.mode === 'drawTool')     drawDrawTool(inst.params);
     if (state.mode === 'mesh')         drawMeshOverlay(inst.params);
     if (state.mode === 'tunnel')       drawTunnelOverlay(inst.params);
+    if (state.mode === 'colorGel')     drawColorGel(inst.params);
 });
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -149,15 +149,6 @@ export function showShapeStickerOverlay(inst) {
 
 export function hideShapeStickerOverlay() {
     if (state.mode === 'shapeSticker') _hideActive();
-}
-
-export function showBlurOverlay(inst) {
-    _activate('blur', inst, 'blurCenterX', 'blurCenterY');
-    drawBlur(inst.params);
-}
-
-export function hideBlurOverlay() {
-    if (state.mode === 'blur') _hideActive();
 }
 
 export function showCropOverlay(inst) {
@@ -326,6 +317,20 @@ export function hideMeshOverlay() {
     if (state.mode === 'mesh') _hideActive();
 }
 
+export function showColorGelOverlay(inst) {
+    state.shapeKey   = 'colorGelFadeShape';
+    state.wKey       = 'colorGelFadeW';
+    state.hKey       = 'colorGelFadeH';
+    state.angleKey   = 'colorGelFadeAngle';
+    state.enabledKey = 'colorGelFadeEnabled';
+    _activate('colorGel', inst, 'colorGelFadeX', 'colorGelFadeY');
+    drawColorGel(inst.params);
+}
+
+export function hideColorGelOverlay() {
+    if (state.mode === 'colorGel') _hideActive();
+}
+
 export function showTunnelOverlay(inst) {
     state.shapeKey   = 'tunnelFadeShape';
     state.wKey       = 'tunnelFadeW';
@@ -428,7 +433,6 @@ function getCursorForMode(mode, h) {
                 : h === 'edgeW' ? 'ew-resize'
                 : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'vignette':
-        case 'blur':
         case 'crtCurvature':
             return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'doubleExposure':
@@ -472,6 +476,13 @@ function getCursorForMode(mode, h) {
             if (fsInst && canAddFilmSoupBubble(fsInst.params)) return 'crosshair';
             return 'default';
         }
+        case 'colorGel':
+            return (h && h.startsWith('line')) ? 'grab'
+                : h === 'gradRot' ? 'crosshair'
+                : h === 'fadeCenter' ? 'grab'
+                : h === 'fadeRot' ? 'crosshair'
+                : h === 'fadeEdgeW' ? 'ew-resize'
+                : h === 'fadeEdgeH' ? 'ns-resize' : 'default';
         case 'drawTool':
             return 'crosshair';
         case 'mesh':
@@ -492,6 +503,7 @@ function getCursorForMode(mode, h) {
 }
 
 const HIT_FNS = {
+    colorGel:       hitTestColorGel,
     tunnel:         hitTestTunnel,
     mesh:           hitTestMesh,
     drawTool:       hitTestDrawTool,
@@ -503,7 +515,6 @@ const HIT_FNS = {
     doubleExposure: hitTestDoubleExposure,
     lineDrag:       hitTestLineDrag,
     vignette:       hitTestVignette,
-    blur:           hitTestBlur,
     crtCurvature:   hitTestCRTCurvature,
     corrupted:      hitTestCorrupted,
     text:           hitTestText,
@@ -514,6 +525,7 @@ const HIT_FNS = {
 };
 
 const DRAG_FNS = {
+    colorGel:       onDragColorGel,
     tunnel:         onDragTunnel,
     mesh:           onDragMesh,
     drawTool:       onDragDrawTool,
@@ -525,7 +537,6 @@ const DRAG_FNS = {
     doubleExposure: onDragDoubleExposure,
     lineDrag:       onDragLineDrag,
     vignette:       onDragVignette,
-    blur:           onDragBlur,
     crtCurvature:   onDragCRTCurvature,
     text:           onDragText,
     shapeSticker:   onDragShapeSticker,
@@ -535,13 +546,13 @@ const DRAG_FNS = {
 };
 
 const DRAW_FNS = {
+    colorGel:       drawColorGel,
     tunnel:         drawTunnelOverlay,
     mesh:           drawMeshOverlay,
     drawTool:       drawDrawTool,
     blendMap:       drawBlendMap,
     kaleidoscope:   drawKaleidoscope,
     fade:           drawFade,
-    blur:           drawBlur,
     crop:           drawCrop,
     matrixRain:     drawMatrixRain,
     viewport:       drawViewport,

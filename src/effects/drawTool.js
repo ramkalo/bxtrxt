@@ -1,5 +1,6 @@
 import { canvas } from '../renderer/glstate.js';
 import { buildFadeControl, buildBlendControl } from './controls/index.js';
+import { resolveColorKey, STANDARD_COLOR_OPTIONS } from './colorOptions.js';
 
 const fade  = buildFadeControl('drawTool');
 const blend = buildBlendControl('drawTool');
@@ -21,10 +22,17 @@ function buildStrokePath(ctx, pts, w, h) {
     }
 }
 
-function renderSolidStroke(ctx, stroke, w, h) {
+function strokeColor(stroke, activePalette) {
+    // Prefer the palette key (resolved live); fall back to a literal hex stored
+    // on older strokes for backward compatibility.
+    if (stroke.colorKey) return resolveColorKey(stroke.colorKey, activePalette) || stroke.color || '#000000';
+    return stroke.color || '#000000';
+}
+
+function renderSolidStroke(ctx, stroke, w, h, activePalette) {
     ctx.save();
     buildStrokePath(ctx, stroke.points, w, h);
-    ctx.strokeStyle = stroke.color || '#000000';
+    ctx.strokeStyle = strokeColor(stroke, activePalette);
     ctx.lineWidth   = stroke.size;
     ctx.lineCap     = 'round';
     ctx.lineJoin    = 'round';
@@ -102,7 +110,7 @@ function applyDrawTool(ctx, p) {
         if (stroke.fillType === 'static') {
             renderStaticStroke(ctx, stroke, w, h, p._activePalette);
         } else {
-            renderSolidStroke(ctx, stroke, w, h);
+            renderSolidStroke(ctx, stroke, w, h, p._activePalette);
         }
     }
 }
@@ -119,11 +127,7 @@ export const drawToolEffect = {
         drawToolEnabled:    { default: false,       label: 'Enable' },
         drawToolSize:       { default: 10, min: 1, max: 100, label: 'Brush Size' },
         drawToolFillType:   { default: 'solid',     label: 'Fill Type',    options: [['solid', 'Solid'], ['static', 'Static']] },
-        drawToolColor:      { default: 'palette0',  label: 'Color',        options: [
-            ['palette0', 'Color 1'], ['palette1', 'Color 2'], ['palette2', 'Color 3'], ['palette3', 'Color 4'],
-            ['palette4', 'Color 5'], ['palette5', 'Color 6'], ['palette6', 'Color 7'], ['palette7', 'Color 8'],
-            ['black', 'Black'], ['white', 'White'],
-        ]},
+        drawToolColor:      { default: 'palette0',  label: 'Color', type: 'paletteSelect', options: STANDARD_COLOR_OPTIONS },
         drawToolStaticType: { default: 'greyscale', label: 'Static Type',  options: [['greyscale', 'Greyscale'], ['rgbcym', 'RGBCYM'], ['colorPalette', 'Color Palette']] },
         drawToolGrainSize:  { default: 4, min: 1, max: 50, label: 'Grain Size' },
         drawToolStrokes:    { default: '[]', hidden: true },

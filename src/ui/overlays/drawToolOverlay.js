@@ -2,8 +2,10 @@ import { canvas } from '../../renderer/glstate.js';
 import { setInstanceParam, getStack } from '../../state/effectStack.js';
 import { processImageImmediate } from '../../renderer/pipeline.js';
 import { uiCtx, uiOverlay, syncSize } from '../overlayUtils.js';
+import { resolveColorKey } from '../../effects/colorOptions.js';
 
 let _activeStroke = null;
+let _activeInstId = null;
 
 // Mirrors _runLinear's palette tracking: last enabled colorPalette before instId.
 function _getActivePalette(instId) {
@@ -17,17 +19,10 @@ function _getActivePalette(instId) {
     return palette;
 }
 
-function _resolveColorKey(colorKey, activePalette) {
-    if (colorKey === 'black') return '#000000';
-    if (colorKey === 'white') return '#ffffff';
-    const m = colorKey.match(/^palette(\d)$/);
-    if (m && activePalette) return activePalette[+m[1]] ?? '#000000';
-    return '#000000';
-}
-
 function _previewColor(stroke) {
     if (stroke.fillType === 'static') return 'rgba(160,160,160,0.75)';
-    return stroke.color ?? '#000000';
+    const pal = _getActivePalette(_activeInstId);
+    return resolveColorKey(stroke.colorKey, pal) || stroke.color || '#000000';
 }
 
 export function drawDrawTool(_params) {
@@ -43,12 +38,11 @@ export function onDrawToolDown(e, inst, rect) {
     const x = Math.round(((e.clientX - rect.left) / rect.width)  * 1000) / 10;
     const y = Math.round(((e.clientY - rect.top)  / rect.height) * 1000) / 10;
 
-    const activePalette = _getActivePalette(inst.id);
-    // Resolve to actual hex at draw time so the stored stroke needs no palette lookup.
-    const colorHex = _resolveColorKey(p.drawToolColor ?? 'palette0', activePalette);
-
+    _activeInstId = inst.id;
+    // Store the palette key (not a resolved hex) so the stroke recolors live
+    // when the palette changes.
     _activeStroke = {
-        color:      colorHex,
+        colorKey:   p.drawToolColor ?? 'palette0',
         size:       p.drawToolSize       ?? 10,
         fillType:   p.drawToolFillType   ?? 'solid',
         staticType: p.drawToolStaticType ?? 'greyscale',

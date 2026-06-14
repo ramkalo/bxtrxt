@@ -12,6 +12,7 @@ import { initBottomSheet } from './ui/bottomsheet.js';
 import { initTouchGestures } from './ui/touch.js';
 import { initStackPanel, renderStackList } from './ui/stackPanel.js';
 import { initLogo } from './ui/logo.js';
+import { initPreferences } from './ui/preferences.js';
 import { restoreCustomFonts, loadFontFromFile } from './state/customFonts.js';
 
 // ---------------------------------------------------------------------------
@@ -189,6 +190,9 @@ document.getElementById('blankBlack6600').addEventListener('click', function(e) 
 document.getElementById('blankWhite5100p').addEventListener('click', function(e) { e.stopPropagation(); loadBlankCanvas(5100, 6600, '#ffffff'); });
 document.getElementById('blankBlack5100p').addEventListener('click', function(e) { e.stopPropagation(); loadBlankCanvas(5100, 6600, '#000000'); });
 
+document.getElementById('blankWhite1920sq').addEventListener('click', function(e) { e.stopPropagation(); loadBlankCanvas(1920, 1920, '#ffffff'); });
+document.getElementById('blankBlack1920sq').addEventListener('click', function(e) { e.stopPropagation(); loadBlankCanvas(1920, 1920, '#000000'); });
+
 document.getElementById('dropZone').addEventListener('dragover', function(e) {
     e.preventDefault();
     this.classList.add('dragover');
@@ -286,6 +290,7 @@ initMobileUI();
 initBottomSheet();
 initTouchGestures();
 initLogo();
+initPreferences();
 window.addEventListener('beforeunload', cleanupWebGL);
 
 // Mobile warning

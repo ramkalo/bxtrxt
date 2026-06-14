@@ -3,7 +3,7 @@ import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
 import { uiCtx, uiOverlay, syncSize, drawRotHandle, drawCornerHandle, strokeAntLine, HIT_RADIUS, isInsideFadeShape } from '../overlayUtils.js';
 
-function drawFadeShape(p, cx, cy, w, h) {
+export function drawFadeShape(p, cx, cy, w, h) {
     if (!p[state.enabledKey]) return;
 
     const shape = p[state.shapeKey] ?? 'ellipse';
@@ -51,7 +51,7 @@ function drawFadeShape(p, cx, cy, w, h) {
     return { edgeW, edgeH, rotHandle };
 }
 
-function getFadeHandlePositions(p, cx, cy, W, H) {
+export function getFadeHandlePositions(p, cx, cy, W, H) {
     const shape = p[state.shapeKey] ?? 'ellipse';
     const angle = (p[state.angleKey] ?? 0) * Math.PI / 180;
     const cosA  = Math.cos(angle), sinA = Math.sin(angle);

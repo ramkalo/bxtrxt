@@ -4,6 +4,14 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('mesh');
 const blend = buildBlendControl('mesh');
 
+const MESH_COLOR_OPTIONS = [
+    ['palette0', 'Color Palette 1'], ['palette1', 'Color Palette 2'],
+    ['palette2', 'Color Palette 3'], ['palette3', 'Color Palette 4'],
+    ['palette4', 'Color Palette 5'], ['palette5', 'Color Palette 6'],
+    ['palette6', 'Color Palette 7'], ['palette7', 'Color Palette 8'],
+    ['paletteRandom', 'Palette Random'],
+];
+
 function _buildFormulaFn(formula) {
     try {
         const safe = formula
@@ -197,23 +205,8 @@ export const meshEffect = {
         meshYMult:     { default: 0,   min: -3, max: 3, step: 0.1, label: 'Y Multiplier' },
         meshYCycles:   { default: 3,   min: 1, max: 20, step: 1,   label: 'Y Cycles' },
         meshYFormula:  { default: 'x', label: 'Y Formula', info: FORMULA_INFO },
-        meshLineColorMode: {
-            default: 'custom',
-            label: 'Color',
-            options: [
-                ['custom',        'Custom'],
-                ['palette0',      'Palette 1'],
-                ['palette1',      'Palette 2'],
-                ['palette2',      'Palette 3'],
-                ['palette3',      'Palette 4'],
-                ['palette4',      'Palette 5'],
-                ['palette5',      'Palette 6'],
-                ['palette6',      'Palette 7'],
-                ['palette7',      'Palette 8'],
-                ['paletteRandom', 'Palette Random'],
-            ],
-        },
-        meshLineColor: { default: '#ffffff', type: 'color', label: 'Custom Color' },
+        meshLineColorMode: { default: 'palette0', label: 'Color', type: 'paletteSelect', options: MESH_COLOR_OPTIONS },
+        meshLineColor: { default: '#ffffff', type: 'color', label: 'Custom Color', hidden: true },
         meshThickness: { default: 1, min: 0.5, max: 10, step: 0.5, label: 'Thickness' },
         meshScale:     { default: 1, min: 0.1, max: 10, step: 0.05, label: 'Scale' },
         meshRotate:    { default: 0, min: -180, max: 180, step: 1, label: 'Rotate' },
@@ -226,7 +219,7 @@ export const meshEffect = {
         { label: 'Shape',   keys: ['meshScale', 'meshRotate', 'meshResetBox'] },
         { label: 'X Lines', keys: ['meshXCount', 'meshXDist', ...(p.meshXDist !== 'even' ? ['meshXMult'] : []), ...(p.meshXDist === 'sinusoidal' ? ['meshXCycles'] : []), ...(p.meshXDist === 'formula' ? ['meshXFormula'] : [])] },
         { label: 'Y Lines', keys: ['meshYCount', 'meshYDist', ...(p.meshYDist !== 'even' ? ['meshYMult'] : []), ...(p.meshYDist === 'sinusoidal' ? ['meshYCycles'] : []), ...(p.meshYDist === 'formula' ? ['meshYFormula'] : [])] },
-        { label: 'Style',   keys: ['meshLineColorMode', ...(!p.meshLineColorMode || p.meshLineColorMode === 'custom' ? ['meshLineColor'] : []), 'meshThickness'] },
+        { label: 'Style',   keys: ['meshLineColorMode', 'meshThickness'] },
         fade.uiGroup,
         blend.uiGroup,
     ],

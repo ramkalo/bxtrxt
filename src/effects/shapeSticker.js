@@ -1,5 +1,6 @@
 import { canvas } from '../renderer/glstate.js';
 import { buildFadeControl, buildBlendControl } from './controls/index.js';
+import { STANDARD_COLOR_OPTIONS } from './colorOptions.js';
 
 const fade  = buildFadeControl('shapeSticker');
 const blend = buildBlendControl('shapeSticker');
@@ -241,12 +242,7 @@ export const shapeStickerEffect = {
         shapeStickerShape:      { default: 'rectangle', label: 'Shape', options: [['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['polygon', 'Polygon']] },
         shapeStickerSides:      { default: 6,  min: 3,    max: 24,  label: 'Sides' },
         shapeStickerFillType:   { default: 'solid', label: 'Fill Type', options: [['solid', 'Solid Color'], ['static', 'Static'], ['image-grab', 'Image Grab']] },
-        shapeStickerSolidColor: { default: 'black', label: 'Solid Color', options: [
-            ['palette0','Color 1'], ['palette1','Color 2'], ['palette2','Color 3'],
-            ['palette3','Color 4'], ['palette4','Color 5'], ['palette5','Color 6'],
-            ['palette6','Color 7'], ['palette7','Color 8'],
-            ['black','Black'], ['white','White'],
-        ] },
+        shapeStickerSolidColor: { default: 'palette0', label: 'Solid Color', type: 'paletteSelect', options: STANDARD_COLOR_OPTIONS },
         shapeStickerStaticType: { default: 'greyscale', label: 'Static Type', options: [['greyscale', 'Greyscale'], ['rgbcym', 'RGBCYM'], ['colorPalette', 'Color Palette']] },
         shapeStickerGrainSize:  { default: 4,  min: 1,    max: 200,  label: 'Grain Size' },
         shapeStickerStaticSeed: { default: 1,                        label: 'Seed' },

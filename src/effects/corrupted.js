@@ -331,10 +331,10 @@ export default {
             ['outbreak', 'Outbreak'], ['overgrowth', 'Overgrowth'],
             ['worm', 'Worm'], ['3-worms', '3 Worms'], ['snake', 'Snake'],
         ] },
-        corruptedColor:     { default: 'palette0', label: 'Color Fill', options: [
-            ['palette0', 'Palette 1'], ['palette1', 'Palette 2'], ['palette2', 'Palette 3'],
-            ['palette3', 'Palette 4'], ['palette4', 'Palette 5'], ['palette5', 'Palette 6'],
-            ['palette6', 'Palette 7'], ['palette7', 'Palette 8'],
+        corruptedColor:     { default: 'palette0', label: 'Color Fill', type: 'paletteSelect', options: [
+            ['palette0', 'Color Palette 1'], ['palette1', 'Color Palette 2'], ['palette2', 'Color Palette 3'],
+            ['palette3', 'Color Palette 4'], ['palette4', 'Color Palette 5'], ['palette5', 'Color Palette 6'],
+            ['palette6', 'Color Palette 7'], ['palette7', 'Color Palette 8'],
             ['static', 'Static Greyscale'], ['color-static', 'Static RGBCYM'],
             ['palette-static', 'Static Palette'],
             ['inside', 'Inside Corruption'],

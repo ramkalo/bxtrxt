@@ -3,13 +3,14 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('invert');
 const blend = buildBlendControl('invert');
 
+// Palette-only options. Keys are p0..p7 (resolved against the active palette in
+// both the renderer and the swatch control).
 const COLOR_OPTIONS = [
-    ['r',  'Red'], ['g',  'Green'], ['b',  'Blue'],
-    ['c',  'Cyan'], ['y',  'Yellow'], ['m',  'Magenta'],
-    ['w',  'White'], ['bk', 'Black'],
-    ['p0', 'Palette 1'], ['p1', 'Palette 2'], ['p2', 'Palette 3'], ['p3', 'Palette 4'],
-    ['p4', 'Palette 5'], ['p5', 'Palette 6'], ['p6', 'Palette 7'], ['p7', 'Palette 8'],
+    ['p0', 'Color Palette 1'], ['p1', 'Color Palette 2'], ['p2', 'Color Palette 3'], ['p3', 'Color Palette 4'],
+    ['p4', 'Color Palette 5'], ['p5', 'Color Palette 6'], ['p6', 'Color Palette 7'], ['p7', 'Color Palette 8'],
 ];
+// Optional stops (C/D/E) can also be turned off.
+const COLOR_OPTIONS_OPT = [['none', 'None'], ...COLOR_OPTIONS];
 
 export default {
     name: 'colorRemap',
@@ -39,11 +40,11 @@ export default {
     params: {
         invertEnabled:   { default: false, label: 'Enable' },
         invertMode:      { default: 'simple', label: 'Mode', options: [['luminance', 'Luminance Remap'], ['hue', 'Hue Remap'], ['simple', 'Simple Invert']] },
-        invertColorA:    { default: 'w',    label: 'Shadows',    options: COLOR_OPTIONS },
-        invertColorB:    { default: 'bk',   label: 'Highlights', options: COLOR_OPTIONS },
-        invertColorC:    { default: 'none', label: 'Dark Mid',   options: COLOR_OPTIONS },
-        invertColorD:    { default: 'none', label: 'Mid',        options: COLOR_OPTIONS },
-        invertColorE:    { default: 'none', label: 'Light Mid',  options: COLOR_OPTIONS },
+        invertColorA:    { default: 'p0',   label: 'Shadows',    type: 'paletteSelect', options: COLOR_OPTIONS },
+        invertColorB:    { default: 'p7',   label: 'Highlights', type: 'paletteSelect', options: COLOR_OPTIONS },
+        invertColorC:    { default: 'none', label: 'Dark Mid',   type: 'paletteSelect', options: COLOR_OPTIONS_OPT },
+        invertColorD:    { default: 'none', label: 'Mid',        type: 'paletteSelect', options: COLOR_OPTIONS_OPT },
+        invertColorE:    { default: 'none', label: 'Light Mid',  type: 'paletteSelect', options: COLOR_OPTIONS_OPT },
         invertPosA:      { default: 0    },
         invertPosC:      { default: 0.25 },
         invertPosD:      { default: 0.5  },

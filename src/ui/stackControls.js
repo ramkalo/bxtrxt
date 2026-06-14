@@ -5,6 +5,7 @@ import { getCustomFonts } from '../state/customFonts.js';
 import { getPixelsBeforeInstance } from '../renderer/webgl.js';
 import { blendMapImage, canvas } from '../renderer/glstate.js';
 import { toggleBlendMapOverlay, hideBlendMapOverlay } from './canvasPicker.js';
+import { buildPaletteSwatchControl, resolveColorKey, getActivePaletteFor } from './controls/paletteColor.js';
 
 let activeSliderGroup = null;
 let _paletteDragSrc = null; // { instId, index } while a palette swatch is being dragged
@@ -505,133 +506,22 @@ export function buildEffectBody(inst, onRebuild) {
         const modeSelect = content.querySelector('[data-inst-param="invertMode"]');
         modeSelect?.addEventListener('change', () => { if (onRebuild) onRebuild(); });
 
-        const colorASelect = content.querySelector('[data-inst-param="invertColorA"]');
-        const colorAGroup = colorASelect?.closest('.control-group');
-        const colorBSelect = content.querySelector('[data-inst-param="invertColorB"]');
-        const colorBGroup  = colorBSelect?.closest('.control-group');
-        const colorCSelect = content.querySelector('[data-inst-param="invertColorC"]');
-        const colorCGroup  = colorCSelect?.closest('.control-group');
-        const colorDSelect = content.querySelector('[data-inst-param="invertColorD"]');
-        const colorDGroup  = colorDSelect?.closest('.control-group');
-        const colorESelect = content.querySelector('[data-inst-param="invertColorE"]');
-        const colorEGroup  = colorESelect?.closest('.control-group');
+        const colorBGroup = content.querySelector('.control-group[data-inst-param="invertColorB"]');
+        // The five color swatch-strip groups, in stop order. Their ✕ ("None")
+        // swatch toggles optional stops C/D/E on/off (no separate checkbox).
+        const colorGroups = ['invertColorA','invertColorC','invertColorD','invertColorE','invertColorB']
+            .map(k => content.querySelector(`.control-group[data-inst-param="${k}"]`));
+        const refreshStrips = () => { for (const g of colorGroups) g?._refreshSwatches?.(); };
 
-        // --- colour helpers (used by swatches and stops slider) ---
-        const namedHex = {
-            r:'#ff0000', g:'#00ff00', b:'#0000ff',
-            c:'#00ffff', y:'#ffff00', m:'#ff00ff',
-            w:'#ffffff', bk:'#000000',
-        };
         const contrastColor = (hex) => {
             const r = parseInt(hex.slice(1,3),16);
             const g = parseInt(hex.slice(3,5),16);
             const b = parseInt(hex.slice(5,7),16);
             return (0.299*r + 0.587*g + 0.114*b) > 128 ? '#000000' : '#ffffff';
         };
-        const resolveInvertHex = (key) => {
-            if (namedHex[key]) return namedHex[key];
-            if (key?.startsWith('p')) {
-                const idx = parseInt(key.slice(1));
-                const stack = getStack();
-                const invertPos = stack.findIndex(s => s.id === inst.id);
-                for (let i = invertPos - 1; i >= 0; i--) {
-                    if (stack[i].effectName === 'colorPalette' && stack[i].params.paletteEnabled) {
-                        return stack[i].params[`palette${idx}`] || null;
-                    }
-                }
-            }
-            return null;
-        };
-
-        // --- option swatches (used by stop slider and select change handlers) ---
-        const styleColorSelect = (selectEl) => {
-            if (!selectEl) return;
-            for (const opt of selectEl.options) {
-                const hex = resolveInvertHex(opt.value);
-                opt.style.backgroundColor = hex ?? '';
-                opt.style.color = hex ? contrastColor(hex) : '';
-            }
-            const row = selectEl.closest('.control-row');
-            if (!row) return;
-            let swatch = row.querySelector('.invert-swatch');
-            if (!swatch) {
-                swatch = document.createElement('span');
-                swatch.className = 'invert-swatch';
-                swatch.style.cssText = 'display:inline-block;width:14px;height:14px;border-radius:2px;border:1px solid var(--border);flex-shrink:0;margin-left:4px;';
-                row.appendChild(swatch);
-            }
-            const hex = resolveInvertHex(selectEl.value);
-            swatch.style.backgroundColor = hex ?? 'transparent';
-            swatch.style.opacity = hex ? '1' : '0.25';
-        };
+        const resolveInvertHex = (key) => resolveColorKey(key, getActivePaletteFor(inst.id));
 
         if (mode !== 'simple') {
-            // --- checkboxes for C, D, E (activate / deactivate optional stops) ---
-            const stopCheckboxes = {};
-            const lastColors = {
-                invertColorC: inst.params.invertColorC !== 'none' ? inst.params.invertColorC : 'w',
-                invertColorD: inst.params.invertColorD !== 'none' ? inst.params.invertColorD : 'w',
-                invertColorE: inst.params.invertColorE !== 'none' ? inst.params.invertColorE : 'w',
-            };
-            for (const [colorKey, selectEl, group] of [
-                ['invertColorC', colorCSelect, colorCGroup],
-                ['invertColorD', colorDSelect, colorDGroup],
-                ['invertColorE', colorESelect, colorEGroup],
-            ]) {
-                if (!group) continue;
-                const row = group.querySelector('.control-row');
-                if (!row) continue;
-                const cb = document.createElement('input');
-                cb.type = 'checkbox';
-                cb.checked = inst.params[colorKey] !== 'none';
-                cb.style.cssText = 'flex-shrink:0;margin-right:4px;cursor:pointer;';
-                row.insertBefore(cb, row.firstChild);
-                stopCheckboxes[colorKey] = cb;
-                if (selectEl) selectEl.disabled = inst.params[colorKey] === 'none';
-                cb.addEventListener('change', () => {
-                    saveState();
-                    if (cb.checked) {
-                        setInstanceParam(inst.id, colorKey, lastColors[colorKey]);
-                        if (selectEl) selectEl.disabled = false;
-                        // Snap position into range between active neighbors
-                        const stopIdx = STOP_DEFS.findIndex(d => d.colorKey === colorKey);
-                        let leftPos = 0;
-                        for (let j = stopIdx - 1; j >= 0; j--) {
-                            if (j === 0 || inst.params[STOP_DEFS[j].colorKey] !== 'none') { leftPos = getStopPos(j); break; }
-                        }
-                        let rightPos = 1;
-                        for (let j = stopIdx + 1; j < 5; j++) {
-                            if (j === 4 || inst.params[STOP_DEFS[j].colorKey] !== 'none') { rightPos = getStopPos(j); break; }
-                        }
-                        const cur = getStopPos(stopIdx);
-                        if (cur <= leftPos || cur >= rightPos) {
-                            setInstanceParam(inst.id, STOP_DEFS[stopIdx].posKey, Math.round(((leftPos + rightPos) / 2) * 1000) / 1000);
-                        }
-                    } else {
-                        if (selectEl && selectEl.value !== 'none') lastColors[colorKey] = selectEl.value;
-                        setInstanceParam(inst.id, colorKey, 'none');
-                        if (selectEl) selectEl.disabled = true;
-                    }
-                    updateSlider();
-                });
-            }
-
-            const syncCheckboxes = () => {
-                for (const [colorKey, cb] of Object.entries(stopCheckboxes)) {
-                    cb.checked = inst.params[colorKey] !== 'none';
-                    const selEl = content.querySelector(`[data-inst-param="${colorKey}"]`);
-                    if (selEl) selEl.disabled = !cb.checked;
-                }
-            };
-
-            const syncSelectValues = () => {
-                for (const sel of [colorASelect, colorBSelect, colorCSelect, colorDSelect, colorESelect]) {
-                    if (!sel) continue;
-                    const key = sel.dataset.instParam;
-                    if (key && inst.params[key] !== undefined) sel.value = inst.params[key];
-                    styleColorSelect(sel);
-                }
-            };
 
             // --- stop-positions slider ---
             const STOP_DEFS = [
@@ -744,8 +634,7 @@ export function buildEffectBody(inst, onRebuild) {
 
                     setInstanceParam(inst.id, STOP_DEFS[dragState.idx].posKey, Math.round(newPos * 1000) / 1000);
                     updateSlider();
-                    syncCheckboxes();
-                    syncSelectValues();
+                    refreshStrips();
                 });
                 handles[i].addEventListener('pointerup',          () => { dragState.active = false; dragState.idx = -1; });
                 handles[i].addEventListener('lostpointercapture', () => { dragState.active = false; dragState.idx = -1; });
@@ -799,146 +688,30 @@ export function buildEffectBody(inst, onRebuild) {
             });
             sliderGroup.after(randomizeRow);
 
-            for (const sel of [colorASelect, colorBSelect, colorCSelect, colorDSelect, colorESelect]) {
-                if (!sel) continue;
-                styleColorSelect(sel);
-                sel.addEventListener('change', () => { styleColorSelect(sel); updateSlider(); });
-                document.addEventListener('paletteupdate', () => {
-                    if (!document.contains(sel)) return;
-                    styleColorSelect(sel);
-                    updateSlider();
-                });
-            }
+            // Color swatch clicks rebuild the panel (via onRebuild), refreshing the
+            // slider. Palette edits only fire paletteupdate — the strips self-refresh;
+            // keep the slider gradient in sync here too.
+            document.addEventListener('paletteupdate', function onPU() {
+                if (!document.contains(trackWrap)) { document.removeEventListener('paletteupdate', onPU); return; }
+                updateSlider();
+            });
         }
     }
 
     if (inst.effectName === 'text') {
-        const colorSelect     = content.querySelector('[data-inst-param="textColor"]');
+        // textColor is now a swatch strip; picking a swatch rebuilds the panel
+        // (onRebuild), so reflect the noise-randomize button from the param value.
         const randomizeGroup  = content.querySelector('[data-key="textNoiseRandomize"]');
         const noiseValues     = new Set(['greyNoise', 'colorNoise', 'paletteNoise']);
-
-        function syncNoiseBtn() {
-            if (randomizeGroup) randomizeGroup.style.display = noiseValues.has(colorSelect?.value) ? '' : 'none';
-        }
-
-        colorSelect?.addEventListener('change', syncNoiseBtn);
-        syncNoiseBtn();
-    }
-
-    if (inst.effectName === 'mesh') {
-        const colorModeSelect = content.querySelector('[data-inst-param="meshLineColorMode"]');
-        if (colorModeSelect) {
-            function styleMeshColorSelect() {
-                const stack = getStack();
-                const pos = stack.findIndex(s => s.id === inst.id);
-                let pal = null;
-                for (let i = pos - 1; i >= 0; i--) {
-                    if (stack[i].effectName === 'colorPalette' && stack[i].params.paletteEnabled) {
-                        pal = Array.from({ length: 8 }, (_, j) => stack[i].params[`palette${j}`]);
-                        break;
-                    }
-                }
-                for (const opt of colorModeSelect.options) {
-                    const m = opt.value.match(/^palette(\d)$/);
-                    if (m && pal) {
-                        const hex = pal[parseInt(m[1])];
-                        opt.style.backgroundColor = hex ?? '';
-                        const r = parseInt(hex?.slice(1, 3), 16);
-                        const g = parseInt(hex?.slice(3, 5), 16);
-                        const b = parseInt(hex?.slice(5, 7), 16);
-                        opt.style.color = (0.299 * r + 0.587 * g + 0.114 * b) > 128 ? '#000' : '#fff';
-                    } else {
-                        opt.style.backgroundColor = '';
-                        opt.style.color = '';
-                    }
-                }
-            }
-            styleMeshColorSelect();
-            document.addEventListener('paletteupdate', function onPU() {
-                if (!document.contains(colorModeSelect)) {
-                    document.removeEventListener('paletteupdate', onPU);
-                    return;
-                }
-                styleMeshColorSelect();
-            });
+        if (randomizeGroup) {
+            randomizeGroup.style.display = noiseValues.has(inst.params.textColor) ? '' : 'none';
         }
     }
 
-    if (inst.effectName === 'tunnel') {
-        const MID_KEYS     = ['tunnelMid0ColorMode','tunnelMid1ColorMode','tunnelMid2ColorMode','tunnelMid3ColorMode','tunnelMid4ColorMode','tunnelMid5ColorMode'];
-        const MID_FALLBACKS = ['palette1','palette2','palette3','palette4','palette5','palette6'];
-        const lastMidColors = {};
-
-        const getPal = () => {
-            const stack = getStack();
-            const pos = stack.findIndex(s => s.id === inst.id);
-            for (let i = pos - 1; i >= 0; i--) {
-                if (stack[i].effectName === 'colorPalette' && stack[i].params.paletteEnabled)
-                    return Array.from({ length: 8 }, (_, j) => stack[i].params[`palette${j}`]);
-            }
-            return null;
-        };
-
-        const styleSel = (selectEl) => {
-            if (!selectEl) return;
-            const pal = getPal();
-            for (const opt of selectEl.options) {
-                const m = opt.value.match(/^palette(\d)$/);
-                if (m && pal) {
-                    const hex = pal[parseInt(m[1])];
-                    opt.style.backgroundColor = hex ?? '';
-                    const r = parseInt(hex?.slice(1,3),16), g = parseInt(hex?.slice(3,5),16), b = parseInt(hex?.slice(5,7),16);
-                    opt.style.color = (0.299*r + 0.587*g + 0.114*b) > 128 ? '#000' : '#fff';
-                } else {
-                    opt.style.backgroundColor = '';
-                    opt.style.color = '';
-                }
-            }
-        };
-
-        const originSel = content.querySelector('[data-inst-param="tunnelOriginColorMode"]');
-        const finalSel  = content.querySelector('[data-inst-param="tunnelFinalColorMode"]');
-        styleSel(originSel);
-        styleSel(finalSel);
-
-        for (let mi = 0; mi < 6; mi++) {
-            const colorKey = MID_KEYS[mi];
-            const selectEl = content.querySelector(`[data-inst-param="${colorKey}"]`);
-            const group    = selectEl?.closest('.control-group');
-            if (!group) continue;
-            const row = group.querySelector('.control-row');
-            if (!row) continue;
-
-            lastMidColors[colorKey] = inst.params[colorKey] !== 'none' ? inst.params[colorKey] : MID_FALLBACKS[mi];
-            styleSel(selectEl);
-
-            const cb = document.createElement('input');
-            cb.type = 'checkbox';
-            cb.checked = inst.params[colorKey] !== 'none';
-            cb.style.cssText = 'flex-shrink:0;margin-right:4px;cursor:pointer;';
-            row.insertBefore(cb, row.firstChild);
-            if (selectEl) selectEl.disabled = inst.params[colorKey] === 'none';
-
-            cb.addEventListener('change', () => {
-                saveState();
-                if (cb.checked) {
-                    setInstanceParam(inst.id, colorKey, lastMidColors[colorKey]);
-                    if (selectEl) selectEl.disabled = false;
-                } else {
-                    if (selectEl && selectEl.value !== 'none') lastMidColors[colorKey] = selectEl.value;
-                    setInstanceParam(inst.id, colorKey, 'none');
-                    if (selectEl) selectEl.disabled = true;
-                }
-                if (onRebuild) onRebuild();
-            });
-        }
-
-        document.addEventListener('paletteupdate', function onPU() {
-            const all = [originSel, finalSel, ...MID_KEYS.map(k => content.querySelector(`[data-inst-param="${k}"]`))];
-            if (all.every(s => !s || !document.contains(s))) { document.removeEventListener('paletteupdate', onPU); return; }
-            all.forEach(styleSel);
-        });
-    }
+    // Mesh and Tunnel color selectors are now palette-aware swatch strips
+    // (type: 'paletteSelect'); the strip control handles live palette updates
+    // and the ✕ ("None") swatch for tunnel's optional stops, so no per-effect
+    // styling code is needed here anymore.
 
     if (inst.effectName === 'digital-smear') {
         const placementGroup = content.querySelector('[data-inst-param="smearNodeMode"]')?.closest('.control-group');
@@ -1491,6 +1264,11 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
         wrapper.appendChild(checkbox);
         wrapper.appendChild(document.createTextNode(' ' + label));
         return wrapper;
+    }
+
+    // Palette-aware swatch strip → shared control
+    if (schema.type === 'paletteSelect') {
+        return buildPaletteSwatchControl(inst, key, schema, { onRebuild });
     }
 
     // Enum → select

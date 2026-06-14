@@ -1,28 +1,28 @@
-import { colorPaletteEffect } from './colorPalette.js';
-import doubleExposureEffect from './doubleExposure.js';
 import basicEffect          from './basic.js';
-import hueShiftEffect       from './hueShift.js';
-import digitizeEffect       from './digitize.js';
-import grainEffect          from './grain.js';
-import chromaEffect         from './chroma.js';
-import chanSatEffect        from './chanSat.js';
-//import vignetteEffect       from './vignette.js';
 import blurEffect           from './blur.js';
+import chanSatEffect        from './chanSat.js';
+import chromaEffect         from './chroma.js';
+import colorGelEffect       from './colorGel.js';
+import { colorPaletteEffect } from './colorPalette.js';
 import colorRemapEffect      from './invert.js';
-import { vhsEffect } from './vhs.js';
-import { textEffect } from './text.js';
-import digitalSmearEffect   from './digitalSmear.js';
-import lineDragEffect       from './lineDrag.js';
 import corruptedEffect      from './corrupted.js';
-import filmSoupEffect       from './filmSoup.js';
+import cropEffect           from './crop.js';
 import crtCurvatureEffect   from './crtCurvature.js';
 import crtScanlinesEffect   from './crtScanlines.js';
-//import moireEffect          from './moire.js';
-import transformEffect      from './transform.js';
-import cropEffect           from './crop.js';
+import digitalSmearEffect   from './digitalSmear.js';
+import digitizeEffect       from './digitize.js';
+import doubleExposureEffect from './doubleExposure.js';
+import filmSoupEffect       from './filmSoup.js';
 import glowEffect           from './glow.js';
+import grainEffect          from './grain.js';
+import hueShiftEffect       from './hueShift.js';
+import lineDragEffect       from './lineDrag.js';
+//import moireEffect          from './moire.js';
+import { textEffect } from './text.js';
+import transformEffect      from './transform.js';
+import { vhsEffect } from './vhs.js';
+//import vignetteEffect       from './vignette.js';
 import viewportEffect       from './viewport.js';
-import colorGelEffect       from './colorGel.js';
 
 const viewportEntryEffect = {
     name: 'viewportEntry',
@@ -192,37 +192,48 @@ export function buildControlLimits() {
  * The user-browseable effect catalog.
  * Each entry: { name, label, description }
  */
+// Order in which categories are rendered in the effect library.
+export const EFFECT_CATEGORIES = ['Adjust', 'Morph', 'Overlay', 'Blend'];
+
 export const EFFECT_CATALOG = [
-    { name: 'basic',          label: 'Basic Adjustments',    description: 'Brightness, contrast, saturation, and color' },
-    { name: 'blur',           label: 'Blur',                 description: 'Gaussian blur shaped like a vignette — sharp center, soft edges' },
+    // ── Adjust ──
+    { name: 'basic',          label: 'Basic Adjustments',    category: 'Adjust',  description: 'Brightness, contrast, saturation, and color' },
+    { name: 'blur',           label: 'Blur',                 category: 'Adjust',  description: 'Gaussian blur shaped like a vignette — sharp center, soft edges' },
+    { name: 'colorGel',      label: 'Color Gel',            category: 'Adjust',  description: 'Tint the image with a solid or gradient color gel' },
+    { name: 'colorPalette',    label: 'Color Palette',         category: 'Adjust',  description: 'Define 8 custom colors that other effects can reference' },
+    { name: 'crop',           label: 'Crop',                 category: 'Adjust',  description: 'Crop the image' },
+    { name: 'glow',           label: 'Glow',                 category: 'Adjust',  description: 'Bloom halo around bright areas' },
+    { name: 'grain',          label: 'Grain & Noise',        category: 'Adjust',  description: 'Analog film grain and digital noise types' },
+    { name: 'hueShift',       label: 'Hue Shift',            category: 'Adjust',  description: 'Rotate all hues around the color wheel without quantizing' },
+
+    // ── Morph ──
+    { name: 'chroma',         label: 'Chromatic Aberration', category: 'Morph',   description: 'RGB channel separation glitch' },
+    { name: 'crtCurvature',   label: 'CRT Curvature',        category: 'Morph',   description: 'Barrel lens distortion' },
+    { name: 'digital-smear', label: 'Digital Smear',        category: 'Morph',   description: 'Wet paint brush smear with wave-modulated displacement' },
+    { name: 'digitize',       label: 'Digitize',             category: 'Morph',   description: 'Pixelation, color quantization, dithering, and noise' },
+    { name: 'colorRemap',     label: 'Invert (Color Remap)', category: 'Morph',   description: 'Map pixel luminance or hue through a multi-stop color gradient' },
+    { name: 'kaleidoscope',  label: 'Kaleidoscope',         category: 'Morph',   description: 'Mirror, radial symmetry, and kaleidoscope modes with drag handles' },
+    { name: 'lineDrag',      label: 'Line Drag',            category: 'Morph',   description: 'Smear pixel columns or rows from a control line across the image' },
+    { name: 'transform',      label: 'Transform',            category: 'Morph',   description: 'Flip and rotate' },
+    { name: 'vhs',            label: 'VHS Line Glitch',      category: 'Morph',   description: 'Tracking line glitch bands' },
+
+    // ── Overlay ──
+    { name: 'corrupted',     label: 'Corrupted',            category: 'Overlay', description: 'Fractal square corruption spreading from seeded points' },
+    { name: 'crtScanlines',   label: 'CRT Scanlines',        category: 'Overlay', description: 'Horizontal scanline darkening' },
+    { name: 'drawTool',     label: 'Draw',                 category: 'Overlay', description: 'Freehand pen with solid or static fill' },
+    { name: 'matrixRain',   label: 'Matrix Rain',          category: 'Overlay', description: 'Tile text characters across the image in configurable grid patterns' },
+    { name: 'mesh',         label: 'Mesh',                 category: 'Overlay', description: 'Draggable quad grid overlay with configurable line distribution' },
+    { name: 'shapeSticker',   label: 'Shape Sticker',         category: 'Overlay', description: 'Apply a shape filled with solid color, static, or image grab' },
+    { name: 'text',            label: 'Text',                 category: 'Overlay', description: 'Text overlay with paragraph box, formatting, and canvas handles' },
+    { name: 'tunnel',       label: 'Tunnel',               category: 'Overlay', description: 'Repeating shapes along a bezier path creating a tunnel illusion' },
+
+    // ── Blend ──
+    { name: 'doubleExposure', label: 'Double Exposure',      category: 'Blend',   description: 'Blend two images together' },
+    { name: 'filmSoup',      label: 'Film Soup',            category: 'Blend',   description: 'Bubble/foam holes that melt through the effects above the melt point' },
+    { name: 'viewport',      label: 'Viewport',             category: 'Blend',   description: 'Reveal a shaped window that cuts through selected effects' },
+
     //{ name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
-    { name: 'chroma',         label: 'Chromatic Aberration', description: 'RGB channel separation glitch' },
-    { name: 'colorPalette',    label: 'Color Palette',         description: 'Define 8 custom colors that other effects can reference' },
-    { name: 'corrupted',     label: 'Corrupted',            description: 'Fractal square corruption spreading from seeded points' },
-    { name: 'colorGel',      label: 'Color Gel',            description: 'Tint the image with a solid or gradient color gel' },
-    { name: 'filmSoup',      label: 'Film Soup',            description: 'Bubble/foam holes that melt through the effects above the melt point' },
-    { name: 'crop',           label: 'Crop',                 description: 'Crop the image' },
-    { name: 'crtCurvature',   label: 'CRT Curvature',        description: 'Barrel lens distortion' },
-    { name: 'crtScanlines',   label: 'CRT Scanlines',        description: 'Horizontal scanline darkening' },
-    { name: 'digital-smear', label: 'Digital Smear',        description: 'Wet paint brush smear with wave-modulated displacement' },
-    { name: 'digitize',       label: 'Digitize',             description: 'Pixelation, color quantization, dithering, and noise' },
-    { name: 'doubleExposure', label: 'Double Exposure',      description: 'Blend two images together' },
-    { name: 'grain',          label: 'Grain & Noise',        description: 'Analog film grain and digital noise types' },
-    { name: 'glow',           label: 'Glow',                 description: 'Bloom halo around bright areas' },
-    { name: 'hueShift',       label: 'Hue Shift',            description: 'Rotate all hues around the color wheel without quantizing' },
-    { name: 'colorRemap',     label: 'Color Remap',          description: 'Map pixel luminance or hue through a multi-stop color gradient' },
-    { name: 'lineDrag',      label: 'Line Drag',            description: 'Smear pixel columns or rows from a control line across the image' },
-    { name: 'matrixRain',   label: 'Matrix Rain',          description: 'Tile text characters across the image in configurable grid patterns' },
     // { name: 'moire',        label: 'Moire',                description: 'Two overlapping line grids that interfere to produce wave and band patterns' },
-    { name: 'transform',      label: 'Rotate',               description: 'Flip and rotate' },
-    { name: 'shapeSticker',   label: 'Shape Sticker',         description: 'Apply a shape filled with solid color, static, or image grab' },
-    { name: 'text',            label: 'Text',                 description: 'Text overlay with paragraph box, formatting, and canvas handles' },
-    { name: 'vhs',            label: 'VHS Line Glitch',      description: 'Tracking line glitch bands' },
-    { name: 'kaleidoscope',  label: 'Kaleidoscope',         description: 'Mirror, radial symmetry, and kaleidoscope modes with drag handles' },
-    { name: 'viewport',      label: 'Viewport',             description: 'Reveal a shaped window that cuts through selected effects' },
-    { name: 'drawTool',     label: 'Draw',                 description: 'Freehand pen with solid or static fill' },
-    { name: 'mesh',         label: 'Mesh',                 description: 'Draggable quad grid overlay with configurable line distribution' },
-    { name: 'tunnel',       label: 'Tunnel',               description: 'Repeating shapes along a bezier path creating a tunnel illusion' },
     //{ name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
 ];
 
