@@ -6,6 +6,7 @@ import { getPixelsBeforeInstance } from '../renderer/webgl.js';
 import { blendMapImage, canvas } from '../renderer/glstate.js';
 import { toggleBlendMapOverlay, hideBlendMapOverlay } from './canvasPicker.js';
 import { buildPaletteSwatchControl, resolveColorKey, getActivePaletteFor } from './controls/paletteColor.js';
+import { buildHueGridControl } from './controls/hueGrid.js';
 
 let activeSliderGroup = null;
 let _paletteDragSrc = null; // { instId, index } while a palette swatch is being dragged
@@ -505,6 +506,15 @@ export function buildEffectBody(inst, onRebuild) {
 
         const modeSelect = content.querySelector('[data-inst-param="invertMode"]');
         modeSelect?.addEventListener('change', () => { if (onRebuild) onRebuild(); });
+
+        // Hue Remap: 2D grid color-region picker (replaces the old linear stops).
+        if (mode === 'hue') {
+            const gridCtl = buildHueGridControl(inst, { onRebuild });
+            const outputGroup = content.querySelector('[data-inst-param="invertGridOutput"]')?.closest('.control-group');
+            if (outputGroup) outputGroup.after(gridCtl);
+            else content.appendChild(gridCtl);
+            return content;
+        }
 
         const colorBGroup = content.querySelector('.control-group[data-inst-param="invertColorB"]');
         // The five color swatch-strip groups, in stop order. Their ✕ ("None")
