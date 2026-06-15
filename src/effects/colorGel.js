@@ -69,7 +69,7 @@ function colorGelBindUniforms(gl, prog, p) {
 export default {
     name:  'colorGel',
     label: 'Color Gel',
-    pass:  'pre-crt',
+    kind:  'glsl',
     // Angle + transition anchors are driven by the canvas overlay (dashed lines
     // + rotation handle), so they're hidden from the controls panel.
     handleParams: ['colorGelGradAngle',

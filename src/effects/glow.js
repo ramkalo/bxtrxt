@@ -64,7 +64,7 @@ void main() {
 export default {
     name: 'glow',
     label: 'Glow',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: [
         'glowRadius', 'glowIntensity',
         ...fade.paramKeys,

@@ -15,7 +15,7 @@ const COLOR_OPTIONS_OPT = [['none', 'None'], ...COLOR_OPTIONS];
 export default {
     name: 'colorRemap',
     label: 'Color Remap',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: ['invertMode', 'invertColorA', 'invertColorB', 'invertColorC', 'invertColorD', 'invertColorE', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: ['invertPosA', 'invertPosB', 'invertPosC', 'invertPosD', 'invertPosE', ...fade.handleParams],
     uiGroups: (p) => {

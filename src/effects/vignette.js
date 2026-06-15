@@ -5,7 +5,7 @@ const blend = buildBlendControl('vignette');
 export default {
     name: 'vignette',
     label: 'Vignette',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: ['vignetteMode', 'vignetteMajor', 'vignetteMinor', 'vignetteAngle', 'vignetteCenterX', 'vignetteCenterY', 'vignetteEdge', 'vignetteCenter', 'vignetteTransition', ...blend.paramKeys],
     handleParams: ['vignetteCenterX', 'vignetteCenterY', 'vignetteMajor', 'vignetteMinor', 'vignetteAngle'],
     uiGroups: [

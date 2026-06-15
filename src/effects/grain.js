@@ -8,7 +8,7 @@ const TYPE_MAP = { film: 0, white: 1, grey: 2, color: 3, luma: 4, image: 5 };
 export default {
     name: 'grain',
     label: 'Grain & Noise',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: ['grainIntensity', 'grainSize', 'grainType', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: [...fade.handleParams],
     uiGroups: [

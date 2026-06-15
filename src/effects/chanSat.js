@@ -6,7 +6,7 @@ const blend = buildBlendControl('chanSat');
 export default {
     name:  'chanSat',
     label: 'Channel Saturation',
-    pass:  'pre-crt',
+    kind:  'glsl',
     paramKeys: ['chanSatRed', 'chanSatGreen', 'chanSatBlue', 'chanSatMinSat', 'chanSatAmount', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: [...fade.handleParams],
     uiGroups: [

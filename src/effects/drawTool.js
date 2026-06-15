@@ -118,7 +118,7 @@ function applyDrawTool(ctx, p) {
 export const drawToolEffect = {
     name:        'drawTool',
     label:       'Draw',
-    pass:        'context',
+    kind:        'context',
     blendPrefix: 'drawTool',
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     paramKeys:   [...fade.paramKeys, ...blend.paramKeys],

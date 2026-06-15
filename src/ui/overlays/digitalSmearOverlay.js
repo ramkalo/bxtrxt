@@ -10,9 +10,9 @@ export function drawDigitalSmear(p) {
     const w = uiOverlay.width, h = uiOverlay.height;
     uiCtx.clearRect(0, 0, w, h);
 
-    const count = p.smearNodeCount ?? 0;
-    const cx = (p.smearCenterX ?? 50) / 100 * w;
-    const cy = (p.smearCenterY ?? 50) / 100 * h;
+    const count = p.smearTwistNodeCount ?? 0;
+    const cx = (p.smearTwistCenterX ?? 50) / 100 * w;
+    const cy = (p.smearTwistCenterY ?? 50) / 100 * h;
 
     // Draw thin dashed lines from center to each node
     if (count > 0) {
@@ -20,8 +20,8 @@ export function drawDigitalSmear(p) {
         uiCtx.lineWidth   = 1;
         uiCtx.setLineDash([4, 4]);
         for (let i = 0; i < count; i++) {
-            const nx = (p[`smearNx${i}`] ?? 0) / 100 * w;
-            const ny = (p[`smearNy${i}`] ?? 0) / 100 * h;
+            const nx = (p[`smearTwistNx${i}`] ?? 0) / 100 * w;
+            const ny = (p[`smearTwistNy${i}`] ?? 0) / 100 * h;
             uiCtx.beginPath();
             uiCtx.moveTo(cx, cy);
             uiCtx.lineTo(nx, ny);
@@ -32,8 +32,8 @@ export function drawDigitalSmear(p) {
 
     // Draw node handles (small squares)
     for (let i = 0; i < count; i++) {
-        const nx = (p[`smearNx${i}`] ?? 0) / 100 * w;
-        const ny = (p[`smearNy${i}`] ?? 0) / 100 * h;
+        const nx = (p[`smearTwistNx${i}`] ?? 0) / 100 * w;
+        const ny = (p[`smearTwistNy${i}`] ?? 0) / 100 * h;
         drawCornerHandle(nx, ny);
     }
 
@@ -50,14 +50,14 @@ export function hitTestDigitalSmear(e) {
     const W = uiOverlay.width, H = uiOverlay.height;
     const p = inst.params;
 
-    const cx = (p.smearCenterX ?? 50) / 100 * W;
-    const cy = (p.smearCenterY ?? 50) / 100 * H;
+    const cx = (p.smearTwistCenterX ?? 50) / 100 * W;
+    const cy = (p.smearTwistCenterY ?? 50) / 100 * H;
     if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
-    const count = p.smearNodeCount ?? 0;
+    const count = p.smearTwistNodeCount ?? 0;
     for (let i = 0; i < count; i++) {
-        const nx = (p[`smearNx${i}`] ?? 0) / 100 * W;
-        const ny = (p[`smearNy${i}`] ?? 0) / 100 * H;
+        const nx = (p[`smearTwistNx${i}`] ?? 0) / 100 * W;
+        const ny = (p[`smearTwistNy${i}`] ?? 0) / 100 * H;
         if (Math.hypot(mx - nx, my - ny) <= HIT_RADIUS) return `node:${i}`;
     }
 
@@ -73,30 +73,30 @@ export function onDragDigitalSmear(e, inst, rect) {
     if (state.handle === 'center') {
         const newCx = Math.round(clamp((mx / W) * 100, 0, 100));
         const newCy = Math.round(clamp((my / H) * 100, 0, 100));
-        const dx = newCx - (p.smearCenterX ?? 50);
-        const dy = newCy - (p.smearCenterY ?? 50);
+        const dx = newCx - (p.smearTwistCenterX ?? 50);
+        const dy = newCy - (p.smearTwistCenterY ?? 50);
 
-        setInstanceParam(state.instId, 'smearCenterX', newCx);
-        setInstanceParam(state.instId, 'smearCenterY', newCy);
+        setInstanceParam(state.instId, 'smearTwistCenterX', newCx);
+        setInstanceParam(state.instId, 'smearTwistCenterY', newCy);
 
-        const count = p.smearNodeCount ?? 0;
+        const count = p.smearTwistNodeCount ?? 0;
         for (let i = 0; i < count; i++) {
-            setInstanceParam(state.instId, `smearNx${i}`, clamp((p[`smearNx${i}`] ?? 0) + dx, 0, 100));
-            setInstanceParam(state.instId, `smearNy${i}`, clamp((p[`smearNy${i}`] ?? 0) + dy, 0, 100));
+            setInstanceParam(state.instId, `smearTwistNx${i}`, clamp((p[`smearTwistNx${i}`] ?? 0) + dx, 0, 100));
+            setInstanceParam(state.instId, `smearTwistNy${i}`, clamp((p[`smearTwistNy${i}`] ?? 0) + dy, 0, 100));
         }
     } else if (state.handle?.startsWith('node:')) {
         const idx = parseInt(state.handle.split(':')[1]);
-        setInstanceParam(state.instId, `smearNx${idx}`, Math.round(clamp((mx / W) * 100, 0, 100)));
-        setInstanceParam(state.instId, `smearNy${idx}`, Math.round(clamp((my / H) * 100, 0, 100)));
+        setInstanceParam(state.instId, `smearTwistNx${idx}`, Math.round(clamp((mx / W) * 100, 0, 100)));
+        setInstanceParam(state.instId, `smearTwistNy${idx}`, Math.round(clamp((my / H) * 100, 0, 100)));
     }
 }
 
 // Removes node at idx, shifts subsequent nodes down to fill the gap.
 export function deleteSmearNode(instId, idx, p) {
-    const count = p.smearNodeCount ?? 0;
+    const count = p.smearTwistNodeCount ?? 0;
     for (let i = idx; i < count - 1; i++) {
-        setInstanceParam(instId, `smearNx${i}`, p[`smearNx${i + 1}`] ?? 0);
-        setInstanceParam(instId, `smearNy${i}`, p[`smearNy${i + 1}`] ?? 0);
+        setInstanceParam(instId, `smearTwistNx${i}`, p[`smearTwistNx${i + 1}`] ?? 0);
+        setInstanceParam(instId, `smearTwistNy${i}`, p[`smearTwistNy${i + 1}`] ?? 0);
     }
-    setInstanceParam(instId, 'smearNodeCount', count - 1);
+    setInstanceParam(instId, 'smearTwistNodeCount', count - 1);
 }

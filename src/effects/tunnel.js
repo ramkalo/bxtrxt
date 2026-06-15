@@ -235,7 +235,7 @@ const DIST_OPTIONS = [
 export const tunnelEffect = {
     name:        'tunnel',
     label:       'Tunnel',
-    pass:        'context',
+    kind:        'context',
     blendPrefix: 'tunnel',
     overlays:    {},
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },

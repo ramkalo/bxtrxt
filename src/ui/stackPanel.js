@@ -336,12 +336,12 @@ export function renderStackList() {
     if (newEffect !== 'lineDrag')     hideLineDragOverlay();
     if (!overlays.chroma)             hideChromaOverlay();
     if (newEffect !== 'vignette')     hideVignetteOverlay();
-    if (newEffect !== 'crtCurvature') hideCRTCurvatureOverlay();
+    if (newEffect !== 'barrelDistortion') hideCRTCurvatureOverlay();
     if (newEffect !== 'corrupted')    hideCorruptedOverlay();
     if (newEffect !== 'doubleExposure') hideDoubleExposureOverlay();
     if (newEffect !== 'shapeSticker')   hideShapeStickerOverlay();
     if (newEffect !== 'kaleidoscope')   hideKaleidoscopeOverlay();
-    if (newEffect !== 'digital-smear')  hideDigitalSmearOverlay();
+    if (newEffect !== 'smearTwist')  hideDigitalSmearOverlay();
     if (newEffect !== 'drawTool')       hideDrawToolOverlay();
     if (newEffect !== 'mesh')           hideMeshOverlay();
     if (newEffect !== 'tunnel')         hideTunnelOverlay();
@@ -365,11 +365,11 @@ export function renderStackList() {
     else if (newEffect === 'lineDrag')     showLineDragOverlay(expandedInst);
     else if (newEffect === 'doubleExposure') showDoubleExposureOverlay(expandedInst);
     else if (newEffect === 'vignette')     showVignetteOverlay(expandedInst);
-    else if (newEffect === 'crtCurvature') showCRTCurvatureOverlay(expandedInst);
+    else if (newEffect === 'barrelDistortion') showCRTCurvatureOverlay(expandedInst);
     else if (newEffect === 'corrupted')    showCorruptedOverlay(expandedInst);
     else if (newEffect === 'shapeSticker')  showShapeStickerOverlay(expandedInst);
     else if (newEffect === 'kaleidoscope')  showKaleidoscopeOverlay(expandedInst);
-    else if (newEffect === 'digital-smear') showDigitalSmearOverlay(expandedInst);
+    else if (newEffect === 'smearTwist') showDigitalSmearOverlay(expandedInst);
     else if (newEffect === 'drawTool')      showDrawToolOverlay(expandedInst);
     else if (newEffect === 'mesh')          showMeshOverlay(expandedInst);
     else if (newEffect === 'tunnel')        showTunnelOverlay(expandedInst);

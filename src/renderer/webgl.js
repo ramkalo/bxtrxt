@@ -314,7 +314,7 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
         // Reveal effects (viewport, filmSoup) composite inline: outside = current state,
         // window = the snapshot captured at this effect's entry marker. Using per-effect
         // snapshots lets multiple reveals overlap/nest and compose onto each other.
-        if (effect.pass === 'reveal') {
+        if (effect.kind === 'reveal') {
             if (!revealCtx) continue;
             const rc = effect.reveal;
             const entryId   = rc ? renderParams[rc.entryIdKey] : null;
@@ -326,7 +326,7 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
             continue;
         }
 
-        if (effect.pass === 'transform') {
+        if (effect.kind === 'transform') {
             // In crop-preview mode keep the canvas at full image size
             if (instance.effectName === 'crop' && isCropPreviewActive()) continue;
             if (!effect.glsl) continue;
@@ -369,7 +369,7 @@ function _runLinear(stack, startTex, inheritedPalette = null, internalTextures =
             continue;
         }
 
-        if (effect.pass === 'context') {
+        if (effect.kind === 'context') {
             if (!overlayCanvas || !overlayCtx || !effect.canvas2d) continue;
 
             // Blit current state to canvas so canvas2d effects can read pixels via srcCanvas.
@@ -554,8 +554,8 @@ function _runEffects(stack) {
     const snapshots = new Map();
     const revealCtx = neededMarkerIds.size ? { neededMarkerIds, snapshots } : null;
 
-    // Single linear pass: reveal effects composite inline against their entry snapshot,
-    // so multiple film soups / viewports can overlap and compose onto one another.
+    // Single linear walk of the stack in user order: reveal effects composite inline against
+    // their entry snapshot, so multiple film soups / viewports can overlap and compose.
     const { tex: srcTex } = _runLinear(stack, _origTex, null, _internalCaptureFBOs, revealCtx);
     runPass(PASSTHROUGH_FRAG, srcTex, null, null, null);
 

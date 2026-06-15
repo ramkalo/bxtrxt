@@ -6,7 +6,7 @@ const blend = buildBlendControl('chroma');
 export default {
     name: 'chroma',
     label: 'Chromatic Aberration',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: [
         'chromaRedX', 'chromaRedY', 'chromaGreenX', 'chromaGreenY', 'chromaBlueX', 'chromaBlueY',
         'chromaScale', 'wavesPhase',

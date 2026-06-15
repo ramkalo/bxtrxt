@@ -327,7 +327,7 @@ export function applyText(ctx, p, srcCanvas) {
 export const textEffect = {
     name: 'text',
     label: 'Text',
-    pass: 'context',
+    kind: 'context',
     blendPrefix: 'text',
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     paramKeys: [

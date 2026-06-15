@@ -49,7 +49,7 @@ onStackChange((key) => {
     if (state.mode === 'lineDrag')      drawLineDrag(inst.params);
     if (state.mode === 'chroma')        drawChroma(inst.params);
     if (state.mode === 'vignette')      drawVignette(inst.params);
-    if (state.mode === 'crtCurvature')  drawCRTCurvature(inst.params);
+    if (state.mode === 'barrelDistortion')  drawCRTCurvature(inst.params);
     if (state.mode === 'corrupted')     drawCorrupted(inst.params);
     if (state.mode === 'text')          drawTextOverlay(inst.params);
     if (state.mode === 'doubleExposure') drawDoubleExposure(inst.params);
@@ -96,7 +96,7 @@ onStackChange((key) => {
         }
         drawViewport(p);
     }
-    if (state.mode === 'digitalSmear') drawDigitalSmear(inst.params);
+    if (state.mode === 'smearTwist') drawDigitalSmear(inst.params);
     if (state.mode === 'filmSoup')     drawFilmSoup(inst.params);
     if (state.mode === 'drawTool')     drawDrawTool(inst.params);
     if (state.mode === 'mesh')         drawMeshOverlay(inst.params);
@@ -198,15 +198,15 @@ export function hideVignetteOverlay() {
 }
 
 export function showCRTCurvatureOverlay(inst) {
-    state.wKey     = 'crtCurvatureMajor';
-    state.hKey     = 'crtCurvatureMinor';
-    state.angleKey = 'crtCurvatureAngle';
-    _activate('crtCurvature', inst, 'crtCurvatureX', 'crtCurvatureY');
+    state.wKey     = 'barrelDistortionMajor';
+    state.hKey     = 'barrelDistortionMinor';
+    state.angleKey = 'barrelDistortionAngle';
+    _activate('barrelDistortion', inst, 'barrelDistortionX', 'barrelDistortionY');
     drawCRTCurvature(inst.params);
 }
 
 export function hideCRTCurvatureOverlay() {
-    if (state.mode === 'crtCurvature') _hideActive();
+    if (state.mode === 'barrelDistortion') _hideActive();
 }
 
 export function showCorruptedOverlay(inst) {
@@ -277,12 +277,12 @@ export function hideKaleidoscopeOverlay() {
 }
 
 export function showDigitalSmearOverlay(inst) {
-    _activate('digitalSmear', inst, 'smearCenterX', 'smearCenterY');
+    _activate('smearTwist', inst, 'smearTwistCenterX', 'smearTwistCenterY');
     drawDigitalSmear(inst.params);
 }
 
 export function hideDigitalSmearOverlay() {
-    if (state.mode === 'digitalSmear') _hideActive();
+    if (state.mode === 'smearTwist') _hideActive();
 }
 
 export function showFilmSoupOverlay(inst) {
@@ -433,7 +433,7 @@ function getCursorForMode(mode, h) {
                 : h === 'edgeW' ? 'ew-resize'
                 : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'vignette':
-        case 'crtCurvature':
+        case 'barrelDistortion':
             return h === 'center' ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'doubleExposure':
             return (h === 'imgPos' || h === 'center') ? 'grab' : h === 'rot' ? 'crosshair' : h === 'edgeW' ? 'ew-resize' : h === 'edgeH' ? 'ns-resize' : 'default';
@@ -461,12 +461,12 @@ function getCursorForMode(mode, h) {
                 : h === 'fadeEdgeW' ? 'ew-resize'
                 : h === 'fadeEdgeH' ? 'ns-resize'
                 : h ? 'nwse-resize' : 'default';
-        case 'digitalSmear': {
+        case 'smearTwist': {
             if (h === 'center' || (h && h.startsWith('node:'))) return 'grab';
             const dsInst = getStack().find(i => i.id === state.instId);
             const dsp = dsInst?.params ?? {};
-            if ((dsp.smearNodeMode ?? 'manual') === 'manual'
-                && (dsp.smearNodeCount ?? 0) < 24) return 'crosshair';
+            if ((dsp.smearTwistNodeMode ?? 'manual') === 'manual'
+                && (dsp.smearTwistNodeCount ?? 0) < 24) return 'crosshair';
             return 'default';
         }
         case 'filmSoup': {
@@ -515,12 +515,12 @@ const HIT_FNS = {
     doubleExposure: hitTestDoubleExposure,
     lineDrag:       hitTestLineDrag,
     vignette:       hitTestVignette,
-    crtCurvature:   hitTestCRTCurvature,
+    barrelDistortion:   hitTestCRTCurvature,
     corrupted:      hitTestCorrupted,
     text:           hitTestText,
     shapeSticker:   hitTestShapeSticker,
     matrixRain:     hitTestMatrixRain,
-    digitalSmear:   hitTestDigitalSmear,
+    smearTwist:hitTestDigitalSmear,
     filmSoup:       hitTestFilmSoup,
 };
 
@@ -537,11 +537,11 @@ const DRAG_FNS = {
     doubleExposure: onDragDoubleExposure,
     lineDrag:       onDragLineDrag,
     vignette:       onDragVignette,
-    crtCurvature:   onDragCRTCurvature,
+    barrelDistortion:   onDragCRTCurvature,
     text:           onDragText,
     shapeSticker:   onDragShapeSticker,
     matrixRain:     onDragMatrixRain,
-    digitalSmear:   onDragDigitalSmear,
+    smearTwist:onDragDigitalSmear,
     filmSoup:       onDragFilmSoup,
 };
 
@@ -563,8 +563,8 @@ const DRAW_FNS = {
     doubleExposure: drawDoubleExposure,
     shapeSticker:   drawShapeSticker,
     corrupted:      drawCorrupted,
-    crtCurvature:   drawCRTCurvature,
-    digitalSmear:   drawDigitalSmear,
+    barrelDistortion:   drawCRTCurvature,
+    smearTwist:drawDigitalSmear,
     filmSoup:       drawFilmSoup,
 };
 
@@ -579,21 +579,21 @@ function onDown(e) {
     const hitFn = HIT_FNS[state.mode];
     const h = hitFn ? hitFn(e) : (hitTestCentre(e) ? 'center' : null);
 
-    if (!h && state.mode === 'digitalSmear') {
+    if (!h && state.mode === 'smearTwist') {
         const inst = getStack().find(i => i.id === state.instId);
         if (inst) {
             const p = inst.params;
-            if ((p.smearNodeMode ?? 'manual') === 'manual'
-                && (p.smearNodeCount ?? 0) < 24) {
+            if ((p.smearTwistNodeMode ?? 'manual') === 'manual'
+                && (p.smearTwistNodeCount ?? 0) < 24) {
                 const rect = canvas.getBoundingClientRect();
                 const W = uiOverlay.width, H = uiOverlay.height;
                 const nx = Math.round(Math.max(0, Math.min(100, ((e.clientX - rect.left) / W) * 100)));
                 const ny = Math.round(Math.max(0, Math.min(100, ((e.clientY - rect.top)  / H) * 100)));
-                const idx = p.smearNodeCount ?? 0;
+                const idx = p.smearTwistNodeCount ?? 0;
                 saveState();
-                setInstanceParam(state.instId, `smearNx${idx}`, nx);
-                setInstanceParam(state.instId, `smearNy${idx}`, ny);
-                setInstanceParam(state.instId, 'smearNodeCount', idx + 1);
+                setInstanceParam(state.instId, `smearTwistNx${idx}`, nx);
+                setInstanceParam(state.instId, `smearTwistNy${idx}`, ny);
+                setInstanceParam(state.instId, 'smearTwistNodeCount', idx + 1);
             }
         }
     }
@@ -613,17 +613,43 @@ function onDown(e) {
     uiOverlay.setPointerCapture(e.pointerId);
     uiOverlay.style.cursor = getCursorForMode(state.mode, h).replace('grab', 'grabbing');
 
-    // Special dragAnchor setup for crop corner drags
-    if (state.mode === 'crop' && h !== 'center') {
+    // Special dragAnchor setup for crop drags
+    if (state.mode === 'crop') {
         const inst = getStack().find(i => i.id === state.instId);
         if (inst) {
             const { cx, cy, bw, bh } = computeCropRect(inst.params);
-            const SIGNS = { tl: [-1, -1], tr: [+1, -1], br: [+1, +1], bl: [-1, +1] };
-            const [signX, signY] = SIGNS[h];
+            if (h === 'center') {
+                // Record the grab offset so the crop moves relative to the cursor
+                // instead of snapping its center under the pointer.
+                const rect2 = canvas.getBoundingClientRect();
+                state.dragAnchor = {
+                    grabDX: cx - (e.clientX - rect2.left),
+                    grabDY: cy - (e.clientY - rect2.top),
+                };
+            } else {
+                const SIGNS = { tl: [-1, -1], tr: [+1, -1], br: [+1, +1], bl: [-1, +1] };
+                const [signX, signY] = SIGNS[h];
+                state.dragAnchor = {
+                    oppX: cx - signX * bw / 2,
+                    oppY: cy - signY * bh / 2,
+                    signX, signY,
+                };
+            }
+        }
+    }
+
+    // Grab offset for barrel-distortion (barrelDistortion) center drag, so the
+    // region moves relative to the cursor instead of snapping under it.
+    if (state.mode === 'barrelDistortion' && h === 'center') {
+        const inst = getStack().find(i => i.id === state.instId);
+        if (inst) {
+            const p = inst.params;
+            const rect2 = canvas.getBoundingClientRect();
+            const cx = (0.5 + p.barrelDistortionX / 100) * uiOverlay.width;
+            const cy = (0.5 - p.barrelDistortionY / 100) * uiOverlay.height;
             state.dragAnchor = {
-                oppX: cx - signX * bw / 2,
-                oppY: cy - signY * bh / 2,
-                signX, signY,
+                grabDX: cx - (e.clientX - rect2.left),
+                grabDY: cy - (e.clientY - rect2.top),
             };
         }
     }
@@ -730,7 +756,7 @@ function onUp() {
     const inst = getStack().find(i => i.id === instId);
     if (!inst) return;
 
-    if (wasClick && mode === 'digitalSmear' && handle?.startsWith('node:')) {
+    if (wasClick && mode === 'smearTwist' && handle?.startsWith('node:')) {
         const idx = parseInt(handle.split(':')[1]);
         deleteSmearNode(instId, idx, inst.params);
     }

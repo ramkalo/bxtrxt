@@ -6,7 +6,7 @@ const blend = buildBlendControl('lineDrag');
 export default {
     name:  'lineDrag',
     label: 'Line Drag',
-    pass:  'pre-crt',
+    kind:  'glsl',
 
     handleParams: ['lineDragX', 'lineDragY', 'lineDragAngle', ...fade.handleParams],
 

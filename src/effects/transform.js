@@ -1,7 +1,7 @@
 export default {
     name: 'transform',
     label: 'Rotate',
-    pass: 'transform',
+    kind: 'transform',
     paramKeys: ['rotate90', 'rotate180', 'rotate270', 'flipH', 'flipV'],
     params: {
         transformEnabled: { default: false, label: 'Enable' },

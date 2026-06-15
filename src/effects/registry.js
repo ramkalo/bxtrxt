@@ -17,17 +17,15 @@ import glowEffect           from './glow.js';
 import grainEffect          from './grain.js';
 import hueShiftEffect       from './hueShift.js';
 import lineDragEffect       from './lineDrag.js';
-//import moireEffect          from './moire.js';
 import { textEffect } from './text.js';
 import transformEffect      from './transform.js';
-import { vhsEffect } from './vhs.js';
-//import vignetteEffect       from './vignette.js';
+import { lineGlitchEffect } from './vhs.js';
 import viewportEffect       from './viewport.js';
 
 const viewportEntryEffect = {
     name: 'viewportEntry',
     label: 'Viewport Entry',
-    pass: 'viewportEntry',
+    kind: 'marker',
     params: {},
     enabled: () => false,
     isMarker: true,
@@ -36,7 +34,7 @@ const viewportEntryEffect = {
 const doubleExposureEntryEffect = {
     name: 'doubleExposureEntry',
     label: 'Double Exposure Grab Point',
-    pass: 'doubleExposureEntry',
+    kind: 'marker',
     params: {},
     enabled: () => false,
     isMarker: true,
@@ -45,7 +43,7 @@ const doubleExposureEntryEffect = {
 const filmSoupMeltEffect = {
     name: 'filmSoupMelt',
     label: 'Film Soup Melt Point',
-    pass: 'filmSoupMelt',
+    kind: 'marker',
     params: {},
     enabled: () => false,
     isMarker: true,
@@ -61,7 +59,7 @@ import { tunnelEffect } from './tunnel.js';
  * @typedef {Object} EffectBase
  * @property {string} name
  * @property {string} label
- * @property {'transform'|'pre-crt'|'post'|'context'|'viewport'} pass
+ * @property {'transform'|'glsl'|'context'|'reveal'|'marker'} kind
  * @property {Record<string, {default: *, min?: number, max?: number, step?: number, label?: string, options?: [string, string][]}>} params
  * @property {(p: object) => boolean} enabled
  * @property {string[]} [paramKeys]       — param names auto-bound to GLSL uniforms
@@ -78,40 +76,42 @@ import { tunnelEffect } from './tunnel.js';
  * @typedef {TransformEffect|GlslEffect|MultiPassEffect|ContextEffect} EffectDef
  */
 
-const KNOWN_PASSES = new Set(['transform', 'pre-crt', 'post', 'context', 'reveal', 'viewport', 'viewportEntry', 'doubleExposureEntry', 'filmSoupMelt']);
+const KNOWN_KINDS = new Set(['transform', 'glsl', 'context', 'reveal', 'marker']);
 
 /** @param {EffectDef} effect */
 function validateEffect(effect) {
     const id = `Effect "${effect?.name ?? '(unknown)'}"`;
     if (typeof effect.name   !== 'string')   throw new Error(`${id}: "name" must be a string`);
     if (typeof effect.label  !== 'string')   throw new Error(`${id}: "label" must be a string`);
-    if (typeof effect.pass   !== 'string')   throw new Error(`${id}: "pass" must be a string`);
+    if (typeof effect.kind   !== 'string')   throw new Error(`${id}: "kind" must be a string`);
     if (typeof effect.params !== 'object')   throw new Error(`${id}: "params" must be an object`);
     if (typeof effect.enabled !== 'function') throw new Error(`${id}: "enabled" must be a function`);
-    if (!KNOWN_PASSES.has(effect.pass))       throw new Error(`${id}: unknown pass "${effect.pass}"`);
+    if (!KNOWN_KINDS.has(effect.kind))        throw new Error(`${id}: unknown kind "${effect.kind}"`);
 
-    if (effect.pass === 'context') {
+    if (effect.kind === 'context') {
         if (typeof effect.canvas2d !== 'function')
-            throw new Error(`${id}: pass "context" requires a canvas2d function`);
+            throw new Error(`${id}: kind "context" requires a canvas2d function`);
     } else if (!effect.isMarker) {
         if (!effect.glsl && !effect.glslPasses)
-            throw new Error(`${id}: pass "${effect.pass}" requires glsl or glslPasses`);
+            throw new Error(`${id}: kind "${effect.kind}" requires glsl or glslPasses`);
     }
 }
 
 /**
- * Master ordered list of all effects.
- * Order matters: effects are applied in this sequence by the rendering pipeline.
+ * Catalog of all available effects.
  *
- * pass values:
- *   'transform' — resizes canvas (crop, flip, rotate), applied first; needs glsl
- *   'pre-crt'   — GLSL/multi-pass effect before context drawing; needs glsl or glslPasses
+ * This array is NOT a render order — it's just the catalog / default insert order shown
+ * in the picker. Effects render strictly in the user-defined stack order; nothing here
+ * forces one effect before another.
+ *
+ * The `kind` tag describes HOW an effect is rendered (its technique), never WHEN:
+ *   'transform' — resizes the canvas (crop, flip, rotate); needs glsl
+ *   'glsl'      — fragment-shader effect (single or multi-pass); needs glsl or glslPasses
  *   'context'   — draws to a 2D canvas context (text, stickers); needs canvas2d
- *   'post'      — GLSL/multi-pass effect after context drawing; needs glsl or glslPasses
- *   'viewport'  — composites a reveal window over the full result; needs glsl
+ *   'reveal'    — composites a "window" over the current state; needs glsl
+ *   'marker'    — invisible snapshot point used as a reveal effect's window source
  *
- * To add a new effect: create src/effects/myEffect.js, import it here,
- * add it to EFFECTS in the correct position. That's it.
+ * To add a new effect: create src/effects/myEffect.js, import it here, and add it to EFFECTS.
  */
 export const EFFECTS = [
     transformEffect,
@@ -125,11 +125,10 @@ export const EFFECTS = [
     grainEffect,
     chromaEffect,
     chanSatEffect,
-    //vignetteEffect,
     blurEffect,
     glowEffect,
     colorRemapEffect,
-    vhsEffect,
+    lineGlitchEffect,
     textEffect,
     matrixRainEffect,
     digitalSmearEffect,
@@ -140,7 +139,6 @@ export const EFFECTS = [
     filmSoupEffect,
     crtCurvatureEffect,
     crtScanlinesEffect,
-    //moireEffect,
     kaleidoscopeEffect,
     viewportEntryEffect,
     viewportEffect,
@@ -208,18 +206,18 @@ export const EFFECT_CATALOG = [
 
     // ── Morph ──
     { name: 'chroma',         label: 'Chromatic Aberration', category: 'Morph',   description: 'RGB channel separation glitch' },
-    { name: 'crtCurvature',   label: 'CRT Curvature',        category: 'Morph',   description: 'Barrel lens distortion' },
-    { name: 'digital-smear', label: 'Digital Smear',        category: 'Morph',   description: 'Wet paint brush smear with wave-modulated displacement' },
+    { name: 'barrelDistortion', label: 'Barrel Distortion',  category: 'Morph',   description: 'Barrel lens distortion' },
+    { name: 'smearTwist',    label: 'Smear & Twist',        category: 'Morph',   description: 'Wet paint brush smear with wave-modulated displacement' },
     { name: 'digitize',       label: 'Digitize',             category: 'Morph',   description: 'Pixelation, color quantization, dithering, and noise' },
-    { name: 'colorRemap',     label: 'Invert (Color Remap)', category: 'Morph',   description: 'Map pixel luminance or hue through a multi-stop color gradient' },
+    { name: 'colorRemap',     label: 'Color Remap',          category: 'Morph',   description: 'Map pixel luminance or hue through a multi-stop color gradient' },
     { name: 'kaleidoscope',  label: 'Kaleidoscope',         category: 'Morph',   description: 'Mirror, radial symmetry, and kaleidoscope modes with drag handles' },
     { name: 'lineDrag',      label: 'Line Drag',            category: 'Morph',   description: 'Smear pixel columns or rows from a control line across the image' },
     { name: 'transform',      label: 'Transform',            category: 'Morph',   description: 'Flip and rotate' },
-    { name: 'vhs',            label: 'VHS Line Glitch',      category: 'Morph',   description: 'Tracking line glitch bands' },
+    { name: 'lineGlitch',     label: 'Line Glitch',          category: 'Morph',   description: 'Tracking line glitch bands' },
 
     // ── Overlay ──
     { name: 'corrupted',     label: 'Corrupted',            category: 'Overlay', description: 'Fractal square corruption spreading from seeded points' },
-    { name: 'crtScanlines',   label: 'CRT Scanlines',        category: 'Overlay', description: 'Horizontal scanline darkening' },
+    { name: 'scanlines',      label: 'Scanlines',            category: 'Overlay', description: 'Horizontal scanline darkening' },
     { name: 'drawTool',     label: 'Draw',                 category: 'Overlay', description: 'Freehand pen with solid or static fill' },
     { name: 'matrixRain',   label: 'Matrix Rain',          category: 'Overlay', description: 'Tile text characters across the image in configurable grid patterns' },
     { name: 'mesh',         label: 'Mesh',                 category: 'Overlay', description: 'Draggable quad grid overlay with configurable line distribution' },

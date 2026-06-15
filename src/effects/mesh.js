@@ -180,7 +180,7 @@ const DIST_OPTIONS = [
 export const meshEffect = {
     name:        'mesh',
     label:       'Mesh',
-    pass:        'context',
+    kind:        'context',
     blendPrefix: 'mesh',
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     paramKeys:   [...fade.paramKeys, ...blend.paramKeys],

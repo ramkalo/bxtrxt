@@ -6,7 +6,7 @@ const blend = buildBlendControl('digitize');
 export default {
     name: 'digitize',
     label: 'Digitize',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: ['pixelSize', 'pixelColors', 'digitizeSnapToPalette', 'digitizeDither', 'digitizeNoise', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: [...fade.handleParams],
     uiGroups: [

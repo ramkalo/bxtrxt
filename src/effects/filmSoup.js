@@ -173,7 +173,7 @@ function filmSoupBindUniforms(gl, prog, p, dstW, dstH) {
 export default {
     name:  'filmSoup',
     label: 'Film Soup',
-    pass:  'reveal',
+    kind:  'reveal',
     reveal:    { enabledKey: 'filmSoupEnabled', entryIdKey: 'filmSoupMeltId', entryEffectName: 'filmSoupMelt' },
     autoEntry: { entryEffectName: 'filmSoupMelt', entryIdKey: 'filmSoupMeltId' },
     paramKeys: [...blend.paramKeys],

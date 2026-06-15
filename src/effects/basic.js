@@ -6,7 +6,7 @@ const blend = buildBlendControl('basic');
 export default {
     name: 'basic',
     label: 'Basic Adjustments',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: [
         'brightness', 'contrast', 'saturation', 'highlights', 'shadows', 'temperature', 'tint',
         ...fade.paramKeys,

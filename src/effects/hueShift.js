@@ -6,7 +6,7 @@ const blend = buildBlendControl('hueShift');
 export default {
     name: 'hueShift',
     label: 'Hue Shift',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: ['hueCenter', 'hueWidth','hueRotate', 'hueFeather', ...fade.paramKeys, ...blend.paramKeys],
     handleParams: [...fade.handleParams],
     uiGroups: [

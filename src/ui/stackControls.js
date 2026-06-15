@@ -233,7 +233,7 @@ function _collectSamples(pixels, width, height, mode, targetBox) {
 }
 
 function _placeRandomNodes(inst) {
-    const count = Math.min(24, inst.params.smearRandomCount ?? 8);
+    const count = Math.min(24, inst.params.smearTwistRandomCount ?? 8);
     const cols = Math.ceil(Math.sqrt(count));
     const rows = Math.ceil(count / cols);
     const cellW = 100 / cols;
@@ -243,12 +243,12 @@ function _placeRandomNodes(inst) {
         for (let c = 0; c < cols && placed < count; c++) {
             const jx = Math.random() * 0.8 + 0.1;
             const jy = Math.random() * 0.8 + 0.1;
-            setInstanceParam(inst.id, `smearNx${placed}`, Math.min(99, Math.round(c * cellW + jx * cellW)));
-            setInstanceParam(inst.id, `smearNy${placed}`, Math.min(99, Math.round(r * cellH + jy * cellH)));
+            setInstanceParam(inst.id, `smearTwistNx${placed}`, Math.min(99, Math.round(c * cellW + jx * cellW)));
+            setInstanceParam(inst.id, `smearTwistNy${placed}`, Math.min(99, Math.round(r * cellH + jy * cellH)));
             placed++;
         }
     }
-    setInstanceParam(inst.id, 'smearNodeCount', placed);
+    setInstanceParam(inst.id, 'smearTwistNodeCount', placed);
 }
 
 // Build all parameter controls for one effect instance into a container div.
@@ -713,8 +713,8 @@ export function buildEffectBody(inst, onRebuild) {
     // and the ✕ ("None") swatch for tunnel's optional stops, so no per-effect
     // styling code is needed here anymore.
 
-    if (inst.effectName === 'digital-smear') {
-        const placementGroup = content.querySelector('[data-inst-param="smearNodeMode"]')?.closest('.control-group');
+    if (inst.effectName === 'smearTwist') {
+        const placementGroup = content.querySelector('[data-inst-param="smearTwistNodeMode"]')?.closest('.control-group');
         let insertAfter = placementGroup;
 
         const inject = (el) => {
@@ -727,7 +727,7 @@ export function buildEffectBody(inst, onRebuild) {
             insertAfter = el;
         };
 
-        if ((inst.params.smearNodeMode ?? 'manual') === 'random') {
+        if ((inst.params.smearTwistNodeMode ?? 'manual') === 'random') {
             const randomPanel = document.createElement('div');
             randomPanel.className = 'control-group';
             const randomBtn = document.createElement('button');
@@ -749,13 +749,13 @@ export function buildEffectBody(inst, onRebuild) {
         clearBtn.textContent = 'Clear All Nodes';
         clearBtn.addEventListener('click', () => {
             saveState();
-            setInstanceParam(inst.id, 'smearNodeCount', 0);
+            setInstanceParam(inst.id, 'smearTwistNodeCount', 0);
             onRebuild?.();
         });
         panel.appendChild(clearBtn);
         const countLabel = document.createElement('span');
         countLabel.style.cssText = 'font-size:0.75rem;color:var(--text-dim);display:block;margin-top:4px;';
-        countLabel.textContent = `Nodes placed: ${inst.params.smearNodeCount ?? 0}`;
+        countLabel.textContent = `Nodes placed: ${inst.params.smearTwistNodeCount ?? 0}`;
         panel.appendChild(countLabel);
         inject(panel);
     }
@@ -1362,7 +1362,7 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
     }
 
     // Seed → Randomize button
-    if (key === 'vhsTrackingSeed' || key === 'corruptedSeed' || key === 'corruptedZoneSeed'
+    if (key === 'lineGlitchTrackingSeed' || key === 'corruptedSeed' || key === 'corruptedZoneSeed'
         || key === 'matrixRainInjectSeed') {
         const group = document.createElement('div');
         group.className = 'control-group';
@@ -1441,6 +1441,32 @@ function buildControl(inst, key, schema, onRebuild, labelOverride) {
                 }
             });
             row.appendChild(randBtn);
+
+            // Eyedropper — pick a color from the image (native EyeDropper API).
+            if ('EyeDropper' in window) {
+                const pickBtn = document.createElement('button');
+                pickBtn.className = 'btn btn-sm';
+                pickBtn.title = 'Pick color from image';
+                pickBtn.style.cssText = 'padding:2px 6px;font-size:0.7rem;flex-shrink:0;display:inline-flex;align-items:center;';
+                pickBtn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>';
+                pickBtn.addEventListener('click', async () => {
+                    let result;
+                    try {
+                        result = await new window.EyeDropper().open();
+                    } catch { return; } // user cancelled (Esc)
+                    const hex = result?.sRGBHex;
+                    if (!hex) return;
+                    saveState();
+                    setInstanceParam(inst.id, 'palettePreset', 'custom');
+                    setInstanceParam(inst.id, key, hex);
+                    input.value = hex;
+                    hexSpan.textContent = hex;
+                    if (inst.effectName === 'colorPalette') {
+                        document.dispatchEvent(new CustomEvent('paletteupdate'));
+                    }
+                });
+                row.appendChild(pickBtn);
+            }
 
             const handle = document.createElement('span');
             handle.textContent = '⠿';

@@ -26,7 +26,7 @@ handleParamsList.push(...fade.handleParams);
 export default {
     name: 'kaleidoscope',
     label: 'Kaleidoscope',
-    pass: 'pre-crt',
+    kind: 'glsl',
 
     params: {
         kaleidoscopeEnabled: { default: false, label: 'Enable' },

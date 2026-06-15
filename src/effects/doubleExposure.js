@@ -7,7 +7,7 @@ const blend = buildBlendControl('doubleExposure');
 export default {
     name: 'doubleExposure',
     label: 'Double Exposure',
-    pass: 'pre-crt',
+    kind: 'glsl',
     paramKeys: [
         'doubleExposureMixMode',
         'doubleExposureOrigOpacity', 'doubleExposureMixOpacity',

@@ -5,7 +5,7 @@ const blend = buildBlendControl('moire');
 export default {
     name: 'moire',
     label: 'Moire',
-    pass: 'post',
+    kind: 'glsl',
     paramKeys: ['moireStrength', 'moireFrequency', 'moireOffset', 'moireAngle', 'moireRotation', ...blend.paramKeys],
     params: {
         moireEnabled:   { default: false },

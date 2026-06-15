@@ -49,7 +49,7 @@ const PALETTE_PRESETS = {
 export const colorPaletteEffect = {
     name: 'colorPalette',
     label: 'Color Palette',
-    pass: 'pre-crt',
+    kind: 'glsl',
     params: {
         paletteEnabled: { default: true, label: 'Enable' },
         palettePreset: {

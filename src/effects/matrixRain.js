@@ -254,7 +254,7 @@ function applyMatrixRain(ctx, p, srcCanvas) {
 export const matrixRainEffect = {
     name: 'matrixRain',
     label: 'Matrix Rain',
-    pass: 'context',
+    kind: 'context',
     blendPrefix: 'matrixRain',
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
 

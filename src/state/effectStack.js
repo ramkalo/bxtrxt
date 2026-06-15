@@ -32,7 +32,7 @@ export function addEffect(effectName) {
     const instance = { id: _uid(), effectName, params: { ...defaults } };
     if (enabledKey) instance.params[enabledKey] = true;
 
-    if (effectName === 'digital-smear') {
+    if (effectName === 'smearTwist') {
         const count = 10;
         const cols = Math.ceil(Math.sqrt(count));
         const rows = Math.ceil(count / cols);
@@ -43,12 +43,12 @@ export function addEffect(effectName) {
             for (let c = 0; c < cols && placed < count; c++) {
                 const jx = Math.random() * 0.8 + 0.1;
                 const jy = Math.random() * 0.8 + 0.1;
-                instance.params[`smearNx${placed}`] = Math.min(99, Math.round(c * cellW + jx * cellW));
-                instance.params[`smearNy${placed}`] = Math.min(99, Math.round(r * cellH + jy * cellH));
+                instance.params[`smearTwistNx${placed}`] = Math.min(99, Math.round(c * cellW + jx * cellW));
+                instance.params[`smearTwistNy${placed}`] = Math.min(99, Math.round(r * cellH + jy * cellH));
                 placed++;
             }
         }
-        instance.params.smearNodeCount = placed;
+        instance.params.smearTwistNodeCount = placed;
     }
 
     // Give each Film Soup a distinct random bubble layout so stacked instances differ.
@@ -142,22 +142,50 @@ export function snapshotStack() {
     return JSON.parse(JSON.stringify(_stack));
 }
 
+// Effect renames: old effectName → new effectName + param-prefix remaps.
+// Prefixes are tried in order (longest-first where they overlap) and only the
+// first match per key is applied. Keeps saved presets loading after renames.
+const _RENAMES = [
+    { from: 'vhs',           to: 'lineGlitch',       prefixes: [['vhs', 'lineGlitch']] },
+    { from: 'digital-smear', to: 'smearTwist',       prefixes: [['digitalSmear', 'smearTwist'], ['smear', 'smearTwist']] },
+    { from: 'crtScanlines',  to: 'scanlines',        prefixes: [['crtScan', 'scan']] },
+    { from: 'crtCurvature',  to: 'barrelDistortion', prefixes: [['crtCurvature', 'barrelDistortion']] },
+];
+
 function _migrateInstance(inst) {
-    if (inst.effectName !== 'crtStatic') return inst;
-    const p = inst.params ?? {};
-    const migrated = { ...inst, effectName: 'grain', params: { ...p } };
-    const mp = migrated.params;
-    if ('crtStaticEnabled'  in mp) { mp.grainEnabled   = mp.crtStaticEnabled;  delete mp.crtStaticEnabled; }
-    if ('crtStatic'         in mp) { mp.grainIntensity  = mp.crtStatic;         delete mp.crtStatic; }
-    if ('crtStaticType'     in mp) { mp.grainType       = mp.crtStaticType;     delete mp.crtStaticType; }
-    if ('crtStaticGrain'    in mp) { mp.grainSize       = mp.crtStaticGrain;    delete mp.crtStaticGrain; }
-    for (const key of Object.keys(mp)) {
-        if (key.startsWith('crtStatic')) {
-            mp['grain' + key.slice('crtStatic'.length)] = mp[key];
-            delete mp[key];
+    // crtStatic → grain (legacy, with explicit param remap).
+    if (inst.effectName === 'crtStatic') {
+        const p = inst.params ?? {};
+        const migrated = { ...inst, effectName: 'grain', params: { ...p } };
+        const mp = migrated.params;
+        if ('crtStaticEnabled'  in mp) { mp.grainEnabled   = mp.crtStaticEnabled;  delete mp.crtStaticEnabled; }
+        if ('crtStatic'         in mp) { mp.grainIntensity  = mp.crtStatic;         delete mp.crtStatic; }
+        if ('crtStaticType'     in mp) { mp.grainType       = mp.crtStaticType;     delete mp.crtStaticType; }
+        if ('crtStaticGrain'    in mp) { mp.grainSize       = mp.crtStaticGrain;    delete mp.crtStaticGrain; }
+        for (const key of Object.keys(mp)) {
+            if (key.startsWith('crtStatic')) {
+                mp['grain' + key.slice('crtStatic'.length)] = mp[key];
+                delete mp[key];
+            }
         }
+        return migrated;
     }
-    return migrated;
+
+    // Prefix-based renames (name + every param key).
+    const rename = _RENAMES.find(r => r.from === inst.effectName);
+    if (rename) {
+        const params = {};
+        for (const [k, v] of Object.entries(inst.params ?? {})) {
+            let nk = k;
+            for (const [oldP, newP] of rename.prefixes) {
+                if (k.startsWith(oldP)) { nk = newP + k.slice(oldP.length); break; }
+            }
+            params[nk] = v;
+        }
+        return { ...inst, effectName: rename.to, params };
+    }
+
+    return inst;
 }
 
 export function restoreStack(snapshot) {

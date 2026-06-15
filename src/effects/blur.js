@@ -6,7 +6,7 @@ const fade  = buildFadeControl('blur');
 export default {
     name:  'blur',
     label: 'Blur',
-    pass:  'pre-crt',
+    kind:  'glsl',
     paramKeys: ['blurAmount', ...blend.paramKeys, ...fade.paramKeys],
     handleParams: [...fade.handleParams],
     overlays: { fade: fade.overlay },

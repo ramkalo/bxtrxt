@@ -211,7 +211,7 @@ function applyShapeSticker(ctx, p, srcCanvas) {
 export const shapeStickerEffect = {
     name: 'shapeSticker',
     label: 'Shape Sticker',
-    pass: 'context',
+    kind: 'context',
     blendPrefix: 'shapeSticker',
     bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     paramKeys: [

@@ -1,7 +1,7 @@
 import { canvas } from '../../renderer/glstate.js';
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
-import { uiCtx, uiOverlay, syncSize, drawHandle, drawCornerHandle, HIT_RADIUS } from '../overlayUtils.js';
+import { uiCtx, uiOverlay, syncSize, drawCornerHandle, HIT_RADIUS } from '../overlayUtils.js';
 
 const CROP_ASPECT_MAP = { '1:1': 1, '3:4': 3 / 4, '4:3': 4 / 3, '16:9': 16 / 9, '3:2': 3 / 2, '22:17': 22 / 17 };
 
@@ -63,10 +63,9 @@ export function computeCropRect(p) {
     };
 }
 
-function getCropHandles(p) {
-    const { cx, cy, bw, bh, left, top, right, bottom } = computeCropRect(p);
+function getCropCorners(p) {
+    const { left, top, right, bottom } = computeCropRect(p);
     return {
-        center: [cx, cy],
         tl: [left,  top],
         tr: [right, top],
         br: [right, bottom],
@@ -105,7 +104,6 @@ export function drawCrop(p) {
     }
     uiCtx.stroke();
 
-    drawHandle(cx, cy);
     drawCornerHandle(left,  top);
     drawCornerHandle(right, top);
     drawCornerHandle(right, bottom);
@@ -118,10 +116,13 @@ export function hitTestCrop(e) {
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const handles = getCropHandles(inst.params);
-    for (const [name, [hx, hy]] of Object.entries(handles)) {
+    // Corners take priority (resize), then anywhere inside the rect moves it.
+    const corners = getCropCorners(inst.params);
+    for (const [name, [hx, hy]] of Object.entries(corners)) {
         if (Math.hypot(mx - hx, my - hy) <= HIT_RADIUS) return name;
     }
+    const { left, top, right, bottom } = computeCropRect(inst.params);
+    if (mx >= left && mx <= right && my >= top && my <= bottom) return 'center';
     return null;
 }
 
@@ -131,8 +132,11 @@ export function onDragCrop(e, inst, rect) {
     const W  = uiOverlay.width, H = uiOverlay.height;
 
     if (state.handle === 'center') {
-        setInstanceParam(state.instId, 'cropX', Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100))));
-        setInstanceParam(state.instId, 'cropY', Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100))));
+        // Move relative to the grab point so the crop doesn't recenter on the cursor.
+        const cx = mx + (state.dragAnchor?.grabDX ?? 0);
+        const cy = my + (state.dragAnchor?.grabDY ?? 0);
+        setInstanceParam(state.instId, 'cropX', Math.round(Math.max(-50, Math.min(50,  (cx / W - 0.5) * 100))));
+        setInstanceParam(state.instId, 'cropY', Math.round(Math.max(-50, Math.min(50, -(cy / H - 0.5) * 100))));
     } else if (inst.params.cropAspect === 'free' && state.dragAnchor) {
         const { oppX, oppY } = state.dragAnchor;
         const newW = Math.max(1, Math.abs(mx - oppX));

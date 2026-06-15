@@ -310,7 +310,7 @@ function sampleFromRegion(region, chunkSize, width, height, srcData, corruptedCh
 export default {
     name:  'corrupted',
     label: 'Corrupted',
-    pass:  'pre-crt',
+    kind:  'glsl',
     handleParams: ['corruptedX', 'corruptedY', ...fade.handleParams],
     overlays: { fade: fade.overlay },
     paramKeys: ['corruptedSeeds', 'corruptedSeed', 'corruptedPattern', 'corruptedColor', 'corruptedColorMode', 'corruptedZoneSeed', 'corruptedInfect', 'corruptedChunkSize', 'corruptedCluster', 'corruptedX', 'corruptedY', ...fade.paramKeys, ...blend.paramKeys],
