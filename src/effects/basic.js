@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('basic');
 const blend = buildBlendControl('basic');
 
-export default {
+export const basicEffect = {
     name: 'basic',
     label: 'Basic Adjustments',
     kind: 'glsl',

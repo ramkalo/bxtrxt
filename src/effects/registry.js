@@ -1,26 +1,32 @@
-import basicEffect          from './basic.js';
-import blurEffect           from './blur.js';
-import chanSatEffect        from './chanSat.js';
-import chromaEffect         from './chroma.js';
-import colorGelEffect       from './colorGel.js';
-import { colorPaletteEffect } from './colorPalette.js';
-import colorRemapEffect      from './invert.js';
-import corruptedEffect      from './corrupted.js';
-import cropEffect           from './crop.js';
-import crtCurvatureEffect   from './crtCurvature.js';
-import crtScanlinesEffect   from './crtScanlines.js';
-import digitalSmearEffect   from './digitalSmear.js';
-import digitizeEffect       from './digitize.js';
-import doubleExposureEffect from './doubleExposure.js';
-import filmSoupEffect       from './filmSoup.js';
-import glowEffect           from './glow.js';
-import grainEffect          from './grain.js';
-import hueShiftEffect       from './hueShift.js';
-import lineDragEffect       from './lineDrag.js';
-import { textEffect } from './text.js';
-import transformEffect      from './transform.js';
-import { lineGlitchEffect } from './vhs.js';
-import viewportEffect       from './viewport.js';
+import { barrelDistortionEffect } from './barrelDistortion.js';
+import { basicEffect }           from './basic.js';
+import { blurEffect }            from './blur.js';
+import { chromaEffect }          from './chroma.js';
+import { colorGelEffect }        from './colorGel.js';
+import { colorPaletteEffect }    from './colorPalette.js';
+import { colorRemapEffect }      from './colorRemap.js';
+import { corruptedEffect }       from './corrupted.js';
+import { cropEffect }            from './crop.js';
+import { digitizeEffect }        from './digitize.js';
+import { doubleExposureEffect }  from './doubleExposure.js';
+import { drawToolEffect }        from './drawTool.js';
+import { filmSoupEffect }        from './filmSoup.js';
+import { glowEffect }            from './glow.js';
+import { grainEffect }           from './grain.js';
+import { hueShiftEffect }        from './hueShift.js';
+import { kaleidoscopeEffect }    from './kaleidoscope.js';
+import { lineDragEffect }        from './lineDrag.js';
+import { lineGlitchEffect }      from './lineGlitch.js';
+import { matrixRainEffect }      from './matrixRain.js';
+import { glassBlobEffect }       from './glassBlob.js';
+import { meshEffect }            from './mesh.js';
+import { scanlinesEffect }       from './scanlines.js';
+import { shapeStickerEffect }    from './shapeSticker.js';
+import { smearTwistEffect }      from './smearTwist.js';
+import { textEffect }            from './text.js';
+import { transformEffect }       from './transform.js';
+import { tunnelEffect }          from './tunnel.js';
+import { viewportEffect }        from './viewport.js';
 
 const viewportEntryEffect = {
     name: 'viewportEntry',
@@ -48,12 +54,6 @@ const filmSoupMeltEffect = {
     enabled: () => false,
     isMarker: true,
 };
-import { matrixRainEffect } from './matrixRain.js';
-import { shapeStickerEffect } from './shapeSticker.js';
-import kaleidoscopeEffect from './kaleidoscope.js';
-import { drawToolEffect } from './drawTool.js';
-import { meshEffect } from './mesh.js';
-import { tunnelEffect } from './tunnel.js';
 
 /**
  * @typedef {Object} EffectBase
@@ -124,21 +124,20 @@ export const EFFECTS = [
     digitizeEffect,
     grainEffect,
     chromaEffect,
-    chanSatEffect,
     blurEffect,
     glowEffect,
     colorRemapEffect,
     lineGlitchEffect,
     textEffect,
     matrixRainEffect,
-    digitalSmearEffect,
+    smearTwistEffect,
     lineDragEffect,
     corruptedEffect,
     colorGelEffect,
     filmSoupMeltEffect,
     filmSoupEffect,
-    crtCurvatureEffect,
-    crtScanlinesEffect,
+    barrelDistortionEffect,
+    scanlinesEffect,
     kaleidoscopeEffect,
     viewportEntryEffect,
     viewportEffect,
@@ -146,6 +145,7 @@ export const EFFECTS = [
     drawToolEffect,
     meshEffect,
     tunnelEffect,
+    glassBlobEffect,
 ];
 
 for (const effect of EFFECTS) validateEffect(effect);
@@ -224,13 +224,13 @@ export const EFFECT_CATALOG = [
     { name: 'shapeSticker',   label: 'Shape Sticker',         category: 'Overlay', description: 'Apply a shape filled with solid color, static, or image grab' },
     { name: 'text',            label: 'Text',                 category: 'Overlay', description: 'Text overlay with paragraph box, formatting, and canvas handles' },
     { name: 'tunnel',       label: 'Tunnel',               category: 'Overlay', description: 'Repeating shapes along a bezier path creating a tunnel illusion' },
+    { name: 'glassBlob',    label: 'Glass Blob',           category: 'Overlay', description: 'A single glassy droplet you place, size and shape — refraction, highlight & color' },
 
     // ── Blend ──
     { name: 'doubleExposure', label: 'Double Exposure',      category: 'Blend',   description: 'Blend two images together' },
     { name: 'filmSoup',      label: 'Film Soup',            category: 'Blend',   description: 'Bubble/foam holes that melt through the effects above the melt point' },
     { name: 'viewport',      label: 'Viewport',             category: 'Blend',   description: 'Reveal a shaped window that cuts through selected effects' },
 
-    //{ name: 'chanSat',        label: 'Channel Saturation',   description: 'Target R, G, or B dominant pixels and boost or drain their saturation' },
     // { name: 'moire',        label: 'Moire',                description: 'Two overlapping line grids that interfere to produce wave and band patterns' },
     //{ name: 'vignette',       label: 'Vignette',             description: 'Edge darkening or brightening' },
 ];

@@ -35,7 +35,7 @@ function computeCropRegion(p, srcW, srcH) {
     return { sx, sy, cropW, cropH };
 }
 
-export default {
+export const cropEffect = {
     name: 'crop',
     label: 'Crop',
     kind: 'transform',

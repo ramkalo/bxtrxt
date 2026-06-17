@@ -307,7 +307,7 @@ function sampleFromRegion(region, chunkSize, width, height, srcData, corruptedCh
     return [srcData[i], srcData[i + 1], srcData[i + 2]];
 }
 
-export default {
+export const corruptedEffect = {
     name:  'corrupted',
     label: 'Corrupted',
     kind:  'glsl',

@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('hueShift');
 const blend = buildBlendControl('hueShift');
 
-export default {
+export const hueShiftEffect = {
     name: 'hueShift',
     label: 'Hue Shift',
     kind: 'glsl',
@@ -17,7 +17,7 @@ export default {
     params: {
         hueShiftEnabled: { default: false, label: 'Enable' },
         hueCenter:       { default: 180,   min: 0,    max: 360, label: 'Original Colors' },
-        hueRotate:       { default: 180,   min: -360, max: 360, label: 'New Colors' },
+        hueRotate:       { default: 180,   min: -360, max: 360, label: 'New Color' },
         hueWidth:        { default: 80, min: 1,    max: 180,  label: 'Slice Size' },
         hueFeather:      { default: 20,  min: 0,    max: 100, label: 'Feathering' },
         ...fade.params,

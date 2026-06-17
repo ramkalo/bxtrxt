@@ -27,6 +27,8 @@ import { drawMeshOverlay, hitTestMesh, onDragMesh } from './overlays/meshOverlay
 import { drawTunnelOverlay, hitTestTunnel, onDragTunnel } from './overlays/tunnelOverlay.js';
 import { drawFilmSoup, hitTestFilmSoup, onDragFilmSoup, addFilmSoupBubble, deleteFilmSoupBubble, canAddFilmSoupBubble } from './overlays/filmSoupOverlay.js';
 import { drawColorGel, hitTestColorGel, onDragColorGel } from './overlays/colorGelOverlay.js';
+import { drawResin, hitTestResin, onDragResin } from './overlays/resinOverlay.js';
+import { drawGlassBlob, hitTestGlassBlob, onDragGlassBlob } from './overlays/glassBlobOverlay.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
@@ -102,6 +104,8 @@ onStackChange((key) => {
     if (state.mode === 'mesh')         drawMeshOverlay(inst.params);
     if (state.mode === 'tunnel')       drawTunnelOverlay(inst.params);
     if (state.mode === 'colorGel')     drawColorGel(inst.params);
+    if (state.mode === 'resin')        drawResin(inst.params);
+    if (state.mode === 'glassBlob')    drawGlassBlob(inst.params);
 });
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -331,6 +335,29 @@ export function hideColorGelOverlay() {
     if (state.mode === 'colorGel') _hideActive();
 }
 
+export function showResinOverlay(inst) {
+    state.shapeKey   = 'resinFadeShape';
+    state.wKey       = 'resinFadeW';
+    state.hKey       = 'resinFadeH';
+    state.angleKey   = 'resinFadeAngle';
+    state.enabledKey = 'resinFadeEnabled';
+    _activate('resin', inst, 'resinLightX', 'resinLightY');
+    drawResin(inst.params);
+}
+
+export function hideResinOverlay() {
+    if (state.mode === 'resin') _hideActive();
+}
+
+export function showGlassBlobOverlay(inst) {
+    _activate('glassBlob', inst, 'glassBlobX', 'glassBlobY');
+    drawGlassBlob(inst.params);
+}
+
+export function hideGlassBlobOverlay() {
+    if (state.mode === 'glassBlob') _hideActive();
+}
+
 export function showTunnelOverlay(inst) {
     state.shapeKey   = 'tunnelFadeShape';
     state.wKey       = 'tunnelFadeW';
@@ -483,6 +510,16 @@ function getCursorForMode(mode, h) {
                 : h === 'fadeRot' ? 'crosshair'
                 : h === 'fadeEdgeW' ? 'ew-resize'
                 : h === 'fadeEdgeH' ? 'ns-resize' : 'default';
+        case 'resin':
+            return (h === 'light' || h === 'bubble' || h === 'image' || h === 'fadeCenter') ? 'grab'
+                : h === 'rot' ? 'crosshair'
+                : h === 'edgeW' ? 'ew-resize'
+                : h === 'edgeH' ? 'ns-resize' : 'default';
+        case 'glassBlob':
+            return (h === 'center' || h === 'light') ? 'grab'
+                : h === 'rot' ? 'crosshair'
+                : h === 'edgeW' ? 'ew-resize'
+                : h === 'edgeH' ? 'ns-resize' : 'default';
         case 'drawTool':
             return 'crosshair';
         case 'mesh':
@@ -522,6 +559,8 @@ const HIT_FNS = {
     matrixRain:     hitTestMatrixRain,
     smearTwist:hitTestDigitalSmear,
     filmSoup:       hitTestFilmSoup,
+    resin:          hitTestResin,
+    glassBlob:      hitTestGlassBlob,
 };
 
 const DRAG_FNS = {
@@ -543,6 +582,8 @@ const DRAG_FNS = {
     matrixRain:     onDragMatrixRain,
     smearTwist:onDragDigitalSmear,
     filmSoup:       onDragFilmSoup,
+    resin:          onDragResin,
+    glassBlob:      onDragGlassBlob,
 };
 
 const DRAW_FNS = {
@@ -566,6 +607,8 @@ const DRAW_FNS = {
     barrelDistortion:   drawCRTCurvature,
     smearTwist:drawDigitalSmear,
     filmSoup:       drawFilmSoup,
+    resin:          drawResin,
+    glassBlob:      drawGlassBlob,
 };
 
 function onHover(e) {

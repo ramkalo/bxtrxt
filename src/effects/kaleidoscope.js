@@ -23,7 +23,7 @@ for (let i = 0; i < 12; i++) {
 }
 handleParamsList.push(...fade.handleParams);
 
-export default {
+export const kaleidoscopeEffect = {
     name: 'kaleidoscope',
     label: 'Kaleidoscope',
     kind: 'glsl',

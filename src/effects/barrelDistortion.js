@@ -1,16 +1,18 @@
-import { buildBlendControl } from './controls/index.js';
+import { buildFadeControl, buildBlendControl } from './controls/index.js';
 
+const fade  = buildFadeControl('barrelDistortion');
 const blend = buildBlendControl('barrelDistortion');
 
-export default {
+export const barrelDistortionEffect = {
     name: 'barrelDistortion',
     label: 'Barrel Distortion',
     kind: 'glsl',
-    paramKeys: ['barrelDistortionStrength', 'barrelDistortionX', 'barrelDistortionY', 'barrelDistortionMajor', 'barrelDistortionMinor', 'barrelDistortionAngle', ...blend.paramKeys],
-    handleParams: ['barrelDistortionX', 'barrelDistortionY', 'barrelDistortionAngle'],
+    paramKeys: ['barrelDistortionStrength', 'barrelDistortionX', 'barrelDistortionY', 'barrelDistortionMajor', 'barrelDistortionMinor', 'barrelDistortionAngle', ...fade.paramKeys, ...blend.paramKeys],
+    handleParams: ['barrelDistortionX', 'barrelDistortionY', 'barrelDistortionAngle', ...fade.handleParams],
     uiGroups: [
         { keys: ['barrelDistortionEnabled', 'barrelDistortionStrength'] },
         { label: 'Shape & Position', keys: ['barrelDistortionMajor', 'barrelDistortionMinor', 'barrelDistortionAngle', 'barrelDistortionX', 'barrelDistortionY'] },
+        fade.uiGroup,
         blend.uiGroup,
     ],
     params: {
@@ -21,10 +23,12 @@ export default {
         barrelDistortionMajor:     { default: 60,  min: 0,   max: 150,  label: 'Major Axis' },
         barrelDistortionMinor:     { default: 60,  min: 0,   max: 150,  label: 'Minor Axis' },
         barrelDistortionAngle:     { default: 0,   min: 0,   max: 180,  label: 'Angle' },
+        ...fade.params,
         ...blend.params,
     },
     enabled: (p) => p.barrelDistortionEnabled,
-    bindUniforms: (gl, prog, p) => blend.bindUniforms(gl, prog, p),
+    overlays: { fade: fade.overlay },
+    bindUniforms: (gl, prog, p) => { fade.bindUniforms(gl, prog, p); blend.bindUniforms(gl, prog, p); },
     glsl: `
 uniform float barrelDistortionStrength;
 uniform float barrelDistortionX;
@@ -32,6 +36,7 @@ uniform float barrelDistortionY;
 uniform float barrelDistortionMajor;
 uniform float barrelDistortionMinor;
 uniform float barrelDistortionAngle;
+${fade.glsl}
 ${blend.glsl}
 void main() {
     vec4 c = texture(uTex, vUV);
@@ -61,7 +66,9 @@ void main() {
     float srcY = cy + dy * factor;
 
     vec2 sampleUV = clamp(vec2(srcX / uResolution.x, 1.0 - srcY / uResolution.y), vec2(0.0), vec2(1.0));
-    vec3 adjusted = texture(uTex, sampleUV).rgb;
+    vec3 distorted = texture(uTex, sampleUV).rgb;
+    float weight = ${fade.fnName}();
+    vec3 adjusted = mix(c.rgb, distorted, weight);
     if (!${blend.thresholdFn}(c, vec4(adjusted, c.a))) { fragColor = c; return; }
     fragColor = vec4(${blend.blendFn}(c.rgb, adjusted), c.a);
 }

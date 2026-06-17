@@ -5,7 +5,7 @@ import { buildEffectBody } from './stackControls.js';
 import { blitOriginalToScreen } from '../renderer/webgl.js';
 import { processImageImmediate } from '../renderer/pipeline.js';
 import { originalImage } from '../renderer/glstate.js';
-import { showFadeOverlay, hideFadeOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay, showFilmSoupOverlay, hideFilmSoupOverlay, showColorGelOverlay, hideColorGelOverlay } from './canvasPicker.js';
+import { showFadeOverlay, hideFadeOverlay, showCropOverlay, hideCropOverlay, showViewportOverlay, hideViewportOverlay, showMatrixRainOverlay, hideMatrixRainOverlay, showLineDragOverlay, hideLineDragOverlay, showChromaOverlay, hideChromaOverlay, showVignetteOverlay, hideVignetteOverlay, showCorruptedOverlay, hideCorruptedOverlay, showCRTCurvatureOverlay, hideCRTCurvatureOverlay, showTextOverlay, hideTextOverlay, showDoubleExposureOverlay, hideDoubleExposureOverlay, showShapeStickerOverlay, hideShapeStickerOverlay, showKaleidoscopeOverlay, hideKaleidoscopeOverlay, showDigitalSmearOverlay, hideDigitalSmearOverlay, showDrawToolOverlay, hideDrawToolOverlay, showMeshOverlay, hideMeshOverlay, showTunnelOverlay, hideTunnelOverlay, showFilmSoupOverlay, hideFilmSoupOverlay, showColorGelOverlay, hideColorGelOverlay, showResinOverlay, hideResinOverlay, showGlassBlobOverlay, hideGlassBlobOverlay } from './canvasPicker.js';
 
 let _expandedId = null;
 
@@ -347,6 +347,8 @@ export function renderStackList() {
     if (newEffect !== 'tunnel')         hideTunnelOverlay();
     if (newEffect !== 'filmSoup')       hideFilmSoupOverlay();
     if (newEffect !== 'colorGel')       hideColorGelOverlay();
+    if (newEffect !== 'resin')          hideResinOverlay();
+    if (newEffect !== 'glassBlob')      hideGlassBlobOverlay();
 
     if (!expandedInst) return;
 
@@ -375,6 +377,8 @@ export function renderStackList() {
     else if (newEffect === 'tunnel')        showTunnelOverlay(expandedInst);
     else if (newEffect === 'filmSoup')      showFilmSoupOverlay(expandedInst);
     else if (newEffect === 'colorGel')      showColorGelOverlay(expandedInst);
+    else if (newEffect === 'resin')         showResinOverlay(expandedInst);
+    else if (newEffect === 'glassBlob')     showGlassBlobOverlay(expandedInst);
 }
 
 // --- Pointer-based drag-and-drop ---

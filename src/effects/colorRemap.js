@@ -53,7 +53,7 @@ function buildGridParamDefs() {
     return out;
 }
 
-export default {
+export const colorRemapEffect = {
     name: 'colorRemap',
     label: 'Color Remap',
     kind: 'glsl',

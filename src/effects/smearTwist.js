@@ -12,7 +12,7 @@ const nodeParamDefs = Object.fromEntries(
     ]).flat()
 );
 
-export default {
+export const smearTwistEffect = {
     name:  'smearTwist',
     label: 'Smear & Twist',
     kind:  'glsl',

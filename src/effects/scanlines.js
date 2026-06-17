@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('scanlines');
 const blend = buildBlendControl('scanlines');
 
-export default {
+export const scanlinesEffect = {
     name: 'scanlines',
     label: 'Scanlines',
     kind: 'glsl',

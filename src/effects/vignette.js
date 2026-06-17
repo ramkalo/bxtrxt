@@ -2,7 +2,7 @@ import { buildBlendControl } from './controls/index.js';
 
 const blend = buildBlendControl('vignette');
 
-export default {
+export const vignetteEffect = {
     name: 'vignette',
     label: 'Vignette',
     kind: 'glsl',

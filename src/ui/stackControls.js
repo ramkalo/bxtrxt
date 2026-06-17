@@ -3,7 +3,7 @@ import { setInstanceParam, getStack, insertEffect, removeEffect } from '../state
 import { saveState } from '../state/undo.js';
 import { getCustomFonts } from '../state/customFonts.js';
 import { getPixelsBeforeInstance } from '../renderer/webgl.js';
-import { blendMapImage, canvas } from '../renderer/glstate.js';
+import { blendMapImage, glassMapImage, canvas } from '../renderer/glstate.js';
 import { toggleBlendMapOverlay, hideBlendMapOverlay } from './canvasPicker.js';
 import { buildPaletteSwatchControl, resolveColorKey, getActivePaletteFor } from './controls/paletteColor.js';
 import { buildHueGridControl } from './controls/hueGrid.js';
@@ -351,6 +351,27 @@ export function buildEffectBody(inst, onRebuild) {
 
         sel.addEventListener('change', updateBlendMapUI);
         updateBlendMapUI();
+    }
+
+    if (inst.effectName === 'glassBlob') {
+        const pickerRow = document.createElement('div');
+        pickerRow.className = 'control-group glassblob-sky-picker';
+        pickerRow.innerHTML = `<div class="control-row" style="gap:8px;">
+            <button class="btn glassblob-sky-load-btn">Load Reflection Image</button>
+            <span class="glass-map-image-name" style="font-size:0.75rem;color:var(--text-dim);">${glassMapImage ? glassMapImage.src.split('/').pop().split('?')[0] : 'No image'}</span>
+        </div>`;
+        pickerRow.querySelector('.glassblob-sky-load-btn').addEventListener('click', () => {
+            document.getElementById('glassMapFileInput').click();
+        });
+        content.appendChild(pickerRow);
+
+        const modeSel = content.querySelector('[data-inst-param="glassBlobMode"]');
+        function updateSkyUI() {
+            const mode = modeSel?.value ?? inst.params.glassBlobMode ?? 'glass';
+            pickerRow.style.display = (mode === 'metal') ? '' : 'none';
+        }
+        modeSel?.addEventListener('change', updateSkyUI);
+        updateSkyUI();
     }
 
     if (inst.effectName === 'hueShift') {

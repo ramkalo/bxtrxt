@@ -61,7 +61,7 @@ void main() {
 }
 `;
 
-export default {
+export const glowEffect = {
     name: 'glow',
     label: 'Glow',
     kind: 'glsl',

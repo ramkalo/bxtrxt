@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('lineDrag');
 const blend = buildBlendControl('lineDrag');
 
-export default {
+export const lineDragEffect = {
     name:  'lineDrag',
     label: 'Line Drag',
     kind:  'glsl',

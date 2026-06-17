@@ -1,4 +1,4 @@
-export default {
+export const transformEffect = {
     name: 'transform',
     label: 'Rotate',
     kind: 'transform',

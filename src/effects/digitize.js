@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('digitize');
 const blend = buildBlendControl('digitize');
 
-export default {
+export const digitizeEffect = {
     name: 'digitize',
     label: 'Digitize',
     kind: 'glsl',

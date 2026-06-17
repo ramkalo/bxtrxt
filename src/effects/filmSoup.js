@@ -170,7 +170,7 @@ function filmSoupBindUniforms(gl, prog, p, dstW, dstH) {
     blend.bindUniforms(gl, prog, p);
 }
 
-export default {
+export const filmSoupEffect = {
     name:  'filmSoup',
     label: 'Film Soup',
     kind:  'reveal',

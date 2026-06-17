@@ -3,7 +3,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('chroma');
 const blend = buildBlendControl('chroma');
 
-export default {
+export const chromaEffect = {
     name: 'chroma',
     label: 'Chromatic Aberration',
     kind: 'glsl',

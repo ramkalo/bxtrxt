@@ -13,6 +13,8 @@ export let originalImage = null;
 export let secondImage   = null;
 export let blendMapImage = null;
 export let blendMapTexture = null;
+export let glassMapImage = null;
+export let glassMapTexture = null;
 
 export let blendMapPosX = 0;
 export let blendMapPosY = 0;
@@ -33,6 +35,8 @@ export function setSecondImage(v)      { secondImage = v; }
 export function setSecondTexture(v)    { if (secondTexture && gl) gl.deleteTexture(secondTexture); secondTexture = v; }
 export function setBlendMapImage(v)    { blendMapImage = v; }
 export function setBlendMapTexture(v)  { if (blendMapTexture && gl) gl.deleteTexture(blendMapTexture); blendMapTexture = v; }
+export function setGlassMapImage(v)    { glassMapImage = v; }
+export function setGlassMapTexture(v)  { if (glassMapTexture && gl) gl.deleteTexture(glassMapTexture); glassMapTexture = v; }
 export function setBlendMapPosX(v)     { blendMapPosX = v; }
 export function setBlendMapPosY(v)     { blendMapPosY = v; }
 export function setBlendMapRot(v)      { blendMapRot  = v; }

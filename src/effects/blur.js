@@ -3,7 +3,7 @@ import { buildBlendControl, buildFadeControl } from './controls/index.js';
 const blend = buildBlendControl('blur');
 const fade  = buildFadeControl('blur');
 
-export default {
+export const blurEffect = {
     name:  'blur',
     label: 'Blur',
     kind:  'glsl',

@@ -4,6 +4,8 @@ import {
     setSecondTexture,
     setBlendMapImage, blendMapImage,
     setBlendMapTexture,
+    setGlassMapImage, glassMapImage,
+    setGlassMapTexture,
 } from '../renderer/glstate.js';
 import { uploadToTexture } from '../renderer/webgl.js';
 import { processImage } from '../renderer/pipeline.js';
@@ -25,6 +27,7 @@ export function loadImage(file) {
 
             rescaleSecondImage();
             rescaleBlendMapImage();
+            rescaleGlassMapImage();
             processImage();
             showNotification('Image loaded');
         };
@@ -90,6 +93,25 @@ export function loadBlendMapImage(file) {
 export function rescaleBlendMapImage() {
     if (!blendMapImage) return;
     setBlendMapTexture(uploadToTexture(blendMapImage));
+}
+
+export function loadGlassMapImage(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const img = new Image();
+        img.onload = function() {
+            setGlassMapImage(img);
+            rescaleGlassMapImage();
+            processImage();
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+export function rescaleGlassMapImage() {
+    if (!glassMapImage) return;
+    setGlassMapTexture(uploadToTexture(glassMapImage));
 }
 
 export function rescaleSecondImage() {

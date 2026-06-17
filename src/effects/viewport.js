@@ -4,7 +4,7 @@ const blend = buildBlendControl('viewport');
 
 const SHAPE_INT = { rectangle: 0, ellipse: 1, triangle: 2, polygon: 2 };
 
-export default {
+export const viewportEffect = {
     name: 'viewport',
     label: 'Viewport',
     kind: 'reveal',

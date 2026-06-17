@@ -5,12 +5,12 @@
 // non-right-angle cells); edge nodes slide along their edge and corners are
 // pinned, so the lattice always tiles the unit square fully. Each cell is
 // assigned a color via the standard palette swatch strip; pixels whose color
-// falls in a cell are remapped to that color (see src/effects/invert.js).
+// falls in a cell are remapped to that color (see src/effects/colorRemap.js).
 
 import { setInstanceParam } from '../../state/effectStack.js';
 import { saveState } from '../../state/undo.js';
 import { getEffect } from '../../effects/registry.js';
-import { GRID_DEFAULT_DIM, evenLatticeUpdates } from '../../effects/invert.js';
+import { GRID_DEFAULT_DIM, evenLatticeUpdates } from '../../effects/colorRemap.js';
 import { buildPaletteSwatchControl, resolveColorKey, getActivePaletteFor } from './paletteColor.js';
 
 const SIZE = 240; // internal canvas resolution (square)

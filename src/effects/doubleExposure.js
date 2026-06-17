@@ -4,7 +4,7 @@ import { buildFadeControl, buildBlendControl } from './controls/index.js';
 const fade  = buildFadeControl('doubleExposure');
 const blend = buildBlendControl('doubleExposure');
 
-export default {
+export const doubleExposureEffect = {
     name: 'doubleExposure',
     label: 'Double Exposure',
     kind: 'glsl',

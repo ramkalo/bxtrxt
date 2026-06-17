@@ -66,7 +66,7 @@ function colorGelBindUniforms(gl, prog, p) {
     blend.bindUniforms(gl, prog, p);
 }
 
-export default {
+export const colorGelEffect = {
     name:  'colorGel',
     label: 'Color Gel',
     kind:  'glsl',

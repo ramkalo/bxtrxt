@@ -2,7 +2,7 @@ import { buildBlendControl } from './controls/index.js';
 
 const blend = buildBlendControl('moire');
 
-export default {
+export const moireEffect = {
     name: 'moire',
     label: 'Moire',
     kind: 'glsl',

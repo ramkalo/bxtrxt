@@ -5,7 +5,7 @@ const blend = buildBlendControl('grain');
 
 const TYPE_MAP = { film: 0, white: 1, grey: 2, color: 3, luma: 4, image: 5 };
 
-export default {
+export const grainEffect = {
     name: 'grain',
     label: 'Grain & Noise',
     kind: 'glsl',
