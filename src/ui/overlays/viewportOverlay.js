@@ -56,7 +56,7 @@ export function drawViewport(p) {
 
     const { cx, cy } = vpCenter(p);
 
-    if (p.vpShape === 'rectangle') {
+    if (p.vpShape === 'rectangle' || p.vpShape === 'text') {
         const hw = (p.vpW / 200) * W;
         const hh = (p.vpH / 200) * H;
         const left = cx - hw, top = cy - hh, right = cx + hw, bottom = cy + hh;
@@ -145,7 +145,7 @@ export function hitTestViewport(e) {
 
     if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
-    if (p.vpShape === 'rectangle') {
+    if (p.vpShape === 'rectangle' || p.vpShape === 'text') {
         const hw = (p.vpW / 200) * W;
         const hh = (p.vpH / 200) * H;
         const corners = {

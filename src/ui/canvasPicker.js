@@ -29,6 +29,8 @@ import { drawFilmSoup, hitTestFilmSoup, onDragFilmSoup, addFilmSoupBubble, delet
 import { drawColorGel, hitTestColorGel, onDragColorGel } from './overlays/colorGelOverlay.js';
 import { drawResin, hitTestResin, onDragResin } from './overlays/resinOverlay.js';
 import { drawGlassBlob, hitTestGlassBlob, onDragGlassBlob } from './overlays/glassBlobOverlay.js';
+import { drawCut, hitTestCut, onDragCut, resetCutVertices } from './overlays/cutOverlay.js';
+import { deleteActivePaste } from './cutTool.js';
 
 // ── onStackChange redraw dispatcher ──────────────────────────────────────────
 
@@ -106,6 +108,19 @@ onStackChange((key) => {
     if (state.mode === 'colorGel')     drawColorGel(inst.params);
     if (state.mode === 'resin')        drawResin(inst.params);
     if (state.mode === 'glassBlob')    drawGlassBlob(inst.params);
+    if (state.mode === 'cut') {
+        const p = inst.params;
+        const shape = p.cutShape;
+        if (!state.cutResetting && (shape === 'triangle' || shape === 'polygon')) {
+            const n = shape === 'triangle' ? 3 : Math.max(3, Math.min(12, Math.round(p.cutSides)));
+            const shouldReset = key === 'cutShape' || key === 'cutSides' ||
+                Array.from({ length: n }, (_, i) =>
+                    (p[`cutV${i}x`] ?? 0) === 0 && (p[`cutV${i}y`] ?? 0) === 0
+                ).every(Boolean);
+            if (shouldReset) { resetCutVertices(inst.id, shape, n); return; }
+        }
+        drawCut(p);
+    }
 });
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -358,6 +373,55 @@ export function hideGlassBlobOverlay() {
     if (state.mode === 'glassBlob') _hideActive();
 }
 
+// Delete/Backspace removes the selected pasted copy while the Cut overlay is active.
+function _cutKeydown(e) {
+    if (state.mode !== 'cut') return;
+    if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+    const tag = (e.target?.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return;
+    if (state.cutActive == null || state.cutActive < 0) return;
+    e.preventDefault();
+    deleteActivePaste(state.instId);
+}
+
+let _lastCutInstId = null;
+
+export function showCutOverlay(inst) {
+    _activate('cut', inst, 'cutX', 'cutY');
+    // Reset the selected copy only when opening a different Cut instance; otherwise
+    // keep it (so a fresh Paste stays selected through the panel rebuild). Clamp to
+    // the current copy count.
+    let nPastes = 0;
+    try { nPastes = JSON.parse(inst.params.cutPastes || '[]').length; } catch { /* 0 */ }
+    state.cutActive = (inst.id !== _lastCutInstId) ? -1 : Math.min(state.cutActive, nPastes - 1);
+    _lastCutInstId = inst.id;
+    window.removeEventListener('keydown', _cutKeydown);
+    window.addEventListener('keydown', _cutKeydown);
+    const p = inst.params;
+    const shape = p.cutShape;
+    if (shape === 'triangle' || shape === 'polygon') {
+        const n = shape === 'triangle' ? 3 : Math.max(3, Math.min(12, Math.round(p.cutSides)));
+        const allZero = Array.from({ length: n }, (_, i) =>
+            (p[`cutV${i}x`] ?? 0) === 0 && (p[`cutV${i}y`] ?? 0) === 0
+        ).every(Boolean);
+        if (allZero) { resetCutVertices(inst.id, shape, n); return; }
+    }
+    drawCut(p);
+}
+
+export function hideCutOverlay() {
+    if (state.mode === 'cut') {
+        window.removeEventListener('keydown', _cutKeydown);
+        _hideActive();
+    }
+}
+
+// Tear down whichever overlay is active. Used by tools that need exclusive control
+// of uiOverlay before taking over its pointer events.
+export function deactivateActiveOverlay() {
+    _hideActive();
+}
+
 export function showTunnelOverlay(inst) {
     state.shapeKey   = 'tunnelFadeShape';
     state.wKey       = 'tunnelFadeW';
@@ -520,6 +584,14 @@ function getCursorForMode(mode, h) {
                 : h === 'rot' ? 'crosshair'
                 : h === 'edgeW' ? 'ew-resize'
                 : h === 'edgeH' ? 'ns-resize' : 'default';
+        case 'cut':
+            return (h === 'center' || (h && h.startsWith('body:'))) ? 'grab'
+                : h === 'rot' ? 'crosshair'
+                : (h === 'tl' || h === 'br') ? 'nwse-resize'
+                : (h === 'tr' || h === 'bl') ? 'nesw-resize'
+                : (h && h.startsWith('v')) ? 'move'
+                : (h === 'edgeR') ? 'ew-resize'
+                : (h === 'edgeB') ? 'ns-resize' : 'default';
         case 'drawTool':
             return 'crosshair';
         case 'mesh':
@@ -561,6 +633,7 @@ const HIT_FNS = {
     filmSoup:       hitTestFilmSoup,
     resin:          hitTestResin,
     glassBlob:      hitTestGlassBlob,
+    cut:            hitTestCut,
 };
 
 const DRAG_FNS = {
@@ -584,6 +657,7 @@ const DRAG_FNS = {
     filmSoup:       onDragFilmSoup,
     resin:          onDragResin,
     glassBlob:      onDragGlassBlob,
+    cut:            onDragCut,
 };
 
 const DRAW_FNS = {
@@ -609,6 +683,7 @@ const DRAW_FNS = {
     filmSoup:       drawFilmSoup,
     resin:          drawResin,
     glassBlob:      drawGlassBlob,
+    cut:            drawCut,
 };
 
 function onHover(e) {
@@ -651,10 +726,33 @@ function onDown(e) {
 
     if (!h) return;
 
-    state.handle   = h;
+    // Cut moves: drag from inside the shape (select) or a copy's body (paste) to
+    // move it, with a grab offset so it doesn't jump under the cursor.
+    let handle = h;
+    if (state.mode === 'cut') {
+        const inst = getStack().find(i => i.id === state.instId);
+        const rect2 = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect2.left, my = e.clientY - rect2.top;
+        const W = uiOverlay.width, H = uiOverlay.height;
+        if (inst && typeof h === 'string' && h.startsWith('body:')) {
+            const idx = parseInt(h.slice(5), 10);
+            state.cutActive = idx;
+            handle = 'center';
+            drawCut(inst.params);
+            let t = { x: 0, y: 0 };
+            try { t = JSON.parse(inst.params.cutPastes || '[]')[idx] || t; } catch { /* default */ }
+            const cx = (0.5 + (t.x ?? 0) / 100) * W, cy = (0.5 - (t.y ?? 0) / 100) * H;
+            state.dragAnchor = { grabDX: cx - mx, grabDY: cy - my };
+        } else if (inst && h === 'center') {
+            const cx = (0.5 + inst.params.cutX / 100) * W, cy = (0.5 - inst.params.cutY / 100) * H;
+            state.dragAnchor = { grabDX: cx - mx, grabDY: cy - my };
+        }
+    }
+
+    state.handle   = handle;
     state.dragging = true;
     uiOverlay.setPointerCapture(e.pointerId);
-    uiOverlay.style.cursor = getCursorForMode(state.mode, h).replace('grab', 'grabbing');
+    uiOverlay.style.cursor = getCursorForMode(state.mode, handle).replace('grab', 'grabbing');
 
     // Special dragAnchor setup for crop drags
     if (state.mode === 'crop') {

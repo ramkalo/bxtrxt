@@ -2,7 +2,55 @@ import { buildBlendControl } from './controls/index.js';
 
 const blend = buildBlendControl('viewport');
 
-const SHAPE_INT = { rectangle: 0, ellipse: 1, triangle: 2, polygon: 2 };
+const SHAPE_INT = { rectangle: 0, ellipse: 1, triangle: 2, polygon: 2, text: 3 };
+
+const FONT_OPTIONS = [
+    ["'JetBrains Mono', monospace",  'JetBrains Mono'],
+    ['monospace',                    'Monospace'],
+    ["'Courier New', monospace",     'Courier New'],
+    ["'Arial', sans-serif",          'Arial'],
+    ["'Georgia', serif",             'Georgia'],
+    ["'Times New Roman', serif",     'Times New Roman'],
+    ['neogreekrunic',                'neogreekrunic'],
+    ['splitbitsv2',                  'splitbitsv2'],
+    ['quadramatic',                  'quadramatic'],
+    ['Regulon18-Regular',            'Regulon18'],
+    ['amazingdigital100acrewoods',   'AmazingDigital100AcreWoods'],
+];
+
+// Rasterize vpText to fit the vp box, white-on-transparent, for use as a reveal
+// mask texture. Mirrors the overlay's screen convention (y-down): the box geometry
+// is baked into the mask so the shader only needs to sample alpha.
+function buildTextMask(p, w, h) {
+    const text = (p.vpText ?? '').trim();
+    if (!text) return null;
+
+    const cx = (0.5 + p.vpX / 100) * w;
+    const cy = (0.5 - p.vpY / 100) * h;
+    const boxW = (p.vpW / 100) * w;   // full width  (2 * hw)
+    const boxH = (p.vpH / 100) * h;   // full height (2 * hh)
+    if (boxW < 1 || boxH < 1) return null;
+
+    const canvas = new OffscreenCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    const font = p.vpTextFont ?? "'JetBrains Mono', monospace";
+
+    // Measure at a base size, then scale to fit the box in both axes (single line).
+    const BASE = 100;
+    ctx.font = `${BASE}px ${font}`;
+    const metrics = ctx.measureText(text);
+    const textW = metrics.width || 1;
+    const fitW = boxW / textW;
+    const fitH = boxH / BASE;
+    const size = Math.max(1, BASE * Math.min(fitW, fitH));
+
+    ctx.font = `${size}px ${font}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#fff';
+    ctx.fillText(text, cx, cy);
+    return canvas;
+}
 
 export const viewportEffect = {
     name: 'viewport',
@@ -20,8 +68,10 @@ export const viewportEffect = {
     ],
     params: {
         vpEnabled: { default: false, label: 'Enable' },
-        vpShape:   { default: 'rectangle', label: 'Shape', options: [['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['polygon', 'Polygon']] },
+        vpShape:   { default: 'rectangle', label: 'Shape', options: [['rectangle', 'Rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['polygon', 'Polygon'], ['text', 'Text']] },
         vpInvert:  { default: false, label: 'Invert' },
+        vpText:    { default: 'BXTRXT', label: 'Text', maxLength: 16 },
+        vpTextFont: { default: "'JetBrains Mono', monospace", label: 'Font', fontSelector: true, options: FONT_OPTIONS },
         vpX:       { default: 0  },
         vpY:       { default: 0  },
         vpW:       { default: 30 },
@@ -42,12 +92,16 @@ export const viewportEffect = {
         ...blend.params,
     },
     uiGroups: (p) => [
-        { keys: p.vpShape === 'polygon' ? ['vpShape', 'vpSides', 'vpInvert'] : ['vpShape', 'vpInvert'] },
+        { keys: p.vpShape === 'polygon' ? ['vpShape', 'vpSides', 'vpInvert']
+              : p.vpShape === 'text'    ? ['vpShape', 'vpText', 'vpTextFont', 'vpInvert']
+              : ['vpShape', 'vpInvert'] },
         blend.uiGroup,
     ],
     enabled: (p) => p.vpEnabled,
+    revealMask: (p, w, h) => (p.vpShape === 'text' ? buildTextMask(p, w, h) : null),
     glsl: `
 uniform sampler2D uTexWindow;
+uniform sampler2D uTexMask;
 uniform float vpX;
 uniform float vpY;
 uniform float vpW;
@@ -91,6 +145,7 @@ void main() {
     bool inside;
     if      (vpShape == 0) inside = inRect(vUV);
     else if (vpShape == 1) inside = inEllipse(vUV);
+    else if (vpShape == 3) inside = texture(uTexMask, vUV).a > 0.5;
     else                   inside = inPoly(vUV);
 
     if (vpInvert > 0.5) inside = !inside;

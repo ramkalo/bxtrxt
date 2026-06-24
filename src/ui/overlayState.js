@@ -15,4 +15,6 @@ export const state = {
     handle:      null,   // currently grabbed handle name
     dragAnchor:  null,   // mode-specific drag anchor state
     vpResetting: false,  // re-entrancy guard for _resetPolygonVertices
+    cutResetting: false, // re-entrancy guard for resetCutVertices
+    cutActive:    -1,    // index of the selected pasted copy in the Cut Out tool
 };

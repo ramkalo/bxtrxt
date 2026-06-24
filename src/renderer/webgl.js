@@ -231,6 +231,27 @@ function _uploadStickerTex(stickerCanvas) {
     return _stickerTex;
 }
 
+// --- Reveal mask texture cache (e.g. viewport text mode) ---
+let _maskTex  = null;
+let _maskTexW = 0;
+let _maskTexH = 0;
+
+function _uploadMaskTex(maskCanvas) {
+    const w = maskCanvas.width, h = maskCanvas.height;
+    if (!_maskTex || _maskTexW !== w || _maskTexH !== h) {
+        if (_maskTex) gl.deleteTexture(_maskTex);
+        _maskTex  = createTexture(w, h);
+        _maskTexW = w;
+        _maskTexH = h;
+    }
+    gl.bindTexture(gl.TEXTURE_2D, _maskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, maskCanvas);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    return _maskTex;
+}
+
 // Caches of blend/fade controls keyed by prefix, built on first use
 const _blendControlCache = new Map();
 const _fadeControlCache  = new Map();
@@ -502,6 +523,17 @@ function _runRevealComposite(vpInst, effect, fullTex, windowTex, targetFbo = nul
     gl.bindTexture(gl.TEXTURE_2D, windowTex);
     if (prog._locs['uTexWindow'] != null) gl.uniform1i(prog._locs['uTexWindow'], 1);
     gl.activeTexture(gl.TEXTURE0);
+
+    // Optional mask texture (e.g. viewport text mode): an offscreen canvas the
+    // shader samples for the "inside" test. Only bound when the effect provides one.
+    const maskCanvas = effect.revealMask ? effect.revealMask(params, w, h) : null;
+    if (maskCanvas) {
+        const maskTex = _uploadMaskTex(maskCanvas);
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, maskTex);
+        if (prog._locs['uTexMask'] != null) gl.uniform1i(prog._locs['uTexMask'], 2);
+        gl.activeTexture(gl.TEXTURE0);
+    }
 
     autoBindUniforms(prog, effect, params);
     if (effect.bindUniforms) effect.bindUniforms(gl, prog, params, w, h);

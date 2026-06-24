@@ -20,6 +20,7 @@ import { lineGlitchEffect }      from './lineGlitch.js';
 import { matrixRainEffect }      from './matrixRain.js';
 import { glassBlobEffect }       from './glassBlob.js';
 import { meshEffect }            from './mesh.js';
+import { cutEffect }             from './cut.js';
 import { scanlinesEffect }       from './scanlines.js';
 import { shapeStickerEffect }    from './shapeSticker.js';
 import { smearTwistEffect }      from './smearTwist.js';
@@ -146,6 +147,7 @@ export const EFFECTS = [
     meshEffect,
     tunnelEffect,
     glassBlobEffect,
+    cutEffect,
 ];
 
 for (const effect of EFFECTS) validateEffect(effect);
@@ -225,6 +227,7 @@ export const EFFECT_CATALOG = [
     { name: 'text',            label: 'Text',                 category: 'Overlay', description: 'Text overlay with paragraph box, formatting, and canvas handles' },
     { name: 'tunnel',       label: 'Tunnel',               category: 'Overlay', description: 'Repeating shapes along a bezier path creating a tunnel illusion' },
     { name: 'glassBlob',    label: 'Glass Blob',           category: 'Overlay', description: 'A single glassy droplet you place, size and shape — refraction, highlight & color' },
+    { name: 'cut',          label: 'Cut Out',              category: 'Overlay', description: 'Cut an ellipse/rectangle/triangle/polygon region out as a movable layer' },
 
     // ── Blend ──
     { name: 'doubleExposure', label: 'Double Exposure',      category: 'Blend',   description: 'Blend two images together' },
