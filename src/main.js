@@ -174,7 +174,7 @@ document.getElementById('redoBtn').addEventListener('click', function() {
 // Drop zone
 // ---------------------------------------------------------------------------
 
-document.getElementById('dropZone').addEventListener('click', function() {
+document.getElementById('loadZone').addEventListener('click', function() {
     document.getElementById('fileInput').click();
 });
 
