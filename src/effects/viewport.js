@@ -21,34 +21,38 @@ const FONT_OPTIONS = [
 // Rasterize vpText to fit the vp box, white-on-transparent, for use as a reveal
 // mask texture. Mirrors the overlay's screen convention (y-down): the box geometry
 // is baked into the mask so the shader only needs to sample alpha.
+// Build the font shorthand shared by the mask renderer and the overlay so the
+// on-screen box matches the rasterized glyphs exactly.
+export function vpTextFontStr(p, sizePx) {
+    const variant = `${p.vpTextItalic ? 'italic ' : ''}${p.vpTextBold ? 'bold ' : ''}`;
+    return `${variant}${sizePx}px ${p.vpTextFont || "'JetBrains Mono', monospace"}`;
+}
+
 function buildTextMask(p, w, h) {
-    const text = (p.vpText ?? '').trim();
+    // Default text so an older viewport instance (created before these params
+    // existed) still renders something instead of silently bailing.
+    const text = (p.vpText != null ? p.vpText : 'BXTRXT');
     if (!text) return null;
 
+    const sizePx = Math.max(1, (p.vpTextSize ?? 12) / 100 * h);   // % of canvas height
     const cx = (0.5 + p.vpX / 100) * w;
     const cy = (0.5 - p.vpY / 100) * h;
-    const boxW = (p.vpW / 100) * w;   // full width  (2 * hw)
-    const boxH = (p.vpH / 100) * h;   // full height (2 * hh)
-    if (boxW < 1 || boxH < 1) return null;
 
     const canvas = new OffscreenCanvas(w, h);
     const ctx = canvas.getContext('2d');
-    const font = p.vpTextFont ?? "'JetBrains Mono', monospace";
-
-    // Measure at a base size, then scale to fit the box in both axes (single line).
-    const BASE = 100;
-    ctx.font = `${BASE}px ${font}`;
-    const metrics = ctx.measureText(text);
-    const textW = metrics.width || 1;
-    const fitW = boxW / textW;
-    const fitH = boxH / BASE;
-    const size = Math.max(1, BASE * Math.min(fitW, fitH));
-
-    ctx.font = `${size}px ${font}`;
+    ctx.font = vpTextFontStr(p, sizePx);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#fff';
-    ctx.fillText(text, cx, cy);
+    try { ctx.letterSpacing = `${p.vpTextKerning ?? 0}px`; } catch { /* unsupported → no kerning */ }
+
+    ctx.translate(cx, cy);
+    if (p.vpTextFlip) ctx.scale(-1, 1);   // horizontal mirror
+    ctx.fillText(text, 0, 0);
+    if (p.vpTextStrike) {
+        const tw = ctx.measureText(text).width;
+        ctx.fillRect(-tw / 2, -sizePx * 0.04, tw, Math.max(1, sizePx * 0.08));
+    }
     return canvas;
 }
 
@@ -72,6 +76,12 @@ export const viewportEffect = {
         vpInvert:  { default: false, label: 'Invert' },
         vpText:    { default: 'BXTRXT', label: 'Text', maxLength: 16 },
         vpTextFont: { default: "'JetBrains Mono', monospace", label: 'Font', fontSelector: true, options: FONT_OPTIONS },
+        vpTextSize:    { default: 12, min: 1, max: 100, step: 0.5, label: 'Size' },
+        vpTextBold:    { default: false, label: 'Bold' },
+        vpTextItalic:  { default: false, label: 'Italic' },
+        vpTextStrike:  { default: false, label: 'Strikethrough' },
+        vpTextFlip:    { default: false, label: 'Flip' },
+        vpTextKerning: { default: 0, min: -50, max: 200, step: 1, label: 'Kerning' },
         vpX:       { default: 0  },
         vpY:       { default: 0  },
         vpW:       { default: 30 },
@@ -93,7 +103,7 @@ export const viewportEffect = {
     },
     uiGroups: (p) => [
         { keys: p.vpShape === 'polygon' ? ['vpShape', 'vpSides', 'vpInvert']
-              : p.vpShape === 'text'    ? ['vpShape', 'vpText', 'vpTextFont', 'vpInvert']
+              : p.vpShape === 'text'    ? ['vpShape', 'vpText', 'vpTextFont', 'vpTextSize', 'vpTextBold', 'vpTextItalic', 'vpTextStrike', 'vpTextFlip', 'vpTextKerning', 'vpInvert']
               : ['vpShape', 'vpInvert'] },
         blend.uiGroup,
     ],

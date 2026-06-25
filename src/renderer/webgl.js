@@ -524,19 +524,22 @@ function _runRevealComposite(vpInst, effect, fullTex, windowTex, targetFbo = nul
     if (prog._locs['uTexWindow'] != null) gl.uniform1i(prog._locs['uTexWindow'], 1);
     gl.activeTexture(gl.TEXTURE0);
 
+    autoBindUniforms(prog, effect, params);
+    if (effect.bindUniforms) effect.bindUniforms(gl, prog, params, w, h);
+
     // Optional mask texture (e.g. viewport text mode): an offscreen canvas the
-    // shader samples for the "inside" test. Only bound when the effect provides one.
+    // shader samples for the "inside" test. Bind on unit 3 — units 0/1/2 are taken
+    // by uTex / uTexWindow / the blend control's uBlendMapTex. Done AFTER
+    // effect.bindUniforms so the blend control (which also touches unit 2) can't
+    // clobber the mask binding.
     const maskCanvas = effect.revealMask ? effect.revealMask(params, w, h) : null;
     if (maskCanvas) {
         const maskTex = _uploadMaskTex(maskCanvas);
-        gl.activeTexture(gl.TEXTURE2);
+        gl.activeTexture(gl.TEXTURE3);
         gl.bindTexture(gl.TEXTURE_2D, maskTex);
-        if (prog._locs['uTexMask'] != null) gl.uniform1i(prog._locs['uTexMask'], 2);
+        if (prog._locs['uTexMask'] != null) gl.uniform1i(prog._locs['uTexMask'], 3);
         gl.activeTexture(gl.TEXTURE0);
     }
-
-    autoBindUniforms(prog, effect, params);
-    if (effect.bindUniforms) effect.bindUniforms(gl, prog, params, w, h);
     drawQuad();
 }
 

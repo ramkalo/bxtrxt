@@ -749,6 +749,18 @@ function onDown(e) {
         }
     }
 
+    // Viewport text: drag the glyph body with a grab offset so it doesn't jump.
+    if (state.mode === 'viewport' && h === 'center') {
+        const inst = getStack().find(i => i.id === state.instId);
+        if (inst && inst.params.vpShape === 'text') {
+            const rect2 = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect2.left, my = e.clientY - rect2.top;
+            const W = uiOverlay.width, H = uiOverlay.height;
+            const cx = (0.5 + inst.params.vpX / 100) * W, cy = (0.5 - inst.params.vpY / 100) * H;
+            state.dragAnchor = { grabDX: cx - mx, grabDY: cy - my };
+        }
+    }
+
     state.handle   = handle;
     state.dragging = true;
     uiOverlay.setPointerCapture(e.pointerId);

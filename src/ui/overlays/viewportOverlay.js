@@ -2,6 +2,24 @@ import { canvas } from '../../renderer/glstate.js';
 import { getStack, setInstanceParam } from '../../state/effectStack.js';
 import { state } from '../overlayState.js';
 import { uiCtx, uiOverlay, syncSize, drawHandle, drawCornerHandle, HIT_RADIUS } from '../overlayUtils.js';
+import { vpTextFontStr } from '../../effects/viewport.js';
+
+// Screen-space bbox of the text-mode glyphs, measured at the on-screen size so the
+// overlay box matches the rasterized mask. Centered at vpX/vpY; size = % of height.
+function vpTextBox(p) {
+    const W = uiOverlay.width, H = uiOverlay.height;
+    const cx = (0.5 + p.vpX / 100) * W;
+    const cy = (0.5 - p.vpY / 100) * H;
+    const sizeScreen = Math.max(1, (p.vpTextSize ?? 12) / 100 * H);
+    uiCtx.save();
+    uiCtx.font = vpTextFontStr(p, sizeScreen);
+    try { uiCtx.letterSpacing = `${p.vpTextKerning ?? 0}px`; } catch { /* unsupported */ }
+    const tw = uiCtx.measureText(p.vpText != null ? p.vpText : 'BXTRXT').width;
+    uiCtx.restore();
+    const hw = Math.max(6, tw / 2);
+    const hh = Math.max(6, sizeScreen * 0.6);
+    return { cx, cy, hw, hh, W, H };
+}
 
 function vpCenter(p) {
     const W = uiOverlay.width, H = uiOverlay.height;
@@ -56,7 +74,21 @@ export function drawViewport(p) {
 
     const { cx, cy } = vpCenter(p);
 
-    if (p.vpShape === 'rectangle' || p.vpShape === 'text') {
+    if (p.vpShape === 'text') {
+        const b = vpTextBox(p);
+        const left = b.cx - b.hw, top = b.cy - b.hh, right = b.cx + b.hw, bottom = b.cy + b.hh;
+        uiCtx.fillStyle = 'rgba(0,0,0,0.45)';
+        uiCtx.fillRect(0, 0, W, top);
+        uiCtx.fillRect(0, bottom, W, H - bottom);
+        uiCtx.fillRect(0, top, left, b.hh * 2);
+        uiCtx.fillRect(right, top, W - right, b.hh * 2);
+        uiCtx.strokeStyle = 'rgba(255,255,255,0.85)'; uiCtx.lineWidth = 1.5; uiCtx.setLineDash([4, 4]);
+        uiCtx.strokeRect(left, top, b.hw * 2, b.hh * 2);
+        uiCtx.setLineDash([]);
+        return;
+    }
+
+    if (p.vpShape === 'rectangle') {
         const hw = (p.vpW / 200) * W;
         const hh = (p.vpH / 200) * H;
         const left = cx - hw, top = cy - hh, right = cx + hw, bottom = cy + hh;
@@ -141,11 +173,18 @@ export function hitTestViewport(e) {
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const p  = inst.params;
+
+    // Text: no handles — clicking anywhere on the glyph bbox moves it.
+    if (p.vpShape === 'text') {
+        const b = vpTextBox(p);
+        return (Math.abs(mx - b.cx) <= b.hw && Math.abs(my - b.cy) <= b.hh) ? 'center' : null;
+    }
+
     const { cx, cy, W, H } = vpCenter(p);
 
     if (Math.hypot(mx - cx, my - cy) <= HIT_RADIUS) return 'center';
 
-    if (p.vpShape === 'rectangle' || p.vpShape === 'text') {
+    if (p.vpShape === 'rectangle') {
         const hw = (p.vpW / 200) * W;
         const hh = (p.vpH / 200) * H;
         const corners = {
@@ -178,8 +217,13 @@ export function onDragViewport(e, inst, rect) {
     const p  = inst.params;
 
     if (state.handle === 'center') {
-        setInstanceParam(state.instId, 'vpX', Math.round(Math.max(-50, Math.min(50,  (mx / W - 0.5) * 100))));
-        setInstanceParam(state.instId, 'vpY', Math.round(Math.max(-50, Math.min(50, -(my / H - 0.5) * 100))));
+        // Text body drag keeps a grab offset (state.dragAnchor); other shapes' center
+        // handle snaps directly under the cursor.
+        const a = state.dragAnchor;
+        const tx = a ? mx + a.grabDX : mx;
+        const ty = a ? my + a.grabDY : my;
+        setInstanceParam(state.instId, 'vpX', Math.round(Math.max(-50, Math.min(50,  (tx / W - 0.5) * 100))));
+        setInstanceParam(state.instId, 'vpY', Math.round(Math.max(-50, Math.min(50, -(ty / H - 0.5) * 100))));
     } else if (state.handle === 'tl' || state.handle === 'tr' || state.handle === 'br' || state.handle === 'bl') {
         const cx = (0.5 + p.vpX / 100) * W;
         const cy = (0.5 - p.vpY / 100) * H;
